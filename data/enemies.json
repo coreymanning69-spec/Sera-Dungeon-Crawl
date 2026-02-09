@@ -1,0 +1,155 @@
+{
+  "enemy_archetypes": [
+    {
+      "name": "Wailing Phantom",
+      "archetype": "elite",
+      "max_hp": 25,
+      "vulnerability": "REQUIRES_DIVINE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "It screams. Not in pain—in mediocrity.",
+      "abilities": [
+        {
+          "name": "Ethereal Wail",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "The ghost scratches at reality. How quaint."
+        },
+        {
+          "name": "Existential Monologue",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 5,
+          "charge_time": 3,
+          "flavor": "It begins a speech about the nature of death. Sera's eye twitches."
+        }
+      ]
+    },
+    {
+      "name": "Moonbound Werewolf",
+      "archetype": "elite",
+      "max_hp": 30,
+      "vulnerability": "REQUIRES_SILVER",
+      "armor": 0,
+      "regen_per_turn": 3,
+      "dodge_chance": 0.0,
+      "flavor": "Regenerates endlessly. Sera finds this personally offensive.",
+      "abilities": [
+        {
+          "name": "Savage Bite",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It bites. Cute."
+        },
+        {
+          "name": "Regenerate",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 2,
+          "charge_time": 0,
+          "flavor": "Its wounds close. Sera's patience doesn't."
+        }
+      ]
+    },
+    {
+      "name": "Clanking Dreadknight",
+      "archetype": "boss",
+      "max_hp": 50,
+      "vulnerability": "REQUIRES_HEAVY",
+      "armor": 5,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "50 pounds of armor and 0 pounds of personality.",
+      "abilities": [
+        {
+          "name": "Shield Bash",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It stuns Sera. She doesn't flinch—she just gets angrier."
+        },
+        {
+          "name": "Oath of Honor",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 6,
+          "charge_time": 3,
+          "flavor": "It begins reciting its oath. Three. Whole. Turns."
+        },
+        {
+          "name": "Sword Swing",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "Predictable. Tedious. Like its owner."
+        }
+      ]
+    },
+    {
+      "name": "Flickering Imp",
+      "archetype": "trash",
+      "max_hp": 12,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.3,
+      "flavor": "Small. Fast. Extremely punchable.",
+      "abilities": [
+        {
+          "name": "Dart Away",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 2,
+          "charge_time": 0,
+          "flavor": "It dodges. How original."
+        },
+        {
+          "name": "Call Friends",
+          "annoyance": "SUMMON",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It screams for backup. There is no backup."
+        },
+        {
+          "name": "Scratch",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It scratches Sera. She barely notices."
+        }
+      ]
+    },
+    {
+      "name": "Lich Narrator",
+      "archetype": "boss",
+      "max_hp": 40,
+      "vulnerability": "REQUIRES_ARCANE",
+      "armor": 2,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "It thinks it's the main character. It's not. Sera is.",
+      "abilities": [
+        {
+          "name": "Villain Monologue",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 5,
+          "charge_time": 3,
+          "flavor": "It explains its master plan. Sera has heard better from fortune cookies."
+        },
+        {
+          "name": "Summon Minions",
+          "annoyance": "SUMMON",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "Adds more NPCs to the scene nobody asked for."
+        },
+        {
+          "name": "Necrotic Touch",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "Death magic. On a Goddess. Read the room."
+        }
+      ]
+    }
+  ]
+}
