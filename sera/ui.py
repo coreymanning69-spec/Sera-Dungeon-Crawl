@@ -62,7 +62,13 @@ def hp_bar(current: int, maximum: int, width: int = 20, fill: str = "#", empty: 
 
 
 def patience_bar(interest: InterestManager) -> str:
-    return hp_bar(interest.current_patience, interest.max_patience, width=20)
+    bar = hp_bar(interest.current_patience, interest.max_patience, width=20)
+    p = interest.current_patience
+    if p <= 15:
+        return bar + " !! CRITICAL !!"
+    if p <= 30:
+        return bar + " ! LOW !"
+    return bar
 
 
 # ─────────────────────────────────────────────────────────
@@ -131,12 +137,16 @@ def render_combat_hud(
 
     alive = [e for e in enemies if e.current_hp > 0]
     for i, e in enumerate(alive):
-        casting = " [CASTING...]" if e.is_casting else ""
-        lines.append(box_line(f"  [{i+1}] {e.name}{casting}"))
+        casting = " ** CASTING **" if e.is_casting else ""
+        req = e.vulnerability.name.replace("REQUIRES_", "") if e.vulnerability.name != "NONE" else ""
+        tag_hint = f" (needs [{req}])" if req else ""
+        lines.append(box_line(f"  [{i+1}] {e.name}{casting}{tag_hint}"))
         lines.append(box_line(f"      HP: {hp_bar(e.current_hp, e.max_hp, 15)}"))
+        if e.armor > 0:
+            lines.append(box_line(f"      Armor: {e.armor}"))
         if e.statuses:
-            st = ", ".join(f"{s.effect.name}" for s in e.statuses)
-            lines.append(box_line(f"      ({st})"))
+            st = ", ".join(f"{s.effect.name}({s.potency})" for s in e.statuses)
+            lines.append(box_line(f"      [{st}]"))
 
     lines.append(box_divider())
     lines.append(box_line("ACTIONS:"))
@@ -378,7 +388,7 @@ def render_between_floors(floor: int, interest: InterestManager) -> str:
     return "\n".join(lines)
 
 
-def render_game_over(interest: InterestManager) -> str:
+def render_game_over(interest: InterestManager, floor: int = 0) -> str:
     lines = [
         box_top(),
         box_blank(),
@@ -391,8 +401,9 @@ def render_game_over(interest: InterestManager) -> str:
         box_line('The dungeon collapses behind her.', "center"),
         box_divider(),
         box_blank(),
-        box_line(f"Floors cleared: {interest.turn_number}"),
+        box_line(f"Died on floor: {floor}"),
         box_line(f"Total kills: {interest.total_kills}"),
+        box_line(f"Turns survived: {interest.turn_number}"),
         box_blank(),
         box_bot(),
     ]
@@ -447,6 +458,48 @@ def render_inspect(enemy: Enemy) -> str:
         lines.append(box_divider())
         lines.append(box_line(f'"{enemy.flavor}"'))
     lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_dot_tick(dot_log: list[str], kill_name: str | None = None) -> str:
+    lines = [
+        box_top(),
+        box_line("STATUS EFFECTS TICK", "center"),
+        box_divider(),
+    ]
+    for entry in dot_log:
+        lines.append(box_line(entry.strip()))
+    if kill_name:
+        lines.append(box_divider())
+        lines.append(box_line(f"{kill_name} dies to DOT!", "center"))
+        lines.append(box_line('"Slow death. How dramatic."', "center"))
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_dodge(enemy_name: str) -> str:
+    lines = [
+        box_top(),
+        box_line("MISS!", "center"),
+        box_divider(),
+        box_line(f"  {enemy_name} dodges the attack!"),
+        box_line(f'  Sera: "Stand still, insect."'),
+        box_line(f"  [-3 Patience]"),
+        box_bot(),
+    ]
+    return "\n".join(lines)
+
+
+def render_interrupt(enemy_name: str, ability_name: str) -> str:
+    lines = [
+        box_top(),
+        box_line("INTERRUPTED!", "center"),
+        box_divider(),
+        box_line(f"  {enemy_name}'s {ability_name} was cancelled!"),
+        box_line(f'  Sera: "I said shut up."'),
+        box_line(f"  [+3 Patience]"),
+        box_bot(),
+    ]
     return "\n".join(lines)
 
 

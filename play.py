@@ -24,6 +24,64 @@ from sera import ui
 
 
 # ─────────────────────────────────────────────────────────
+# Sera's voice — context-sensitive quips
+# ─────────────────────────────────────────────────────────
+
+ATTACK_QUIPS = [
+    '"Die faster."',
+    '"Was that supposed to be dramatic? It wasn\'t."',
+    '"Next."',
+    '"Adequate violence."',
+    '"Try not to bore me."',
+    '"I could do this in my sleep. I have."',
+]
+
+KILL_QUIPS = [
+    '"Finally."',
+    '"One down. Keep going."',
+    '"That was almost satisfying."',
+    '"Acceptable."',
+    '"You lasted longer than I expected. Low bar."',
+]
+
+OVERKILL_QUIPS = [
+    '"NOW we\'re talking."',
+    '"Excessive? No. Efficient."',
+    '"THAT is how you kill something."',
+    '"More of that. Less of everything else."',
+]
+
+DODGE_QUIPS = [
+    '"Stand still, insect."',
+    '"Do that again and I\'m leaving."',
+    '"Dodging is for things that fear death. You should."',
+]
+
+IMMUNE_QUIPS = [
+    '"Wrong weapon. Think harder."',
+    '"It\'s immune. Wonderful. I love wasting my time."',
+    '"You brought the wrong toy. Fix it."',
+]
+
+INTERRUPT_QUIPS = [
+    '"I said shut up."',
+    '"Nobody asked for your monologue."',
+    '"Interrupted. You\'re welcome."',
+]
+
+LOW_PATIENCE_QUIPS = [
+    '"I\'m running out of reasons to stay."',
+    '"This is getting tedious."',
+    '"Entertain me or I leave. Simple."',
+    '"One more disappointment. That\'s all you get."',
+]
+
+
+def sera_quip(pool: list[str]) -> str:
+    return random.choice(pool)
+
+
+# ─────────────────────────────────────────────────────────
 # Game State
 # ─────────────────────────────────────────────────────────
 
@@ -38,6 +96,7 @@ class GameState:
         self.all_enemies = load_enemies()
         self.all_weapons = load_weapons()
         self.all_affixes = load_affixes()
+        self.floors_cleared: int = 0
 
     @property
     def equipped_weapon(self) -> Weapon:
@@ -58,7 +117,7 @@ def get_choice(prompt: str = "> ", valid: list[str] | None = None) -> str:
         print(f'  Invalid. Options: {", ".join(valid)}')
 
 
-def pause(msg: str = "  [Press Enter to continue]"):
+def pause(msg: str = "  [Press Enter]"):
     ui.get_input(msg)
 
 
@@ -79,7 +138,6 @@ def title_screen() -> bool:
 
 def choose_starting_weapon(state: GameState):
     ui.clear()
-    # Offer 3 random weapons
     options = random.sample(state.all_weapons, min(3, len(state.all_weapons)))
 
     lines = [
@@ -131,12 +189,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
     while True:
         alive = [e for e in enemies if e.current_hp > 0]
         if not alive:
-            ui.clear()
-            print(ui.box_top())
-            print(ui.box_line("ROOM CLEARED", "center"))
-            print(ui.box_line('"That was almost interesting."', "center"))
-            print(ui.box_bot())
-            pause()
+            _show_room_clear(interest)
             return True
 
         if interest.game_over:
@@ -148,7 +201,6 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # Passive drain
         interest._drain(interest.TICK_DRAIN, "Time passes.")
-
         if interest.game_over:
             return False
 
@@ -157,8 +209,11 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         ui.clear()
         print(ui.render_combat_hud(combat_turn, weapon, enemies, interest))
 
-        quip = interest._time_quip()
-        print(f'  Sera: "{quip}"')
+        # Patience-based commentary
+        if interest.current_patience <= 20:
+            print(f"  Sera: {sera_quip(LOW_PATIENCE_QUIPS)}")
+        else:
+            print(f'  Sera: "{interest._time_quip()}"')
         print(f"  [-1 Patience] Time ticks.")
         print()
 
@@ -170,20 +225,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
             if choice == "quit":
                 return False
             if choice == "i":
-                # Inspect
-                if len(alive) == 1:
-                    inspect_idx = 0
-                else:
-                    print(f"  Which enemy? [1-{len(alive)}]")
-                    ic = get_choice("  > ", [str(i+1) for i in range(len(alive))])
-                    if ic == "quit":
-                        return False
-                    inspect_idx = int(ic) - 1
-                ui.clear()
-                print(ui.render_inspect(alive[inspect_idx]))
-                pause()
-                ui.clear()
-                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest))
+                _do_inspect(alive, combat_turn, weapon, enemies, interest)
                 continue
             if choice == "w":
                 ui.clear()
@@ -198,34 +240,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- RESOLVE ATTACK ---
         print()
-        if not target.check_permission(weapon.all_tags):
-            print(f'  Sera attacks {target.name} with {weapon.display_name}...')
-            print(f'  IMMUNE. Wrong tags.')
-            print(f'  Sera: "Boring. I can\'t even touch it."')
-            ann_log = interest.take_annoyance(5, f"{target.name} is immune")
-            for line in ann_log:
-                print(f"  {line.strip()}")
-        else:
-            damage, steps = weapon.calculate_damage(target)
-            hp_before = target.current_hp
-            actual, dead = target.take_damage(damage)
-            armor_absorbed = damage - actual if damage > actual else 0
-
-            print(ui.render_damage_report(steps, target.name, actual, armor_absorbed))
-
-            # Apply statuses from affixes
-            for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
-                if affix and affix.inflicts_status:
-                    effect = StatusEffect[affix.inflicts_status]
-                    target.apply_status(effect, affix.status_duration, affix.status_potency)
-                    print(f'  Applied {effect.name}!')
-
-            print(f"  {target.name}: {ui.hp_bar(target.current_hp, target.max_hp, 15)}")
-
-            if dead:
-                kill_log = interest.register_kill(target.name, damage, hp_before)
-                print(ui.render_kill_report(target.name, kill_log))
-
+        _resolve_player_attack(weapon, target, interest)
         pause()
 
         if interest.game_over:
@@ -236,32 +251,24 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         for enemy in alive:
             if interest.game_over:
                 return False
-
-            ability = enemy.choose_action()
-
-            if ability is None:
-                if enemy.is_casting and enemy.pending_ability:
-                    remaining = enemy.cast_turns_remaining
-                    ui.clear()
-                    print(ui.box_top())
-                    print(ui.box_line(f"{enemy.name} is charging...", "center"))
-                    print(ui.box_line(f"{enemy.pending_ability.name} ({remaining} turn{'s' if remaining != 1 else ''} left)", "center"))
-                    print(ui.box_line(f'Sera: "Hurry up or I\'m leaving."', "center"))
-                    print(ui.box_bot())
-                    pause()
-                continue
-
-            cost = ANNOYANCE_COST[ability.annoyance]
-            flavor = ability.flavor or ANNOYANCE_FLAVOR[ability.annoyance]
-
-            ui.clear()
-            print(ui.render_enemy_action(enemy, ability.name, flavor, cost))
-            interest.take_annoyance(cost, f"{ability.name}")
-            print(f"  Patience: {ui.patience_bar(interest)}")
-            pause()
+            _resolve_enemy_action(enemy, interest)
 
             if interest.game_over:
                 return False
+
+        # --- DOT PHASE ---
+        for enemy in enemies:
+            if enemy.current_hp > 0:
+                dot_total, dot_log = enemy.tick_dot_damage()
+                if dot_log:
+                    kill_name = enemy.name if enemy.current_hp <= 0 else None
+                    ui.clear()
+                    print(ui.render_dot_tick(dot_log, kill_name))
+                    if kill_name:
+                        kill_log = interest.register_kill(
+                            enemy.name, dot_total, dot_total)
+                        print(ui.render_kill_report(enemy.name, kill_log))
+                    pause()
 
         # --- CLEANUP PHASE ---
         for enemy in enemies:
@@ -277,6 +284,129 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     print(ui.box_line(f'Sera: "Stop healing. It\'s dragging on."', "center"))
                     print(ui.box_bot())
                     pause()
+
+
+def _show_room_clear(interest: InterestManager):
+    quips = [
+        '"That was almost interesting."',
+        '"Is that all? Really?"',
+        '"I expected more. I always do."',
+        '"Done. What else do you have?"',
+    ]
+    ui.clear()
+    print(ui.box_top())
+    print(ui.box_line("ROOM CLEARED", "center"))
+    print(ui.box_line(sera_quip(quips), "center"))
+    print(ui.box_line(f"Patience: {ui.patience_bar(interest)}", "center"))
+    print(ui.box_bot())
+    pause()
+
+
+def _do_inspect(alive, combat_turn, weapon, enemies, interest):
+    if len(alive) == 1:
+        inspect_idx = 0
+    else:
+        print(f"  Which enemy? [1-{len(alive)}]")
+        ic = get_choice("  > ", [str(i+1) for i in range(len(alive))])
+        if ic == "quit":
+            return
+        inspect_idx = int(ic) - 1
+    ui.clear()
+    print(ui.render_inspect(alive[inspect_idx]))
+    pause()
+    ui.clear()
+    print(ui.render_combat_hud(combat_turn, weapon, enemies, interest))
+
+
+def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestManager):
+    """Full attack resolution with dodge, permission, interrupt, damage."""
+
+    # --- Permission Check ---
+    if not target.check_permission(weapon.all_tags):
+        print(f'  Sera attacks {target.name} with {weapon.display_name}...')
+        print(f'  IMMUNE. Weapon lacks required tag.')
+        print(f'  Sera: {sera_quip(IMMUNE_QUIPS)}')
+        ann_log = interest.take_annoyance(5, f"{target.name} is immune")
+        for line in ann_log:
+            print(f"  {line.strip()}")
+        return
+
+    # --- Dodge Roll ---
+    if target.try_dodge():
+        ui.clear()
+        print(ui.render_dodge(target.name))
+        interest._drain(3, "Dodge")
+        return
+
+    # --- Interrupt Check (hitting a casting enemy cancels their charge) ---
+    interrupted = target.interrupt_cast()
+    if interrupted:
+        ui.clear()
+        print(ui.render_interrupt(target.name, interrupted))
+        interest._restore(3)
+        print(f"  Sera: {sera_quip(INTERRUPT_QUIPS)}")
+        pause()
+
+    # --- Damage Calculation ---
+    damage, steps = weapon.calculate_damage(target)
+    hp_before = target.current_hp
+    actual, dead = target.take_damage(damage)
+    armor_absorbed = damage - actual if damage > actual else 0
+
+    print(ui.render_damage_report(steps, target.name, actual, armor_absorbed))
+
+    # Attack quip
+    if not dead:
+        print(f"  Sera: {sera_quip(ATTACK_QUIPS)}")
+
+    # Apply statuses from affixes
+    for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
+        if affix and affix.inflicts_status:
+            effect = StatusEffect[affix.inflicts_status]
+            target.apply_status(effect, affix.status_duration, affix.status_potency)
+            print(f'  Applied {effect.name}!')
+
+    print(f"  {target.name}: {ui.hp_bar(target.current_hp, target.max_hp, 15)}")
+
+    # --- Kill ---
+    if dead:
+        kill_log = interest.register_kill(target.name, damage, hp_before)
+        print()
+        print(f"  Sera: {sera_quip(KILL_QUIPS)}")
+        # Check for overkill
+        excess = max(0, damage - hp_before)
+        if excess > 0:
+            print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
+        print(ui.render_kill_report(target.name, kill_log))
+
+
+def _resolve_enemy_action(enemy: Enemy, interest: InterestManager):
+    """Resolve one enemy's turn."""
+    ability = enemy.choose_action()
+
+    if ability is None:
+        if enemy.is_casting and enemy.pending_ability:
+            remaining = enemy.cast_turns_remaining
+            ui.clear()
+            print(ui.box_top())
+            print(ui.box_line(f"{enemy.name} is charging...", "center"))
+            print(ui.box_line(
+                f"{enemy.pending_ability.name} "
+                f"({remaining} turn{'s' if remaining != 1 else ''} left)",
+                "center"))
+            print(ui.box_line(f'Sera: "Hurry up or I\'m leaving."', "center"))
+            print(ui.box_bot())
+            pause()
+        return
+
+    cost = ANNOYANCE_COST[ability.annoyance]
+    flavor = ability.flavor or ANNOYANCE_FLAVOR[ability.annoyance]
+
+    ui.clear()
+    print(ui.render_enemy_action(enemy, ability.name, flavor, cost))
+    interest.take_annoyance(cost, f"{ability.name}")
+    print(f"  Patience: {ui.patience_bar(interest)}")
+    pause()
 
 
 # ─────────────────────────────────────────────────────────
@@ -296,7 +426,6 @@ def loot_phase(state: GameState):
         pause()
         return
 
-    # Pick up loot
     for kind, idx in choices:
         if kind == "weapon":
             print(f"  [{idx}] Take {weapon_drop.display_name}?  [y/n]")
@@ -337,7 +466,7 @@ def between_floors(state: GameState) -> bool:
             return False
 
         if choice == "1":
-            return True  # next floor
+            return True
 
         if choice == "2":
             equip_screen(state)
@@ -380,7 +509,6 @@ def craft_screen(state: GameState):
     ui.clear()
     print(ui.render_craft_screen(state.weapons, state.materials, state.equipped_idx))
 
-    # Pick weapon
     print("  Apply material to which weapon?")
     valid_w = [str(i+1) for i in range(len(state.weapons))] + ["0"]
     wc = get_choice("  Weapon > ", valid_w)
@@ -388,7 +516,6 @@ def craft_screen(state: GameState):
         return
     w_idx = int(wc) - 1
 
-    # Pick material
     print("  Which material?")
     valid_m = [str(i+1) for i in range(len(state.materials))] + ["0"]
     mc = get_choice("  Material > ", valid_m)
@@ -429,33 +556,34 @@ def main():
     for floor_num in range(1, state.max_floors + 1):
         state.floor = floor_num
 
-        # Generate encounter
         enemies = generate_encounter(floor_num, state.all_enemies)
 
-        # Show floor intro
+        # Floor intro
         ui.clear()
         print(ui.render_floor_intro(floor_num, enemies, state.interest))
         sera_lines = [
             '"Let\'s get this over with."',
             '"This better not be boring."',
-            '"I sense... mediocrity."',
+            '"I sense... mediocrity ahead."',
             '"Show me something new."',
-            '"Last chance to impress me."',
+            '"Last chance. Impress me."',
         ]
         print(f"  Sera: {sera_lines[min(floor_num - 1, len(sera_lines) - 1)]}")
         pause()
 
-        # Run combat
+        # Combat
         survived = run_combat(state, enemies)
         if not survived:
             ui.clear()
-            print(ui.render_game_over(state.interest))
+            print(ui.render_game_over(state.interest, state.floor))
             return
+
+        state.floors_cleared = floor_num
 
         # Loot
         loot_phase(state)
 
-        # Between floors (except after final floor)
+        # Between floors (except after final)
         if floor_num < state.max_floors:
             if not between_floors(state):
                 print('  Sera: "Fine. I was getting bored anyway."')

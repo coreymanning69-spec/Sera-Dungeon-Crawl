@@ -33,5 +33,15 @@ class StatusInstance:
         self.duration -= 1
         return self.duration > 0
 
+    def tick_damage(self) -> int:
+        """Return damage-over-time for this tick. Potency scales it."""
+        if self.effect == StatusEffect.BURNING:
+            return self.potency      # 1 per potency stack
+        if self.effect == StatusEffect.BLEEDING:
+            return self.potency      # 1 per potency stack
+        if self.effect == StatusEffect.CORRODED:
+            return 0                 # armor shred, not damage
+        return 0
+
     def __repr__(self) -> str:
         return f"{self.effect.name}({self.duration}t)"

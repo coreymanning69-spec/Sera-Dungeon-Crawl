@@ -7,11 +7,37 @@ Pulls from the JSON archetypes and scales encounters across floors.
 from __future__ import annotations
 import copy
 import random
+from collections import Counter
 
 from sera.loader import load_enemies, load_weapons, load_affixes
 from sera.weapon import Weapon, Affix
 from sera.enemy import Enemy
 from sera.crafting import CraftingMaterial, CRAFTING_MATERIALS
+
+
+def _disambiguate_names(enemies: list[Enemy]) -> None:
+    """Add A/B/C suffixes when multiple enemies share a name."""
+    name_counts = Counter(e.name for e in enemies)
+    name_seen: dict[str, int] = {}
+    for e in enemies:
+        if name_counts[e.name] > 1:
+            idx = name_seen.get(e.name, 0)
+            suffix = chr(ord("A") + idx)
+            name_seen[e.name] = idx + 1
+            e.name = f"{e.name} {suffix}"
+
+
+def _scale_enemy(enemy: Enemy, floor: int) -> None:
+    """Scale enemy stats based on floor. Keeps small-number feel."""
+    if floor <= 1:
+        return
+    # +10% HP per floor past 1, rounded
+    bonus_hp = int(enemy.max_hp * 0.10 * (floor - 1))
+    enemy.max_hp += bonus_hp
+    enemy.current_hp = enemy.max_hp
+    # +1 armor every 3 floors for armored enemies
+    if enemy.armor > 0 and floor >= 3:
+        enemy.armor += (floor - 1) // 2
 
 
 def generate_encounter(floor: int, all_enemies: list[Enemy]) -> list[Enemy]:
@@ -46,6 +72,11 @@ def generate_encounter(floor: int, all_enemies: list[Enemy]) -> list[Enemy]:
         boss = copy.deepcopy(random.choice(bosses)) if bosses else copy.deepcopy(random.choice(elites))
         extra = copy.deepcopy(random.choice(elites)) if elites else copy.deepcopy(random.choice(trash))
         picks = [boss, extra]
+
+    # Scale and disambiguate
+    for e in picks:
+        _scale_enemy(e, floor)
+    _disambiguate_names(picks)
 
     return picks
 

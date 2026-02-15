@@ -7,6 +7,7 @@ and interesting enough to be worth killing.
 """
 
 from __future__ import annotations
+import random
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -142,6 +143,35 @@ class Enemy:
                 surviving.append(s)
         self.statuses = surviving
         return log
+
+    def tick_dot_damage(self) -> tuple[int, list[str]]:
+        """Apply damage-over-time from status effects. Returns (total_dot, log)."""
+        total = 0
+        log = []
+        for s in self.statuses:
+            dot = s.tick_damage()
+            if dot > 0:
+                self.current_hp -= dot
+                total += dot
+                log.append(f"  {s.effect.name} deals {dot} to {self.name}. "
+                           f"({self.current_hp}/{self.max_hp})")
+        return total, log
+
+    def try_dodge(self) -> bool:
+        """Roll dodge chance. Returns True if the attack misses."""
+        if self.dodge_chance <= 0:
+            return False
+        return random.random() < self.dodge_chance
+
+    def interrupt_cast(self) -> str | None:
+        """If enemy is charging, cancel it. Returns ability name or None."""
+        if self.is_casting and self.pending_ability:
+            name = self.pending_ability.name
+            self.is_casting = False
+            self.cast_turns_remaining = 0
+            self.pending_ability = None
+            return name
+        return None
 
     # --- Turn AI ---
     def choose_action(self) -> EnemyAbility | None:
