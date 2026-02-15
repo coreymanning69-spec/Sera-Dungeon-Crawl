@@ -484,7 +484,7 @@ def render_dodge(enemy_name: str) -> str:
         box_divider(),
         box_line(f"  {enemy_name} dodges the attack!"),
         box_line(f'  Sera: "Stand still, insect."'),
-        box_line(f"  [-3 Patience]"),
+        box_line(f"  [-2 Patience]"),
         box_bot(),
     ]
     return "\n".join(lines)

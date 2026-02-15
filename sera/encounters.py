@@ -44,7 +44,8 @@ def generate_encounter(floor: int, all_enemies: list[Enemy]) -> list[Enemy]:
     """
     Build an encounter for the given floor number.
 
-    Floor 1-2: 1-2 trash mobs
+    Floor 1:   1 trash (tutorial)
+    Floor 2:   2 trash
     Floor 3-4: 1 elite or 2-3 trash
     Floor 5:   Boss + 1 trash escort
     Floor 6+:  Escalate (boss + elite, etc.)
@@ -53,10 +54,12 @@ def generate_encounter(floor: int, all_enemies: list[Enemy]) -> list[Enemy]:
     elites = [e for e in all_enemies if e.archetype == "elite"]
     bosses = [e for e in all_enemies if e.archetype == "boss"]
 
-    if floor <= 2:
-        count = random.randint(1, 2)
+    if floor == 1:
         pool = trash if trash else all_enemies
-        picks = [copy.deepcopy(random.choice(pool)) for _ in range(count)]
+        picks = [copy.deepcopy(random.choice(pool))]
+    elif floor == 2:
+        pool = trash if trash else all_enemies
+        picks = [copy.deepcopy(random.choice(pool)) for _ in range(2)]
     elif floor <= 4:
         if elites and random.random() < 0.6:
             picks = [copy.deepcopy(random.choice(elites))]

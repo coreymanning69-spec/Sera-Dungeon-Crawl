@@ -88,17 +88,17 @@
     {
       "name": "Flickering Imp",
       "archetype": "trash",
-      "max_hp": 12,
+      "max_hp": 8,
       "vulnerability": "NONE",
       "armor": 0,
       "regen_per_turn": 0,
-      "dodge_chance": 0.3,
+      "dodge_chance": 0.15,
       "flavor": "Small. Fast. Extremely punchable.",
       "abilities": [
         {
           "name": "Dart Away",
           "annoyance": "DODGE_SPAM",
-          "cooldown": 2,
+          "cooldown": 3,
           "charge_time": 0,
           "flavor": "It dodges. How original."
         },

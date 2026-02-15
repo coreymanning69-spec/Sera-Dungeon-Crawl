@@ -32,7 +32,7 @@ ANNOYANCE_COST: dict[AnnoyanceType, int] = {
     AnnoyanceType.MONOLOGUE: 50,
     AnnoyanceType.HEAL_SELF: 5,
     AnnoyanceType.SUMMON: 3,
-    AnnoyanceType.DODGE_SPAM: 4,
+    AnnoyanceType.DODGE_SPAM: 3,
 }
 
 ANNOYANCE_FLAVOR: dict[AnnoyanceType, str] = {

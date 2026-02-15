@@ -2,7 +2,7 @@
   "base_weapons": [
     {
       "name": "Rusty Shiv",
-      "base_damage": 1,
+      "base_damage": 2,
       "tags": ["PHYSICAL", "BLEED"],
       "flavor": "It's insulting that I'm holding this. But it gets the job done."
     },
@@ -32,7 +32,7 @@
     },
     {
       "name": "Acid Vial",
-      "base_damage": 1,
+      "base_damage": 2,
       "tags": ["CORROSIVE"],
       "flavor": "I could dissolve your ambitions with this. And your face."
     },
@@ -50,7 +50,7 @@
     },
     {
       "name": "Spirit Lantern",
-      "base_damage": 1,
+      "base_damage": 2,
       "tags": ["DIVINE", "ETHEREAL"],
       "flavor": "It holds a trapped soul. Don't worry, it deserved it."
     },

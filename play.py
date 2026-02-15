@@ -138,7 +138,14 @@ def title_screen() -> bool:
 
 def choose_starting_weapon(state: GameState):
     ui.clear()
-    options = random.sample(state.all_weapons, min(3, len(state.all_weapons)))
+    # Guarantee at least one heavy hitter (3 dmg) in the starting options
+    heavy = [w for w in state.all_weapons if w.base_damage >= 3]
+    light = [w for w in state.all_weapons if w.base_damage < 3]
+    if heavy and light:
+        options = [random.choice(heavy)] + random.sample(light, min(2, len(light)))
+        random.shuffle(options)
+    else:
+        options = random.sample(state.all_weapons, min(3, len(state.all_weapons)))
 
     lines = [
         ui.box_top(),
@@ -335,7 +342,7 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
     if target.try_dodge():
         ui.clear()
         print(ui.render_dodge(target.name))
-        interest._drain(3, "Dodge")
+        interest._drain(2, "Dodge")
         return
 
     # --- Interrupt Check (hitting a casting enemy cancels their charge) ---

@@ -35,7 +35,7 @@ class InterestManager:
 
     # --- Constants ---
     TICK_DRAIN: int = 1
-    KILL_RESTORE: int = 2
+    KILL_RESTORE: int = 5
     MULTI_KILL_RESTORE: int = 10
     MULTI_KILL_THRESHOLD: int = 2  # kills in one turn to count
 
