@@ -9,10 +9,10 @@ A text-based, turn-based roguelike dungeon crawler written in pure Python 3. The
 ## Quick Reference
 
 ```bash
-# Play the game
+# Play the game (Menu: New Game / Simulation Mode / Quit)
 python3 play.py
 
-# Run demo scenarios (3 scripted combat simulations)
+# Run simulation scenarios directly (3 scripted combat demos)
 python3 main.py
 
 # Platform launchers
@@ -28,10 +28,11 @@ play.bat        # Windows
 
 ```
 .
-├── play.py              # Interactive game entry point (~2,087 lines)
+├── play.py              # Interactive game entry point (Menu → New Game / Simulation / Quit)
 ├── main.py              # Demo script: 3 scripted combat scenarios
 ├── play.sh              # Unix launcher (auto-detects python3/python)
 ├── play.bat             # Windows launcher
+├── CLAUDE.md            # This file — project docs + Sera's character bible
 ├── sera/                # Core game engine package
 │   ├── __init__.py      # Package marker
 │   ├── weapon.py        # Weapon + Affix dataclasses, damage pipeline
@@ -43,11 +44,18 @@ play.bat        # Windows
 │   ├── crafting.py      # Crafting materials, weapon modification
 │   ├── encounters.py    # Encounter generator, loot drops, scaling
 │   ├── loader.py        # JSON data loader → game objects
-│   └── ui.py            # ASCII box-drawn UI renderer (width=60)
-└── data/                # JSON configuration (data-driven design)
-    ├── weapons.json     # 10 base weapons (1-3 base damage, various tags)
-    ├── affixes.json     # 10 prefix/suffix definitions
-    └── enemies.json     # 5 enemy archetypes (trash/elite/boss)
+│   └── ui.py            # ASCII box-drawn UI renderer + pixel UI system
+├── data/                # JSON configuration (data-driven design)
+│   ├── weapons.json     # 10 base weapons (1-3 base damage, various tags)
+│   ├── affixes.json     # 10 prefix/suffix definitions
+│   └── enemies.json     # 5 enemy archetypes (trash/elite/boss)
+├── docs/                # Design documentation
+│   ├── ui-overlay-system.md   # Pixel UI state machine spec
+│   └── pixel-ui/              # ASCII mockups for overlay screens
+├── tests/               # Test files
+│   └── test_ui_system.py      # UI system tests
+└── scripts/             # Utility scripts
+    └── export_ui_mockups.py   # Regenerate pixel UI mockup files
 ```
 
 ## Architecture
@@ -133,14 +141,62 @@ Weapons, affixes, and enemies are defined in `data/*.json` and loaded by `sera/l
 
 - **Small numbers**: Base damage is 1-3. Final damage is clamped to 0-30. Scaling comes from affix synergies, not bigger numbers.
 - **Transparency**: Every calculation step is shown. No hidden rolls (except dodge chance).
-- **Sera's voice**: All flavor text and quips are written from Sera's perspective — imperious, bored, occasionally impressed by violence.
+- **Sera's voice**: All flavor text and quips MUST be written from Sera's perspective. See the **Divine Mythos** section below.
 - **Enemy archetypes**: `trash` (HP ~8), `elite` (HP 25-30), `boss` (HP 40-50). Each has unique vulnerability gates.
+
+## Divine Mythos — Sera's Character Bible
+
+**Sera is not a player character. She IS the game.** Combat exists for her entertainment. The dungeon exists because she allows it. Every system — Patience, damage, loot — is framed as her opinion of what's happening.
+
+### Who Sera Is
+
+- **A Goddess. Capital G.** She is omnipotent, immortal, and profoundly bored. She doesn't fight because she has to — she fights because nothing else in the cosmos is interesting enough.
+- **She cannot be hurt.** Enemies don't threaten her HP. They threaten her attention span. Patience IS her health bar — if she's bored, she leaves, and reality collapses behind her.
+- **She is funny, but never tries to be.** Her wit comes from being genuinely contemptuous. She doesn't make jokes — she makes observations that happen to be devastating.
+- **She is impressed by exactly one thing: excessive violence.** Overkill, multi-kills, and creative destruction are the only things that make her stay. Efficiency bores her. Spectacle entertains her.
+
+### Voice Rules (MUST follow when writing any Sera dialogue)
+
+1. **First person, present tense.** She speaks directly. "Die faster." Not "She told them to die faster."
+2. **Short sentences.** She doesn't explain herself. "Adequate." "Next." "Wrong weapon. Think harder."
+3. **Never enthusiastic.** Her highest praise is grudging acknowledgment: "...Acceptable." "That was almost satisfying." "Not bad. Not GOOD, but not bad."
+4. **Genuinely excited only by overkill.** This is the ONE place she drops the bored act: "NOW we're talking." "THAT is how you kill something." Caps are allowed here.
+5. **Contempt is her default.** Mortals are insects. Enemies are distractions. Delays are personal insults. "Stand still, insect." "It's immune. Wonderful. I love wasting my time."
+6. **She blames you.** Wrong weapon? YOUR fault. Enemy dodged? YOUR problem. "You brought the wrong toy. Fix it."
+7. **Monologues offend her.** Enemies that talk, heal, or stall are personally annoying to her. "Nobody asked for your monologue." "Stop healing. It's dragging on."
+8. **No emojis, no exclamation marks (except in overkill).** She is a Goddess, not a cheerleader.
+
+### Tone Spectrum
+
+| Patience Level | Sera's Mood | Example |
+|----------------|-------------|---------|
+| 80-100 | Barely tolerating this | "Fine. I'll entertain this." |
+| 60-80 | Mildly engaged | "You have my attention. Barely." |
+| 40-60 | Getting restless | "This better get interesting soon." |
+| 20-40 | Actively annoyed | "I'm running out of reasons to stay." |
+| 0-20 | About to leave | "One more disappointment. That's all you get." |
+
+### Flavor Text Guidelines
+
+- **Weapons** are described as HER tools: "It holds a trapped soul. Don't worry, it deserved it."
+- **Enemies** are described through HER contempt: "50 pounds of armor and 0 pounds of personality."
+- **Affixes** blend her voice with mechanical clarity: "Shut up. x2 damage to anything mid-cast."
+- **Crafting materials** are practical tools she deigns to use: "Everything is better on fire."
+- **Status effects** get divine commentary: "Consider this a divine opinion." (CURSED)
+
+### What Sera is NOT
+
+- Not a damsel. Not vulnerable. Not sympathetic.
+- Not random-quirky. Her humor comes from supremacy, not randomness.
+- Not evil. She's indifferent. Evil would require caring.
+- Not fourth-wall-breaking. She lives in-world. She just happens to be the most powerful thing in it.
 
 ## Testing
 
 There is no automated test suite. Validation is done through:
-- `main.py` — 3 scripted scenarios exercising the damage pipeline, permission system, and boss fights
-- Manual playtesting via `play.py`
+- `python3 main.py` — 3 scripted scenarios exercising the damage pipeline, permission system, and boss fights
+- `python3 play.py` → **Simulation Mode** — same scenarios accessible from the main menu
+- Manual playtesting via `python3 play.py` → **New Game**
 
 To verify changes haven't broken core logic, run:
 ```bash

@@ -527,7 +527,8 @@ def render_title_screen() -> str:
         box_divider(),
         box_blank(),
         box_line("[1] New Game"),
-        box_line("[2] Quit"),
+        box_line("[2] Simulation Mode"),
+        box_line("[3] Quit"),
         box_blank(),
         box_bot(),
     ]
