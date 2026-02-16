@@ -25,6 +25,16 @@ from sera.stats import PlayerStats
 from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_revision_set
 
 
+def _build_defense_profile(state: "GameState", stats: PlayerStats | None = None) -> tuple[int, int, dict[str, int]]:
+    """Pre-compute defenses used by annoyance-damage calculations."""
+    final_stats = stats or state.final_stats
+    loadout = state.equipment_loadout
+    reduction = loadout.total_damage_reduction() + final_stats.annoyance_reduction()
+    resistance = loadout.total_damage_resistance()
+    resistances = loadout.total_resistances()
+    return reduction, resistance, resistances
+
+
 # ─────────────────────────────────────────────────────────
 # Sera's voice — context-sensitive quips
 # ─────────────────────────────────────────────────────────
@@ -290,6 +300,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- ENEMY PHASE ---
         alive = [e for e in enemies if e.current_hp > 0]
+        defense_profile = _build_defense_profile(state)
         for enemy in alive:
             if interest.game_over:
                 return False
@@ -301,7 +312,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 print(ui.box_bot())
                 pause()
                 continue
-            _resolve_enemy_action(enemy, state)
+            _resolve_enemy_action(enemy, state, defense_profile)
 
             if interest.game_over:
                 return False
@@ -498,6 +509,7 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
             interest.register_kill(target.name, damage, hp_before)
             print(ui.box_line(f"  {target.name} defeated. Patience now {interest.current_patience}."))
 
+        reduction, resistance, resistances = _build_defense_profile(state, stats)
         for enemy in [e for e in enemies if e.current_hp > 0]:
             if enemy.is_frozen():
                 print(ui.box_line(f"  {enemy.name} is frozen and skips."))
@@ -511,10 +523,8 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
             base_cost = ANNOYANCE_COST[ability.annoyance]
             mult = enemy.get_annoyance_multiplier()
             pre_mitigation = max(1, int(base_cost * mult))
-            reduction = state.equipment_loadout.total_damage_reduction() + stats.annoyance_reduction()
-            resistance = state.equipment_loadout.total_damage_resistance()
             attack_type = defense_key_for_attack(ability.attack_type)
-            elem_res = state.equipment_loadout.total_resistances().get(attack_type, 0)
+            elem_res = resistances.get(attack_type, 0)
             mitigated = max(1, pre_mitigation - reduction)
             resist_pct = min(0.75, (resistance + elem_res) / 100)
             cost = max(1, int(round(mitigated * (1 - resist_pct))))
@@ -556,7 +566,11 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
     return turns_run
 
 
-def _resolve_enemy_action(enemy: Enemy, state: GameState):
+def _resolve_enemy_action(
+    enemy: Enemy,
+    state: GameState,
+    defense_profile: tuple[int, int, dict[str, int]] | None = None,
+):
     """Resolve one enemy's turn with defensive bonuses from equipment/stats."""
     interest = state.interest
     ability = enemy.choose_action()
@@ -580,11 +594,9 @@ def _resolve_enemy_action(enemy: Enemy, state: GameState):
     mult = enemy.get_annoyance_multiplier()
     pre_mitigation = max(1, int(base_cost * mult))
 
-    final_stats = state.final_stats
-    reduction = state.equipment_loadout.total_damage_reduction() + final_stats.annoyance_reduction()
-    resistance = state.equipment_loadout.total_damage_resistance()
+    reduction, resistance, resistances = defense_profile or _build_defense_profile(state)
     attack_type = defense_key_for_attack(ability.attack_type)
-    elem_res = state.equipment_loadout.total_resistances().get(attack_type, 0)
+    elem_res = resistances.get(attack_type, 0)
 
     mitigated = max(1, pre_mitigation - reduction)
     resist_pct = min(0.75, (resistance + elem_res) / 100)
