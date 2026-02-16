@@ -82,6 +82,40 @@ def sera_quip(pool: list[str]) -> str:
 
 
 # ─────────────────────────────────────────────────────────
+# Run Stats — tracks cumulative stats across a run
+# ─────────────────────────────────────────────────────────
+
+class RunStats:
+    """Tracks cumulative statistics for a single game run."""
+    def __init__(self):
+        self.total_damage: int = 0
+        self.best_overkill: int = 0
+        self.weapons_found: int = 0
+        self.materials_used: int = 0
+
+    def record_damage(self, amount: int):
+        self.total_damage += amount
+
+    def record_overkill(self, excess: int):
+        if excess > self.best_overkill:
+            self.best_overkill = excess
+
+    def to_dict(self, state: GameState) -> dict:
+        return {
+            "floors_cleared": state.floors_cleared,
+            "total_kills": state.interest.total_kills,
+            "total_turns": state.interest.turn_number,
+            "total_damage": self.total_damage,
+            "best_overkill": self.best_overkill,
+            "weapons_found": self.weapons_found,
+            "materials_used": self.materials_used,
+            "patience": state.interest.current_patience,
+            "max_patience": state.interest.max_patience,
+            "weapon_name": state.equipped_weapon.display_name if state.weapons else "",
+        }
+
+
+# ─────────────────────────────────────────────────────────
 # Game State
 # ─────────────────────────────────────────────────────────
 
@@ -97,6 +131,7 @@ class GameState:
         self.all_weapons = load_weapons()
         self.all_affixes = load_affixes()
         self.floors_cleared: int = 0
+        self.run_stats = RunStats()
 
     @property
     def equipped_weapon(self) -> Weapon:
@@ -252,7 +287,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- RESOLVE ATTACK ---
         print()
-        _resolve_player_attack(weapon, target, interest)
+        _resolve_player_attack(weapon, target, interest, state.run_stats)
         pause()
 
         if interest.game_over:
@@ -280,6 +315,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                         kill_log = interest.register_kill(
                             enemy.name, dot_total, dot_total)
                         print(ui.render_kill_report(enemy.name, kill_log))
+                        state.run_stats.record_damage(dot_total)
                     pause()
 
         # --- CLEANUP PHASE ---
@@ -330,7 +366,10 @@ def _do_inspect(alive, combat_turn, weapon, enemies, interest):
     print(ui.render_combat_hud(combat_turn, weapon, enemies, interest))
 
 
-def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestManager):
+def _resolve_player_attack(
+    weapon: Weapon, target: Enemy, interest: InterestManager,
+    run_stats: RunStats,
+):
     """Full attack resolution with dodge, permission, interrupt, damage."""
 
     # --- Permission Check ---
@@ -365,6 +404,8 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
     actual, dead = target.take_damage(damage)
     armor_absorbed = damage - actual if damage > actual else 0
 
+    run_stats.record_damage(actual)
+
     print(ui.render_damage_report(steps, target.name, actual, armor_absorbed))
 
     # Attack quip
@@ -389,6 +430,7 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
         excess = max(0, damage - hp_before)
         if excess > 0:
             print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
+            run_stats.record_overkill(excess)
         print(ui.render_kill_report(target.name, kill_log))
 
 
@@ -444,6 +486,7 @@ def loot_phase(state: GameState):
             c = get_choice("  > ", ["y", "n"])
             if c == "y":
                 state.weapons.append(weapon_drop)
+                state.run_stats.weapons_found += 1
                 print(f'  Sera: "This might be useful."')
             else:
                 print(f'  Sera: "Trash."')
@@ -466,15 +509,15 @@ def loot_phase(state: GameState):
 
 def between_floors(state: GameState) -> bool:
     """
-    Between-floor menu: equip, craft, view inventory, or continue.
+    Between-floor menu: equip, craft, view inventory, stats, or continue.
     Returns False if player quits.
     """
     while True:
         ui.clear()
         print(ui.render_between_floors(state.floor, state.interest))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5"])
-        if choice in ("quit", "5"):
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6"])
+        if choice in ("quit", "6"):
             return False
 
         if choice == "1":
@@ -489,6 +532,11 @@ def between_floors(state: GameState) -> bool:
         if choice == "4":
             ui.clear()
             print(ui.render_inventory(state.weapons, state.materials, state.equipped_idx))
+            pause()
+
+        if choice == "5":
+            ui.clear()
+            print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
 
 
@@ -540,6 +588,7 @@ def craft_screen(state: GameState):
 
     craft_log = apply_material(weapon, material)
     state.materials.pop(m_idx)
+    state.run_stats.materials_used += 1
 
     ui.clear()
     print(ui.box_top())
@@ -552,32 +601,55 @@ def craft_screen(state: GameState):
 
 
 # ─────────────────────────────────────────────────────────
-# Main game loop
+# Simulation mode — summary UI with drill-down
 # ─────────────────────────────────────────────────────────
 
 def run_simulation():
-    """Run the 3 scripted combat simulation scenarios."""
+    """Run the 3 scripted scenarios and show a summary table."""
     from main import run_scenario_1, run_scenario_2, run_scenario_3
 
     ui.clear()
-    print("  Running combat simulations...")
-    print()
-    run_scenario_1()
-    print()
-    run_scenario_2()
-    print()
-    run_scenario_3()
-    print()
-    pause("  [Press Enter to return to menu]")
+    print(ui.box_top())
+    print(ui.box_line("Running simulations...", "center"))
+    print(ui.box_bot())
+
+    results = [
+        run_scenario_1(verbose=False),
+        run_scenario_2(verbose=False),
+        run_scenario_3(verbose=False),
+    ]
+
+    while True:
+        ui.clear()
+        print(ui.render_sim_summary(results))
+
+        valid = [str(i+1) for i in range(len(results))] + ["0"]
+        choice = get_choice("> ", valid)
+
+        if choice in ("0", "quit"):
+            return
+
+        idx = int(choice) - 1
+        ui.clear()
+        print(ui.render_sim_detail(results[idx]))
+        pause("  [Press Enter to return]")
 
 
-def run_new_game():
-    """Run the full interactive game."""
+# ─────────────────────────────────────────────────────────
+# Main game loop — with play-again support
+# ─────────────────────────────────────────────────────────
+
+def run_new_game() -> str:
+    """
+    Run the full interactive game.
+    Returns 'play_again', 'menu', or 'quit'.
+    """
     state = GameState()
 
     if not choose_starting_weapon(state):
-        return
+        return "menu"
 
+    won = False
     for floor_num in range(1, state.max_floors + 1):
         state.floor = floor_num
 
@@ -599,9 +671,7 @@ def run_new_game():
         # Combat
         survived = run_combat(state, enemies)
         if not survived:
-            ui.clear()
-            print(ui.render_game_over(state.interest, state.floor))
-            return
+            break
 
         state.floors_cleared = floor_num
 
@@ -612,11 +682,21 @@ def run_new_game():
         if floor_num < state.max_floors:
             if not between_floors(state):
                 print('  Sera: "Fine. I was getting bored anyway."')
-                return
+                pause()
+                return "menu"
 
-    # Victory
+        if floor_num == state.max_floors:
+            won = True
+
+    # Post-game screen with play again option
     ui.clear()
-    print(ui.render_victory(state.max_floors, state.interest))
+    stats = state.run_stats.to_dict(state)
+    print(ui.render_post_game(stats, won))
+
+    choice = get_choice("> ", ["1", "2"])
+    if choice == "1":
+        return "play_again"
+    return "menu"
 
 
 def main():
@@ -628,9 +708,14 @@ def main():
         if choice == "simulation":
             run_simulation()
             continue
-        # choice == "new_game"
-        run_new_game()
-        return
+
+        # choice == "new_game" (or play_again loop)
+        result = run_new_game()
+        while result == "play_again":
+            result = run_new_game()
+        if result == "quit":
+            return
+        # result == "menu" → loop back to title
 
 
 if __name__ == "__main__":
