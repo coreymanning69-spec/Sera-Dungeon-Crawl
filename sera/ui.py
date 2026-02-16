@@ -515,11 +515,19 @@ def patience_bar(interest: InterestManager) -> str:
 # Composite screens
 # ─────────────────────────────────────────────────────────
 
+TITLE_ART = [
+    "   _____  _____  ____   ___   ",
+    "  / ___/ / ___/ / __ \ /   |  ",
+    "  \__ \  \__ \ / /_/ // /| |  ",
+    " ___/ / ___/ // _, _// ___ |  ",
+    "/____/ /____//_/ |_|/_/  |_|  ",
+]
+
 def render_title_screen() -> str:
     lines = [
         box_top(),
         box_blank(),
-        box_line("S E R A", "center"),
+        *[box_line(row, "center") for row in TITLE_ART],
         box_line("ENDLESS ENGAGEMENT", "center"),
         box_blank(),
         box_divider(),
@@ -552,6 +560,12 @@ def render_floor_intro(floor: int, enemies: list[Enemy], interest: InterestManag
         if e.armor > 0:
             lines.append(box_line(f"      Armor: {e.armor}"))
         lines.append(box_line(f"      Requires: [{tag_req}]"))
+        if e.elemental_weaknesses:
+            weak = ", ".join(tag.name for tag in e.elemental_weaknesses)
+            lines.append(box_line(f"      Weak: {weak}"))
+        if e.elemental_resistances:
+            resist = ", ".join(tag.name for tag in e.elemental_resistances)
+            lines.append(box_line(f"      Resist: {resist}"))
         if e.statuses:
             st = ", ".join(f"{s.effect.name}({s.potency})" for s in e.statuses)
             lines.append(box_line(f"      Debuffs: {st}"))
