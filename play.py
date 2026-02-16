@@ -149,15 +149,15 @@ def choose_starting_weapon(state: GameState):
 
     lines = [
         ui.box_top(),
-        ui.box_line("CHOOSE YOUR WEAPON", "center"),
+        ui.box_line("░▒▓█ CHOOSE YOUR WEAPON █▓▒░", "center"),
         ui.box_divider(),
         ui.box_line('Sera: "Fine. What are we working with?"'),
         ui.box_blank(),
     ]
     for i, w in enumerate(options):
         tag_str = ", ".join(t.name for t in w.all_tags)
-        lines.append(ui.box_line(f"  [{i+1}] {w.name} ({w.base_damage} dmg) [{tag_str}]"))
-        lines.append(ui.box_line(f'      "{w.flavor}"'))
+        lines.append(ui.box_line(f"  ▸ [{i+1}] {w.name} ({w.base_damage} dmg) [{tag_str}]"))
+        lines.append(ui.box_line(f'        "{w.flavor}"'))
     lines.append(ui.box_blank())
     lines.append(ui.box_bot())
     print("\n".join(lines))
@@ -302,7 +302,7 @@ def _show_room_clear(interest: InterestManager):
     ]
     ui.clear()
     print(ui.box_top())
-    print(ui.box_line("ROOM CLEARED", "center"))
+    print(ui.box_line("░▒▓█ ROOM CLEARED █▓▒░", "center"))
     print(ui.box_line(sera_quip(quips), "center"))
     print(ui.box_line(f"Patience: {ui.patience_bar(interest)}", "center"))
     print(ui.box_bot())
@@ -538,10 +538,11 @@ def craft_screen(state: GameState):
 
     ui.clear()
     print(ui.box_top())
-    print(ui.box_line("CRAFTING", "center"))
+    print(ui.box_line("░▒▓█ CRAFTING █▓▒░", "center"))
     print(ui.box_divider())
     for line in craft_log:
         print(ui.box_line(line.strip()))
+    print(ui.box_divider_pixel())
     print(ui.box_bot())
     pause()
 

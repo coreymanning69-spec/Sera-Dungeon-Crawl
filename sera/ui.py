@@ -1,8 +1,9 @@
 """
-Text-block UI renderer for SERA: ENDLESS ENGAGEMENT.
+Pixel Art UI renderer for SERA: ENDLESS ENGAGEMENT.
 
-All display is box-drawn with simple ASCII blocks.
-Numbers for input. Monospace assumed.
+Old-school 64/128-bit retro aesthetic using Unicode block
+characters (░▒▓█▀▄▐▌) and box-drawing (╔╗╚╝║═).
+Monospace terminal assumed.
 """
 
 from __future__ import annotations
@@ -12,10 +13,11 @@ from sera.weapon import Weapon
 from sera.enemy import Enemy, ANNOYANCE_COST
 from sera.interest import InterestManager
 from sera.crafting import CraftingMaterial
+from sera import sprites
 
 
 # ─────────────────────────────────────────────────────────
-# Drawing primitives
+# Drawing primitives — retro pixel style
 # ─────────────────────────────────────────────────────────
 
 W = 60  # standard box width
@@ -29,11 +31,11 @@ def clear():
 
 
 def box_top():
-    return "+" + "-" * (W - 2) + "+"
+    return "╔" + "═" * (W - 2) + "╗"
 
 
 def box_bot():
-    return box_top()
+    return "╚" + "═" * (W - 2) + "╝"
 
 
 def box_line(text: str, align: str = "left") -> str:
@@ -44,7 +46,7 @@ def box_line(text: str, align: str = "left") -> str:
         content = text.rjust(inner)
     else:
         content = text.ljust(inner)
-    return f"| {content} |"
+    return f"║ {content} ║"
 
 
 def box_blank():
@@ -52,23 +54,72 @@ def box_blank():
 
 
 def box_divider():
-    return "|" + "-" * (W - 2) + "|"
+    return "╠" + "═" * (W - 2) + "╣"
 
 
-def hp_bar(current: int, maximum: int, width: int = 20, fill: str = "#", empty: str = "-") -> str:
+def box_divider_thin():
+    return "║" + "─" * (W - 2) + "║"
+
+
+def box_divider_pixel():
+    """A decorative pixel-art divider."""
+    pattern = "░▒▓█▓▒░"
+    repeats = (W - 2) // len(pattern)
+    remainder = (W - 2) % len(pattern)
+    inner = (pattern * repeats) + pattern[:remainder]
+    return "║" + inner + "║"
+
+
+def box_header(text: str) -> str:
+    """A highlighted header line with pixel accents."""
+    inner = W - 4
+    padded = f" ▓▓ {text} ▓▓ "
+    return f"║ {padded.center(inner)} ║"
+
+
+# ─────────────────────────────────────────────────────────
+# Bars — pixel-art styled
+# ─────────────────────────────────────────────────────────
+
+def hp_bar(current: int, maximum: int, width: int = 20) -> str:
+    """Pixel-art HP bar using block characters."""
     ratio = max(0, min(1, current / maximum)) if maximum > 0 else 0
     filled = int(ratio * width)
-    return f"[{fill * filled}{empty * (width - filled)}] {current}/{maximum}"
+    half = 1 if (ratio * width - filled) >= 0.5 and filled < width else 0
+
+    if ratio > 0.6:
+        fill_char = "█"
+        half_char = "▓"
+    elif ratio > 0.3:
+        fill_char = "▓"
+        half_char = "▒"
+    else:
+        fill_char = "▒"
+        half_char = "░"
+
+    empty_char = "░"
+    bar = fill_char * filled + half_char * half + empty_char * (width - filled - half)
+    return f"[{bar}] {current}/{maximum}"
 
 
 def patience_bar(interest: InterestManager) -> str:
-    bar = hp_bar(interest.current_patience, interest.max_patience, width=20)
+    """Patience bar with mood indicator."""
+    bar = hp_bar(interest.current_patience, interest.max_patience, width=18)
+    pct = interest.current_patience / interest.max_patience if interest.max_patience > 0 else 0
+    mood = sprites.get_mood(pct)
     p = interest.current_patience
     if p <= 15:
-        return bar + " !! CRITICAL !!"
+        return f"{bar} {mood} !! CRITICAL !!"
     if p <= 30:
-        return bar + " ! LOW !"
-    return bar
+        return f"{bar} {mood} ! LOW !"
+    return f"{bar} {mood}"
+
+
+def xp_bar(current: int, maximum: int, width: int = 15) -> str:
+    """Small XP/progress bar."""
+    ratio = max(0, min(1, current / maximum)) if maximum > 0 else 0
+    filled = int(ratio * width)
+    return f"<{'▓' * filled}{'░' * (width - filled)}>"
 
 
 # ─────────────────────────────────────────────────────────
@@ -79,41 +130,69 @@ def render_title_screen() -> str:
     lines = [
         box_top(),
         box_blank(),
-        box_line("S E R A", "center"),
-        box_line("ENDLESS ENGAGEMENT", "center"),
-        box_blank(),
-        box_divider(),
-        box_line('"I am a Goddess. Entertain me."', "center"),
-        box_divider(),
-        box_blank(),
-        box_line("[1] New Game"),
-        box_line("[2] Quit"),
-        box_blank(),
-        box_bot(),
     ]
+    # Add the pixel art logo
+    for logo_line in sprites.SERA_LOGO.strip().split("\n"):
+        lines.append(box_line(logo_line, "center"))
+    lines.append(box_blank())
+    for sub_line in sprites.SUBTITLE_ART.strip().split("\n"):
+        lines.append(box_line(sub_line, "center"))
+    lines.append(box_blank())
+    lines.append(box_divider_pixel())
+    lines.append(box_blank())
+    # Mini Sera portrait
+    for portrait_line in sprites.SERA_IDLE.strip().split("\n"):
+        lines.append(box_line(portrait_line, "center"))
+    lines.append(box_blank())
+    lines.append(box_divider())
+    lines.append(box_line('"I am a Goddess. Entertain me."', "center"))
+    lines.append(box_divider())
+    lines.append(box_blank())
+    lines.append(box_line("  ▸ [1] New Game"))
+    lines.append(box_line("  ▸ [2] Quit"))
+    lines.append(box_blank())
+    lines.append(box_divider_pixel())
+    lines.append(box_bot())
     return "\n".join(lines)
 
 
 def render_floor_intro(floor: int, enemies: list[Enemy], interest: InterestManager) -> str:
+    floor_label = f"░▒▓█  FLOOR {floor}  █▓▒░"
     lines = [
         box_top(),
-        box_line(f"FLOOR {floor}", "center"),
+        box_blank(),
+        box_line(floor_label, "center"),
+        box_blank(),
         box_divider(),
         box_line(f"Patience: {patience_bar(interest)}"),
         box_divider(),
     ]
-    lines.append(box_line("ENEMIES:"))
+    # Dungeon entrance art for floor 1
+    if floor == 1:
+        for art_line in sprites.DUNGEON_ENTRANCE.strip().split("\n"):
+            lines.append(box_line(art_line, "center"))
+        lines.append(box_divider_thin())
+
+    lines.append(box_header("ENEMIES"))
+    lines.append(box_blank())
     for i, e in enumerate(enemies):
         tag_req = e.vulnerability.name if e.vulnerability.name != "NONE" else "any"
-        status = "ALIVE" if e.current_hp > 0 else "DEAD"
+        # Show mini sprite inline
+        sprite_lines = sprites.get_enemy_sprite(e.archetype).strip().split("\n")
+        # Just show first 3 lines of sprite as a preview
+        for sl in sprite_lines[:3]:
+            lines.append(box_line(f"  {sl}"))
         lines.append(box_line(f"  [{i+1}] {e.name} ({e.archetype})"))
         lines.append(box_line(f"      HP: {hp_bar(e.current_hp, e.max_hp, 15)}"))
         if e.armor > 0:
-            lines.append(box_line(f"      Armor: {e.armor}"))
+            lines.append(box_line(f"      Armor: {'▓' * e.armor}  ({e.armor})"))
         lines.append(box_line(f"      Requires: [{tag_req}]"))
         if e.statuses:
             st = ", ".join(f"{s.effect.name}({s.potency})" for s in e.statuses)
             lines.append(box_line(f"      Debuffs: {st}"))
+        if i < len(enemies) - 1:
+            lines.append(box_divider_thin())
+    lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -125,35 +204,40 @@ def render_combat_hud(
     interest: InterestManager,
 ) -> str:
     tag_str = ", ".join(t.name for t in weapon.all_tags)
+    turn_label = f"╍╍╍ TURN {turn} ╍╍╍"
     lines = [
         box_top(),
-        box_line(f"TURN {turn}", "center"),
+        box_line(turn_label, "center"),
         box_divider(),
-        box_line(f"Patience: {patience_bar(interest)}"),
-        box_line(f"Weapon:   {weapon.display_name} ({weapon.base_damage} dmg)"),
-        box_line(f"Tags:     [{tag_str}]"),
+        box_line(f"  Patience: {patience_bar(interest)}"),
+        box_divider_thin(),
+        box_line(f"  ⚔ {weapon.display_name} ({weapon.base_damage} dmg)"),
+        box_line(f"    Tags: [{tag_str}]"),
         box_divider(),
     ]
 
     alive = [e for e in enemies if e.current_hp > 0]
     for i, e in enumerate(alive):
-        casting = " ** CASTING **" if e.is_casting else ""
+        casting = " ░░ CASTING ░░" if e.is_casting else ""
         req = e.vulnerability.name.replace("REQUIRES_", "") if e.vulnerability.name != "NONE" else ""
         tag_hint = f" (needs [{req}])" if req else ""
-        lines.append(box_line(f"  [{i+1}] {e.name}{casting}{tag_hint}"))
-        lines.append(box_line(f"      HP: {hp_bar(e.current_hp, e.max_hp, 15)}"))
+
+        # Enemy display with mini archetype icon
+        icon = "◆" if e.archetype == "boss" else "◇" if e.archetype == "elite" else "·"
+        lines.append(box_line(f"  {icon} [{i+1}] {e.name}{casting}{tag_hint}"))
+        lines.append(box_line(f"        HP: {hp_bar(e.current_hp, e.max_hp, 15)}"))
         if e.armor > 0:
-            lines.append(box_line(f"      Armor: {e.armor}"))
+            lines.append(box_line(f"        Armor: {'▓' * min(e.armor, 10)} ({e.armor})"))
         if e.statuses:
             st = ", ".join(f"{s.effect.name}({s.potency})" for s in e.statuses)
-            lines.append(box_line(f"      [{st}]"))
+            lines.append(box_line(f"        [{st}]"))
 
     lines.append(box_divider())
-    lines.append(box_line("ACTIONS:"))
+    lines.append(box_header("ACTIONS"))
     for i, e in enumerate(alive):
-        lines.append(box_line(f"  [{i+1}] Attack {e.name}"))
-    lines.append(box_line(f"  [I] Inspect enemy"))
-    lines.append(box_line(f"  [W] View weapon details"))
+        lines.append(box_line(f"  ▸ [{i+1}] Attack {e.name}"))
+    lines.append(box_line(f"  ▸ [I] Inspect enemy"))
+    lines.append(box_line(f"  ▸ [W] View weapon details"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -162,15 +246,18 @@ def render_combat_hud(
 def render_damage_report(steps: list[str], target_name: str, actual: int, armor_absorbed: int) -> str:
     lines = [
         box_top(),
-        box_line(f"DAMAGE vs {target_name}", "center"),
-        box_divider(),
     ]
+    # Show hit effect art
+    for art_line in sprites.HIT_EFFECT.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    lines.append(box_line(f"DAMAGE vs {target_name}", "center"))
+    lines.append(box_divider())
     for step in steps:
         lines.append(box_line(f"  {step}"))
     if armor_absorbed > 0:
         lines.append(box_line(f"  Armor absorbs: {armor_absorbed}"))
-    lines.append(box_divider())
-    lines.append(box_line(f"DEALT: {actual} damage", "center"))
+    lines.append(box_divider_pixel())
+    lines.append(box_line(f"▓▓ DEALT: {actual} damage ▓▓", "center"))
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -178,22 +265,29 @@ def render_damage_report(steps: list[str], target_name: str, actual: int, armor_
 def render_enemy_action(enemy: Enemy, ability_name: str, flavor: str, cost: int) -> str:
     lines = [
         box_top(),
-        box_line(f"{enemy.name} acts!", "center"),
+        box_line(f"░░ {enemy.name} acts! ░░", "center"),
         box_divider(),
-        box_line(f"  {ability_name}"),
-        box_line(f'  "{flavor}"'),
-        box_line(f"  [-{cost} Patience]"),
-        box_bot(),
     ]
+    # Show a couple lines of enemy sprite
+    sprite_lines = sprites.get_enemy_sprite(enemy.archetype).strip().split("\n")
+    for sl in sprite_lines[:4]:
+        lines.append(box_line(sl, "center"))
+    lines.append(box_divider_thin())
+    lines.append(box_line(f"  ▸ {ability_name}"))
+    lines.append(box_line(f'  "{flavor}"'))
+    lines.append(box_line(f"  [-{cost} Patience]"))
+    lines.append(box_bot())
     return "\n".join(lines)
 
 
 def render_kill_report(enemy_name: str, events: list[str]) -> str:
     lines = [
         box_top(),
-        box_line(f"{enemy_name} DEFEATED", "center"),
-        box_divider(),
     ]
+    for art_line in sprites.SKULL.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    lines.append(box_line(f"▓▓ {enemy_name} DEFEATED ▓▓", "center"))
+    lines.append(box_divider())
     for ev in events:
         lines.append(box_line(ev.strip()))
     lines.append(box_bot())
@@ -207,32 +301,42 @@ def render_loot_screen(
 ) -> str:
     lines = [
         box_top(),
-        box_line("ROOM CLEARED", "center"),
+        box_line("░▒▓█ ROOM CLEARED █▓▒░", "center"),
         box_divider(),
         box_line(f"Patience: {patience_bar(interest)}"),
         box_divider(),
-        box_line("LOOT:", "center"),
     ]
+    # Treasure art
+    for art_line in sprites.TREASURE.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    lines.append(box_blank())
+    lines.append(box_header("LOOT"))
+    lines.append(box_blank())
+
     choices = []
     idx = 1
     if weapon_loot:
         tag_str = ", ".join(t.name for t in weapon_loot.all_tags)
-        lines.append(box_line(f"  [{idx}] {weapon_loot.display_name} ({weapon_loot.base_damage} dmg)"))
-        lines.append(box_line(f"      [{tag_str}]"))
+        # Show weapon sprite
+        sprite = sprites.get_weapon_sprite(weapon_loot.name)
+        for sl in sprite.strip().split("\n")[:3]:
+            lines.append(box_line(f"    {sl}"))
+        lines.append(box_line(f"  ▸ [{idx}] {weapon_loot.display_name} ({weapon_loot.base_damage} dmg)"))
+        lines.append(box_line(f"        [{tag_str}]"))
         if weapon_loot.prefix:
-            lines.append(box_line(f"      Prefix: {weapon_loot.prefix.name} - {weapon_loot.prefix.description}"))
+            lines.append(box_line(f"        Prefix: {weapon_loot.prefix.name}"))
         if weapon_loot.suffix:
-            lines.append(box_line(f"      Suffix: {weapon_loot.suffix.name} - {weapon_loot.suffix.description}"))
+            lines.append(box_line(f"        Suffix: {weapon_loot.suffix.name}"))
         if weapon_loot.flavor:
-            lines.append(box_line(f'      "{weapon_loot.flavor}"'))
+            lines.append(box_line(f'        "{weapon_loot.flavor}"'))
         choices.append(("weapon", idx))
         idx += 1
 
     if material_loot:
         tag_name = material_loot.grants_tag.name if material_loot.grants_tag else "???"
-        lines.append(box_line(f"  [{idx}] {material_loot.name} (grants [{tag_name}])"))
+        lines.append(box_line(f"  ▸ [{idx}] {material_loot.name} (grants [{tag_name}])"))
         if material_loot.flavor:
-            lines.append(box_line(f'      {material_loot.flavor}'))
+            lines.append(box_line(f'        {material_loot.flavor}'))
         choices.append(("material", idx))
         idx += 1
 
@@ -251,29 +355,30 @@ def render_inventory(
 ) -> str:
     lines = [
         box_top(),
-        box_line("INVENTORY", "center"),
+        box_line("░▒▓█ INVENTORY █▓▒░", "center"),
         box_divider(),
-        box_line("WEAPONS:"),
+        box_header("WEAPONS"),
     ]
     for i, w in enumerate(weapons):
-        marker = " [E]" if i == equipped_idx else ""
+        marker = " ◄ EQUIPPED" if i == equipped_idx else ""
         tag_str = ", ".join(t.name for t in w.all_tags)
-        lines.append(box_line(f"  [{i+1}] {w.display_name} ({w.base_damage} dmg){marker}"))
-        lines.append(box_line(f"      [{tag_str}]"))
+        lines.append(box_line(f"  ▸ [{i+1}] {w.display_name} ({w.base_damage} dmg){marker}"))
+        lines.append(box_line(f"        [{tag_str}]"))
         if w.prefix:
-            lines.append(box_line(f"      PRE: {w.prefix.name} - {w.prefix.description}"))
+            lines.append(box_line(f"        PRE: {w.prefix.name} - {w.prefix.description}"))
         if w.suffix:
-            lines.append(box_line(f"      SUF: {w.suffix.name} - {w.suffix.description}"))
+            lines.append(box_line(f"        SUF: {w.suffix.name} - {w.suffix.description}"))
 
     lines.append(box_divider())
-    lines.append(box_line("MATERIALS:"))
+    lines.append(box_header("MATERIALS"))
     if materials:
         for i, m in enumerate(materials):
             tag_name = m.grants_tag.name if m.grants_tag else "???"
-            lines.append(box_line(f"  [{i+1}] {m.name} (grants [{tag_name}])"))
+            lines.append(box_line(f"  ▸ [{i+1}] {m.name} (grants [{tag_name}])"))
     else:
         lines.append(box_line("  (empty)"))
 
+    lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -281,16 +386,22 @@ def render_inventory(
 def render_equip_screen(weapons: list[Weapon], equipped_idx: int) -> str:
     lines = [
         box_top(),
-        box_line("EQUIP WEAPON", "center"),
+        box_line("░▒▓█ EQUIP WEAPON █▓▒░", "center"),
         box_divider(),
     ]
     for i, w in enumerate(weapons):
-        marker = " << EQUIPPED" if i == equipped_idx else ""
+        marker = " ◄◄ EQUIPPED" if i == equipped_idx else ""
         tag_str = ", ".join(t.name for t in w.all_tags)
-        lines.append(box_line(f"  [{i+1}] {w.display_name} ({w.base_damage} dmg){marker}"))
-        lines.append(box_line(f"      [{tag_str}]"))
+        # Show weapon sprite preview
+        sprite = sprites.get_weapon_sprite(w.name)
+        for sl in sprite.strip().split("\n")[:2]:
+            lines.append(box_line(f"    {sl}"))
+        lines.append(box_line(f"  ▸ [{i+1}] {w.display_name} ({w.base_damage} dmg){marker}"))
+        lines.append(box_line(f"        [{tag_str}]"))
+        if i < len(weapons) - 1:
+            lines.append(box_divider_thin())
     lines.append(box_blank())
-    lines.append(box_line("[0] Cancel"))
+    lines.append(box_line("  ▸ [0] Cancel"))
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -302,26 +413,26 @@ def render_craft_screen(
 ) -> str:
     lines = [
         box_top(),
-        box_line("CRAFTING BENCH", "center"),
+        box_line("░▒▓█ CRAFTING BENCH █▓▒░", "center"),
         box_divider(),
         box_line("Apply a material to a weapon:"),
         box_blank(),
-        box_line("WEAPONS:"),
+        box_header("WEAPONS"),
     ]
     for i, w in enumerate(weapons):
-        marker = " [E]" if i == equipped_idx else ""
+        marker = " ◄" if i == equipped_idx else ""
         tag_str = ", ".join(t.name for t in w.all_tags)
-        lines.append(box_line(f"  [{i+1}] {w.display_name}{marker}"))
-        lines.append(box_line(f"      [{tag_str}]"))
+        lines.append(box_line(f"  ▸ [{i+1}] {w.display_name}{marker}"))
+        lines.append(box_line(f"        [{tag_str}]"))
 
     lines.append(box_divider())
-    lines.append(box_line("MATERIALS:"))
+    lines.append(box_header("MATERIALS"))
     for i, m in enumerate(materials):
         tag_name = m.grants_tag.name if m.grants_tag else "???"
-        lines.append(box_line(f"  [{i+1}] {m.name} (grants [{tag_name}])"))
+        lines.append(box_line(f"  ▸ [{i+1}] {m.name} (grants [{tag_name}])"))
 
     lines.append(box_blank())
-    lines.append(box_line("[0] Cancel"))
+    lines.append(box_line("  ▸ [0] Cancel"))
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -330,15 +441,21 @@ def render_weapon_detail(weapon: Weapon) -> str:
     tag_str = ", ".join(t.name for t in weapon.all_tags)
     lines = [
         box_top(),
-        box_line(f"WEAPON: {weapon.display_name}", "center"),
+        box_line(f"░▒▓ WEAPON: {weapon.display_name} ▓▒░", "center"),
         box_divider(),
-        box_line(f"  Base Damage: {weapon.base_damage}"),
-        box_line(f"  Tags: [{tag_str}]"),
     ]
+    # Show weapon sprite
+    sprite = sprites.get_weapon_sprite(weapon.name)
+    for sl in sprite.strip().split("\n"):
+        lines.append(box_line(sl, "center"))
+    lines.append(box_divider_thin())
+    lines.append(box_line(f"  Base Damage: {weapon.base_damage}"))
+    lines.append(box_line(f"  Tags: [{tag_str}]"))
+
     if weapon.prefix:
         lines.append(box_divider())
-        lines.append(box_line(f"  PREFIX: {weapon.prefix.name}"))
-        lines.append(box_line(f"  {weapon.prefix.description}"))
+        lines.append(box_line(f"  ▓ PREFIX: {weapon.prefix.name}"))
+        lines.append(box_line(f"    {weapon.prefix.description}"))
         if weapon.prefix.flat_bonus:
             lines.append(box_line(f"    +{weapon.prefix.flat_bonus} (if {weapon.prefix.flat_condition})"))
         if weapon.prefix.multiplier != 1.0:
@@ -349,8 +466,8 @@ def render_weapon_detail(weapon: Weapon) -> str:
             lines.append(box_line(f"    Grants [{weapon.prefix.granted_tag.name}]"))
     if weapon.suffix:
         lines.append(box_divider())
-        lines.append(box_line(f"  SUFFIX: {weapon.suffix.name}"))
-        lines.append(box_line(f"  {weapon.suffix.description}"))
+        lines.append(box_line(f"  ▓ SUFFIX: {weapon.suffix.name}"))
+        lines.append(box_line(f"    {weapon.suffix.description}"))
         if weapon.suffix.flat_bonus:
             lines.append(box_line(f"    +{weapon.suffix.flat_bonus} (if {weapon.suffix.flat_condition})"))
         if weapon.suffix.multiplier != 1.0:
@@ -361,11 +478,11 @@ def render_weapon_detail(weapon: Weapon) -> str:
             lines.append(box_line(f"    Grants [{weapon.suffix.granted_tag.name}]"))
     if weapon.set_bonus:
         lines.append(box_divider())
-        lines.append(box_line(f"  SET BONUS: {weapon.set_bonus.name}"))
-        lines.append(box_line(f"  {weapon.set_bonus.description}"))
+        lines.append(box_line(f"  ▓ SET BONUS: {weapon.set_bonus.name}"))
+        lines.append(box_line(f"    {weapon.set_bonus.description}"))
     if weapon.flavor:
-        lines.append(box_divider())
-        lines.append(box_line(f'"{weapon.flavor}"'))
+        lines.append(box_divider_pixel())
+        lines.append(box_line(f'"{weapon.flavor}"', "center"))
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -373,18 +490,24 @@ def render_weapon_detail(weapon: Weapon) -> str:
 def render_between_floors(floor: int, interest: InterestManager) -> str:
     lines = [
         box_top(),
-        box_line(f"FLOOR {floor} COMPLETE", "center"),
-        box_divider(),
-        box_line(f"Patience: {patience_bar(interest)}"),
-        box_divider(),
-        box_line("[1] Continue to next floor"),
-        box_line("[2] Equip weapon"),
-        box_line("[3] Craft (apply material to weapon)"),
-        box_line("[4] View inventory"),
-        box_line("[5] Quit"),
         box_blank(),
-        box_bot(),
+        box_line(f"░▒▓█  FLOOR {floor} COMPLETE  █▓▒░", "center"),
+        box_blank(),
+        box_divider(),
+        box_line(f"  Patience: {patience_bar(interest)}"),
+        box_divider(),
     ]
+    # Sera idle sprite
+    for sl in sprites.SERA_IDLE.strip().split("\n"):
+        lines.append(box_line(sl, "center"))
+    lines.append(box_divider_thin())
+    lines.append(box_line("  ▸ [1] Continue to next floor"))
+    lines.append(box_line("  ▸ [2] Equip weapon"))
+    lines.append(box_line("  ▸ [3] Craft (apply material to weapon)"))
+    lines.append(box_line("  ▸ [4] View inventory"))
+    lines.append(box_line("  ▸ [5] Quit"))
+    lines.append(box_blank())
+    lines.append(box_bot())
     return "\n".join(lines)
 
 
@@ -392,21 +515,28 @@ def render_game_over(interest: InterestManager, floor: int = 0) -> str:
     lines = [
         box_top(),
         box_blank(),
-        box_line("G A M E   O V E R", "center"),
-        box_blank(),
-        box_divider(),
-        box_line('Sera rolls her eyes.', "center"),
-        box_line('"This is a waste of time."', "center"),
-        box_line('She teleports away.', "center"),
-        box_line('The dungeon collapses behind her.', "center"),
-        box_divider(),
-        box_blank(),
-        box_line(f"Died on floor: {floor}"),
-        box_line(f"Total kills: {interest.total_kills}"),
-        box_line(f"Turns survived: {interest.turn_number}"),
-        box_blank(),
-        box_bot(),
     ]
+    # Game over art
+    for art_line in sprites.GAME_OVER_ART.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    lines.append(box_blank())
+    lines.append(box_line("G A M E   O V E R", "center"))
+    lines.append(box_blank())
+    lines.append(box_divider_pixel())
+    lines.append(box_blank())
+    lines.append(box_line('Sera rolls her eyes.', "center"))
+    lines.append(box_line('"This is a waste of time."', "center"))
+    lines.append(box_line('She teleports away.', "center"))
+    lines.append(box_line('The dungeon collapses behind her.', "center"))
+    lines.append(box_blank())
+    lines.append(box_divider())
+    lines.append(box_blank())
+    lines.append(box_line(f"  ▓ Died on floor: {floor}"))
+    lines.append(box_line(f"  ▓ Total kills:   {interest.total_kills}"))
+    lines.append(box_line(f"  ▓ Turns survived:{interest.turn_number}"))
+    lines.append(box_blank())
+    lines.append(box_divider_pixel())
+    lines.append(box_bot())
     return "\n".join(lines)
 
 
@@ -414,49 +544,71 @@ def render_victory(floor: int, interest: InterestManager) -> str:
     lines = [
         box_top(),
         box_blank(),
-        box_line("D U N G E O N  C L E A R E D", "center"),
-        box_blank(),
-        box_divider(),
-        box_line('"...Acceptable."', "center"),
-        box_line('Sera nods once. The highest compliment.', "center"),
-        box_divider(),
-        box_blank(),
-        box_line(f"Floors cleared: {floor}"),
-        box_line(f"Total kills: {interest.total_kills}"),
-        box_line(f"Patience remaining: {interest.current_patience}"),
-        box_blank(),
-        box_bot(),
     ]
+    # Victory art
+    for art_line in sprites.VICTORY_ART.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    for art_line in sprites.CROWN.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    lines.append(box_blank())
+    lines.append(box_line("D U N G E O N   C L E A R E D", "center"))
+    lines.append(box_blank())
+    lines.append(box_divider_pixel())
+    lines.append(box_blank())
+    lines.append(box_line('"...Acceptable."', "center"))
+    lines.append(box_line('Sera nods once. The highest compliment.', "center"))
+    lines.append(box_blank())
+    lines.append(box_divider())
+    lines.append(box_blank())
+    lines.append(box_line(f"  ▓ Floors cleared:     {floor}"))
+    lines.append(box_line(f"  ▓ Total kills:        {interest.total_kills}"))
+    lines.append(box_line(f"  ▓ Patience remaining: {interest.current_patience}"))
+    lines.append(box_blank())
+    # Sera portrait for victory
+    for sl in sprites.SERA_IDLE.strip().split("\n"):
+        lines.append(box_line(sl, "center"))
+    lines.append(box_blank())
+    lines.append(box_divider_pixel())
+    lines.append(box_bot())
     return "\n".join(lines)
 
 
 def render_inspect(enemy: Enemy) -> str:
     lines = [
         box_top(),
-        box_line(f"INSPECT: {enemy.name}", "center"),
+        box_line(f"░▒▓ INSPECT: {enemy.name} ▓▒░", "center"),
         box_divider(),
-        box_line(f"  Archetype:     {enemy.archetype}"),
-        box_line(f"  HP:            {hp_bar(enemy.current_hp, enemy.max_hp, 15)}"),
-        box_line(f"  Armor:         {enemy.armor}"),
-        box_line(f"  Regen/turn:    {enemy.regen_per_turn}"),
     ]
+    # Full enemy sprite
+    sprite = sprites.get_enemy_sprite(enemy.archetype)
+    for sl in sprite.strip().split("\n"):
+        lines.append(box_line(sl, "center"))
+    lines.append(box_divider_thin())
+    lines.append(box_line(f"  Archetype:     {enemy.archetype}"))
+    lines.append(box_line(f"  HP:            {hp_bar(enemy.current_hp, enemy.max_hp, 15)}"))
+    if enemy.armor > 0:
+        lines.append(box_line(f"  Armor:         {'▓' * min(enemy.armor, 10)} ({enemy.armor})"))
+    else:
+        lines.append(box_line(f"  Armor:         0"))
+    if enemy.regen_per_turn > 0:
+        lines.append(box_line(f"  Regen/turn:    +{enemy.regen_per_turn}"))
     req = enemy.vulnerability.name if enemy.vulnerability.name != "NONE" else "NONE (any weapon works)"
     lines.append(box_line(f"  Requires tag:  [{req}]"))
     if enemy.statuses:
         st = ", ".join(f"{s.effect.name}(p:{s.potency} t:{s.duration})" for s in enemy.statuses)
         lines.append(box_line(f"  Debuffs:       {st}"))
     if enemy.is_casting:
-        lines.append(box_line(f"  CASTING:       {enemy.pending_ability.name} ({enemy.cast_turns_remaining}t)"))
+        lines.append(box_line(f"  ░░ CASTING: {enemy.pending_ability.name} ({enemy.cast_turns_remaining}t) ░░"))
     lines.append(box_divider())
-    lines.append(box_line("Abilities:"))
+    lines.append(box_header("ABILITIES"))
     for ab in enemy.abilities:
         cost = ANNOYANCE_COST[ab.annoyance]
-        lines.append(box_line(f"  {ab.name} (-{cost} PP, {ab.annoyance.name})"))
+        lines.append(box_line(f"  ▸ {ab.name} (-{cost} PP, {ab.annoyance.name})"))
         if ab.flavor:
             lines.append(box_line(f'    "{ab.flavor}"'))
     if enemy.flavor:
-        lines.append(box_divider())
-        lines.append(box_line(f'"{enemy.flavor}"'))
+        lines.append(box_divider_pixel())
+        lines.append(box_line(f'"{enemy.flavor}"', "center"))
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -464,14 +616,16 @@ def render_inspect(enemy: Enemy) -> str:
 def render_dot_tick(dot_log: list[str], kill_name: str | None = None) -> str:
     lines = [
         box_top(),
-        box_line("STATUS EFFECTS TICK", "center"),
-        box_divider(),
     ]
+    for art_line in sprites.DOT_TICK.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    lines.append(box_line("STATUS EFFECTS TICK", "center"))
+    lines.append(box_divider())
     for entry in dot_log:
         lines.append(box_line(entry.strip()))
     if kill_name:
-        lines.append(box_divider())
-        lines.append(box_line(f"{kill_name} dies to DOT!", "center"))
+        lines.append(box_divider_pixel())
+        lines.append(box_line(f"▓▓ {kill_name} dies to DOT! ▓▓", "center"))
         lines.append(box_line('"Slow death. How dramatic."', "center"))
     lines.append(box_bot())
     return "\n".join(lines)
@@ -480,26 +634,30 @@ def render_dot_tick(dot_log: list[str], kill_name: str | None = None) -> str:
 def render_dodge(enemy_name: str) -> str:
     lines = [
         box_top(),
-        box_line("MISS!", "center"),
-        box_divider(),
-        box_line(f"  {enemy_name} dodges the attack!"),
-        box_line(f'  Sera: "Stand still, insect."'),
-        box_line(f"  [-2 Patience]"),
-        box_bot(),
     ]
+    for art_line in sprites.DODGE_EFFECT.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    lines.append(box_line("░░ MISS! ░░", "center"))
+    lines.append(box_divider())
+    lines.append(box_line(f"  {enemy_name} dodges the attack!"))
+    lines.append(box_line(f'  Sera: "Stand still, insect."'))
+    lines.append(box_line(f"  [-2 Patience]"))
+    lines.append(box_bot())
     return "\n".join(lines)
 
 
 def render_interrupt(enemy_name: str, ability_name: str) -> str:
     lines = [
         box_top(),
-        box_line("INTERRUPTED!", "center"),
-        box_divider(),
-        box_line(f"  {enemy_name}'s {ability_name} was cancelled!"),
-        box_line(f'  Sera: "I said shut up."'),
-        box_line(f"  [+3 Patience]"),
-        box_bot(),
     ]
+    for art_line in sprites.INTERRUPT_EFFECT.strip().split("\n"):
+        lines.append(box_line(art_line, "center"))
+    lines.append(box_line("▓▓ INTERRUPTED! ▓▓", "center"))
+    lines.append(box_divider())
+    lines.append(box_line(f"  {enemy_name}'s {ability_name} was cancelled!"))
+    lines.append(box_line(f'  Sera: "I said shut up."'))
+    lines.append(box_line(f"  [+3 Patience]"))
+    lines.append(box_bot())
     return "\n".join(lines)
 
 
