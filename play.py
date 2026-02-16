@@ -125,11 +125,16 @@ def pause(msg: str = "  [Press Enter]"):
 # Title screen
 # ─────────────────────────────────────────────────────────
 
-def title_screen() -> bool:
+def title_screen() -> str:
+    """Returns 'new_game', 'simulation', or 'quit'."""
     ui.clear()
     print(ui.render_title_screen())
-    choice = get_choice("> ", ["1", "2"])
-    return choice == "1"
+    choice = get_choice("> ", ["1", "2", "3"])
+    if choice in ("quit", "3"):
+        return "quit"
+    if choice == "2":
+        return "simulation"
+    return "new_game"
 
 
 # ─────────────────────────────────────────────────────────
@@ -550,11 +555,24 @@ def craft_screen(state: GameState):
 # Main game loop
 # ─────────────────────────────────────────────────────────
 
-def main():
-    if not title_screen():
-        print("  Sera didn't even show up.")
-        return
+def run_simulation():
+    """Run the 3 scripted combat simulation scenarios."""
+    from main import run_scenario_1, run_scenario_2, run_scenario_3
 
+    ui.clear()
+    print("  Running combat simulations...")
+    print()
+    run_scenario_1()
+    print()
+    run_scenario_2()
+    print()
+    run_scenario_3()
+    print()
+    pause("  [Press Enter to return to menu]")
+
+
+def run_new_game():
+    """Run the full interactive game."""
     state = GameState()
 
     if not choose_starting_weapon(state):
@@ -599,6 +617,20 @@ def main():
     # Victory
     ui.clear()
     print(ui.render_victory(state.max_floors, state.interest))
+
+
+def main():
+    while True:
+        choice = title_screen()
+        if choice == "quit":
+            print("  Sera didn't even show up.")
+            return
+        if choice == "simulation":
+            run_simulation()
+            continue
+        # choice == "new_game"
+        run_new_game()
+        return
 
 
 if __name__ == "__main__":
