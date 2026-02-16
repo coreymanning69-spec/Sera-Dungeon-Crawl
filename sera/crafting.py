@@ -64,6 +64,45 @@ CRAFTING_MATERIALS = {
 }
 
 
+UPGRADE_QUIPS = [
+    '"Better. Not good. Better."',
+    '"Now THAT has some weight to it."',
+    '"More. Always more."',
+    '"Sharper. Meaner. Mine."',
+]
+
+
+def upgrade_weapon(weapon: Weapon, shards_available: int) -> tuple[list[str], int]:
+    """
+    Upgrade a weapon by one level.
+    Returns (log_lines, shards_consumed).
+    Returns 0 shards consumed on failure.
+    """
+    import random
+    log = []
+    if not weapon.can_upgrade:
+        log.append(f"  {weapon.display_name} is at maximum upgrade (+{weapon.MAX_UPGRADE_LEVEL}).")
+        log.append(f'  Sera: "It can\'t get any better. Unlike you."')
+        return log, 0
+
+    cost = weapon.upgrade_cost
+    if shards_available < cost:
+        log.append(f"  Need {cost} shards, have {shards_available}.")
+        log.append(f'  Sera: "Come back when you can afford it."')
+        return log, 0
+
+    old_name = weapon.display_name
+    old_dmg = weapon.effective_base_damage
+    weapon.upgrade_level += 1
+    new_dmg = weapon.effective_base_damage
+
+    log.append(f"  UPGRADE: {old_name} -> {weapon.display_name}")
+    log.append(f"  Base damage: {old_dmg} -> {new_dmg}")
+    log.append(f"  Shards used: {cost}")
+    log.append(f"  Sera: {random.choice(UPGRADE_QUIPS)}")
+    return log, cost
+
+
 def apply_material(weapon: Weapon, material: CraftingMaterial) -> list[str]:
     """
     Apply a crafting material to a weapon.

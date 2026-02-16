@@ -59,6 +59,66 @@
       "base_damage": 2,
       "tags": ["SONIC"],
       "flavor": "Rings at a frequency that makes lesser beings reconsider existing."
+    },
+    {
+      "name": "Frozen Scepter",
+      "base_damage": 2,
+      "tags": ["ARCANE", "DIVINE"],
+      "flavor": "Cold as my opinion of you. Which is saying something."
+    },
+    {
+      "name": "Chain Hook",
+      "base_damage": 2,
+      "tags": ["PHYSICAL", "BLEED"],
+      "flavor": "Drags them closer. So I can be disappointed at point-blank range."
+    },
+    {
+      "name": "Runic Greataxe",
+      "base_damage": 3,
+      "tags": ["HEAVY", "ARCANE"],
+      "flavor": "Big. Glowing. Overcompensating. I approve."
+    },
+    {
+      "name": "Venom Fang Dagger",
+      "base_damage": 1,
+      "tags": ["PHYSICAL", "CORROSIVE"],
+      "flavor": "Small but every cut is a promise of something worse."
+    },
+    {
+      "name": "Thunderclap Gauntlet",
+      "base_damage": 2,
+      "tags": ["PHYSICAL", "SONIC"],
+      "flavor": "Punches so hard the sound arrives late. Rude and effective."
+    },
+    {
+      "name": "Spectral Scythe",
+      "base_damage": 2,
+      "tags": ["ETHEREAL", "BLEED"],
+      "flavor": "Cuts the soul. The body just follows along out of politeness."
+    },
+    {
+      "name": "Molten Flail",
+      "base_damage": 3,
+      "tags": ["FIRE", "HEAVY"],
+      "flavor": "A ball of molten iron on a chain. Subtle as a supernova."
+    },
+    {
+      "name": "Blessed Mace",
+      "base_damage": 3,
+      "tags": ["DIVINE", "HEAVY"],
+      "flavor": "Blessed by a lesser god. I could do better, but it'll do."
+    },
+    {
+      "name": "Shadow Needle",
+      "base_damage": 1,
+      "tags": ["PHYSICAL", "ETHEREAL"],
+      "flavor": "Thin as a whisper. Hurts like a scream."
+    },
+    {
+      "name": "Alchemist's Crossbow",
+      "base_damage": 2,
+      "tags": ["CORROSIVE", "FIRE"],
+      "flavor": "Shoots bolts that melt on impact. Science was a mistake. A beautiful mistake."
     }
   ]
 }

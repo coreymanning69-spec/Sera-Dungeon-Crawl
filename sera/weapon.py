@@ -74,6 +74,9 @@ class Weapon:
     suffix: Affix | None = None
     set_bonus: Affix | None = None
     flavor: str = ""               # Sera's opinion of this weapon
+    upgrade_level: int = 0         # +0 to +3, each level = +1 base dmg
+
+    MAX_UPGRADE_LEVEL: int = field(default=3, repr=False)
 
     @property
     def display_name(self) -> str:
@@ -83,7 +86,23 @@ class Weapon:
         parts.append(self.name)
         if self.suffix:
             parts.append(self.suffix.name)
+        if self.upgrade_level > 0:
+            parts.append(f"+{self.upgrade_level}")
         return " ".join(parts)
+
+    @property
+    def effective_base_damage(self) -> int:
+        """Base damage including upgrade bonus."""
+        return self.base_damage + self.upgrade_level
+
+    @property
+    def upgrade_cost(self) -> int:
+        """Shards needed for the next upgrade level."""
+        return self.upgrade_level + 1  # costs 1, 2, 3 shards
+
+    @property
+    def can_upgrade(self) -> bool:
+        return self.upgrade_level < self.MAX_UPGRADE_LEVEL
 
     @property
     def all_tags(self) -> set[DamageTag]:
@@ -100,8 +119,11 @@ class Weapon:
         Returns (final_damage, list_of_math_steps_for_display).
         """
         steps: list[str] = []
-        dmg = self.base_damage
-        steps.append(f"Base: {dmg}")
+        dmg = self.effective_base_damage
+        if self.upgrade_level > 0:
+            steps.append(f"Base: {self.base_damage} + {self.upgrade_level} (upgrade) = {dmg}")
+        else:
+            steps.append(f"Base: {dmg}")
 
         # --- Phase 1: Flat bonuses ---
         for affix in [self.prefix, self.suffix, self.set_bonus]:

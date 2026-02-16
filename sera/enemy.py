@@ -132,13 +132,33 @@ class Enemy:
                 return
         self.statuses.append(StatusInstance(effect, duration, potency))
 
+    def is_frozen(self) -> bool:
+        """Check if this enemy is frozen and can't act."""
+        return any(s.prevents_action() for s in self.statuses)
+
+    def get_annoyance_multiplier(self) -> float:
+        """Get patience-drain multiplier from WEAKENED etc."""
+        mult = 1.0
+        for s in self.statuses:
+            mult *= s.annoyance_reduction()
+        return mult
+
     def tick_statuses(self) -> list[str]:
-        """Advance all status timers. Returns log of expired effects."""
+        """Advance all status timers. Returns log of expired/detonated effects."""
         log = []
         surviving = []
         for s in self.statuses:
             if not s.tick():
-                log.append(f"  {s.effect.name} expired on {self.name}.")
+                # Check for DOOMED detonation on expiry
+                det = s.detonate_damage()
+                if det > 0:
+                    self.current_hp -= det
+                    log.append(f"  DOOM detonates on {self.name} for {det} damage! "
+                               f"({self.current_hp}/{self.max_hp})")
+                    if self.current_hp <= 0:
+                        log.append(f"  {self.name} is destroyed by DOOM!")
+                else:
+                    log.append(f"  {s.effect.name} expired on {self.name}.")
             else:
                 surviving.append(s)
         self.statuses = surviving

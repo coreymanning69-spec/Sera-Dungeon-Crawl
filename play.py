@@ -17,9 +17,9 @@ from sera.weapon import Weapon, Affix
 from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR
 from sera.interest import InterestManager
 from sera.status import StatusEffect
-from sera.crafting import CraftingMaterial, apply_material
+from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
 from sera.loader import load_weapons, load_affixes, load_enemies
-from sera.encounters import generate_encounter, generate_loot_weapon, generate_loot_material
+from sera.encounters import generate_encounter, generate_loot_weapon, generate_loot_material, generate_loot_shards
 from sera import ui
 
 
@@ -92,6 +92,7 @@ class GameState:
         self.max_floors = 5
         self.weapons: list[Weapon] = []
         self.materials: list[CraftingMaterial] = []
+        self.upgrade_shards: int = 0
         self.equipped_idx: int = 0
         self.all_enemies = load_enemies()
         self.all_weapons = load_weapons()
@@ -258,6 +259,14 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         for enemy in alive:
             if interest.game_over:
                 return False
+            if enemy.is_frozen():
+                ui.clear()
+                print(ui.box_top())
+                print(ui.box_line(f"░░ {enemy.name} is FROZEN! ░░", "center"))
+                print(ui.box_line('Sera: "Stay still. I like you better this way."', "center"))
+                print(ui.box_bot())
+                pause()
+                continue
             _resolve_enemy_action(enemy, interest)
 
             if interest.game_over:
@@ -280,7 +289,27 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         # --- CLEANUP PHASE ---
         for enemy in enemies:
             if enemy.current_hp > 0:
-                enemy.tick_statuses()
+                hp_before_tick = enemy.current_hp
+                status_log = enemy.tick_statuses()
+                if status_log:
+                    doom_killed = enemy.current_hp <= 0
+                    # Show any detonations or expirations
+                    for line in status_log:
+                        if "DOOM" in line or "destroyed" in line:
+                            ui.clear()
+                            print(ui.box_top())
+                            print(ui.box_line("░░ DOOM DETONATES ░░", "center"))
+                            print(ui.box_line(line.strip(), "center"))
+                            if doom_killed:
+                                print(ui.box_line('Sera: "Tick tock. Time\'s up."', "center"))
+                            print(ui.box_bot())
+                            pause()
+                    if doom_killed:
+                        doom_dmg = hp_before_tick
+                        kill_log = interest.register_kill(
+                            enemy.name, doom_dmg, doom_dmg)
+                        print(ui.render_kill_report(enemy.name, kill_log))
+                        pause()
                 enemy.tick_cooldowns()
                 healed = enemy.tick_regen()
                 if healed > 0:
@@ -406,11 +435,15 @@ def _resolve_enemy_action(enemy: Enemy, interest: InterestManager):
             pause()
         return
 
-    cost = ANNOYANCE_COST[ability.annoyance]
+    base_cost = ANNOYANCE_COST[ability.annoyance]
+    mult = enemy.get_annoyance_multiplier()
+    cost = max(1, int(base_cost * mult))
     flavor = ability.flavor or ANNOYANCE_FLAVOR[ability.annoyance]
 
     ui.clear()
     print(ui.render_enemy_action(enemy, ability.name, flavor, cost))
+    if mult < 1.0:
+        print(f"  (WEAKENED: {base_cost} -> {cost} patience drain)")
     interest.take_annoyance(cost, f"{ability.name}")
     print(f"  Patience: {ui.patience_bar(interest)}")
     pause()
@@ -424,10 +457,20 @@ def loot_phase(state: GameState):
     """Offer loot after clearing a room."""
     weapon_drop = generate_loot_weapon(state.floor, state.all_weapons, state.all_affixes)
     material_drop = generate_loot_material()
+    shard_drop = generate_loot_shards(state.floor)
 
     ui.clear()
-    screen, choices = ui.render_loot_screen(weapon_drop, material_drop, state.interest)
+    screen, choices = ui.render_loot_screen(
+        weapon_drop, material_drop, state.interest, shard_drop)
     print(screen)
+
+    # Auto-collect shards
+    if shard_drop > 0:
+        state.upgrade_shards += shard_drop
+        print(f'  Collected {shard_drop} Upgrade Shard{"s" if shard_drop != 1 else ""}!')
+        print(f'  Total shards: {state.upgrade_shards}')
+        print(f'  Sera: "Shiny. Useful."')
+        print()
 
     if not choices:
         pause()
@@ -461,15 +504,16 @@ def loot_phase(state: GameState):
 
 def between_floors(state: GameState) -> bool:
     """
-    Between-floor menu: equip, craft, view inventory, or continue.
+    Between-floor menu: equip, craft, upgrade, view inventory, or continue.
     Returns False if player quits.
     """
     while True:
         ui.clear()
-        print(ui.render_between_floors(state.floor, state.interest))
+        print(ui.render_between_floors(
+            state.floor, state.interest, state.upgrade_shards))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5"])
-        if choice in ("quit", "5"):
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6"])
+        if choice in ("quit", "6"):
             return False
 
         if choice == "1":
@@ -482,8 +526,13 @@ def between_floors(state: GameState) -> bool:
             craft_screen(state)
 
         if choice == "4":
+            upgrade_screen(state)
+
+        if choice == "5":
             ui.clear()
-            print(ui.render_inventory(state.weapons, state.materials, state.equipped_idx))
+            print(ui.render_inventory(
+                state.weapons, state.materials, state.equipped_idx,
+                state.upgrade_shards))
             pause()
 
 
@@ -542,6 +591,42 @@ def craft_screen(state: GameState):
     print(ui.box_divider())
     for line in craft_log:
         print(ui.box_line(line.strip()))
+    print(ui.box_divider_pixel())
+    print(ui.box_bot())
+    pause()
+
+
+def upgrade_screen(state: GameState):
+    if state.upgrade_shards <= 0:
+        print('  No upgrade shards. "Kill things and find some."')
+        pause()
+        return
+
+    ui.clear()
+    print(ui.render_upgrade_screen(state.weapons, state.equipped_idx, state.upgrade_shards))
+
+    print("  Upgrade which weapon?")
+    valid = [str(i+1) for i in range(len(state.weapons))] + ["0"]
+    choice = get_choice("  > ", valid)
+    if choice in ("0", "quit"):
+        return
+
+    w_idx = int(choice) - 1
+    weapon = state.weapons[w_idx]
+
+    upgrade_log, shards_used = upgrade_weapon(weapon, state.upgrade_shards)
+    state.upgrade_shards -= shards_used
+
+    ui.clear()
+    print(ui.box_top())
+    if shards_used > 0:
+        print(ui.box_line("░▒▓█ UPGRADE COMPLETE █▓▒░", "center"))
+    else:
+        print(ui.box_line("░▒▓█ UPGRADE FAILED █▓▒░", "center"))
+    print(ui.box_divider())
+    for line in upgrade_log:
+        print(ui.box_line(line.strip()))
+    print(ui.box_line(f"  Shards remaining: {state.upgrade_shards}"))
     print(ui.box_divider_pixel())
     print(ui.box_bot())
     pause()

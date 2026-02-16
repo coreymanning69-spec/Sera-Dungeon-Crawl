@@ -248,6 +248,35 @@ DOT_TICK = r"""
 # Decorative elements
 # ─────────────────────────────────────────────────────────
 
+UPGRADE_ANVIL = r"""
+     ▄████████▄
+    ██▓▓▓▓▓▓▓▓██
+    █▌▒▒▒▒▒▒▒▒▐█
+     ██▓▓▓▓▓▓██
+      ▀██████▀
+       ██████
+    ████████████
+"""
+
+SHARD = r"""
+    ◇
+   ◇◇◇
+    ◇
+"""
+
+UPGRADE_LEVELS = {
+    0: "░░░",
+    1: "█░░",
+    2: "██░",
+    3: "███",
+}
+
+
+def get_upgrade_display(level: int, max_level: int = 3) -> str:
+    """Get visual upgrade level indicator."""
+    return UPGRADE_LEVELS.get(level, "░" * max_level)
+
+
 DIVIDER_SWORD = "  ════════╤═══════╤════════"
 DIVIDER_PIXEL = "  ░▒▓█▓▒░ ░▒▓█▓▒░ ░▒▓█▓▒░"
 DIVIDER_DOTS = "  ·····················"

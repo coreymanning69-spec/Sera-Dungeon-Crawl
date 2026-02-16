@@ -298,6 +298,7 @@ def render_loot_screen(
     weapon_loot: Weapon | None,
     material_loot: CraftingMaterial | None,
     interest: InterestManager,
+    shard_drop: int = 0,
 ) -> str:
     lines = [
         box_top(),
@@ -312,6 +313,12 @@ def render_loot_screen(
     lines.append(box_blank())
     lines.append(box_header("LOOT"))
     lines.append(box_blank())
+
+    if shard_drop > 0:
+        for sl in sprites.SHARD.strip().split("\n"):
+            lines.append(box_line(f"    {sl}"))
+        lines.append(box_line(f"  ◇ {shard_drop} Upgrade Shard{'s' if shard_drop != 1 else ''} (auto-collected)"))
+        lines.append(box_blank())
 
     choices = []
     idx = 1
@@ -352,6 +359,7 @@ def render_inventory(
     weapons: list[Weapon],
     materials: list[CraftingMaterial],
     equipped_idx: int,
+    upgrade_shards: int = 0,
 ) -> str:
     lines = [
         box_top(),
@@ -362,7 +370,8 @@ def render_inventory(
     for i, w in enumerate(weapons):
         marker = " ◄ EQUIPPED" if i == equipped_idx else ""
         tag_str = ", ".join(t.name for t in w.all_tags)
-        lines.append(box_line(f"  ▸ [{i+1}] {w.display_name} ({w.base_damage} dmg){marker}"))
+        upgrade_display = f" [{sprites.get_upgrade_display(w.upgrade_level)}]" if w.upgrade_level > 0 else ""
+        lines.append(box_line(f"  ▸ [{i+1}] {w.display_name} ({w.effective_base_damage} dmg){marker}{upgrade_display}"))
         lines.append(box_line(f"        [{tag_str}]"))
         if w.prefix:
             lines.append(box_line(f"        PRE: {w.prefix.name} - {w.prefix.description}"))
@@ -377,6 +386,9 @@ def render_inventory(
             lines.append(box_line(f"  ▸ [{i+1}] {m.name} (grants [{tag_name}])"))
     else:
         lines.append(box_line("  (empty)"))
+
+    lines.append(box_divider())
+    lines.append(box_line(f"  ◇ Upgrade Shards: {upgrade_shards}"))
 
     lines.append(box_blank())
     lines.append(box_bot())
@@ -437,6 +449,40 @@ def render_craft_screen(
     return "\n".join(lines)
 
 
+def render_upgrade_screen(
+    weapons: list[Weapon],
+    equipped_idx: int,
+    shards: int,
+) -> str:
+    lines = [
+        box_top(),
+        box_line("░▒▓█ UPGRADE WEAPON █▓▒░", "center"),
+        box_divider(),
+    ]
+    # Anvil art
+    for sl in sprites.UPGRADE_ANVIL.strip().split("\n"):
+        lines.append(box_line(sl, "center"))
+    lines.append(box_divider_thin())
+    lines.append(box_line(f"  ◇ Shards available: {shards}"))
+    lines.append(box_divider())
+    lines.append(box_header("WEAPONS"))
+    for i, w in enumerate(weapons):
+        marker = " ◄" if i == equipped_idx else ""
+        lvl = sprites.get_upgrade_display(w.upgrade_level)
+        if w.can_upgrade:
+            cost = w.upgrade_cost
+            lines.append(box_line(f"  ▸ [{i+1}] {w.display_name} [{lvl}]{marker}"))
+            lines.append(box_line(f"        Dmg: {w.effective_base_damage}  |  Next: {cost} shard{'s' if cost != 1 else ''}"))
+        else:
+            lines.append(box_line(f"  ▸ [{i+1}] {w.display_name} [{lvl}] MAX{marker}"))
+            lines.append(box_line(f"        Dmg: {w.effective_base_damage}  |  Fully upgraded"))
+
+    lines.append(box_blank())
+    lines.append(box_line("  ▸ [0] Cancel"))
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
 def render_weapon_detail(weapon: Weapon) -> str:
     tag_str = ", ".join(t.name for t in weapon.all_tags)
     lines = [
@@ -487,7 +533,7 @@ def render_weapon_detail(weapon: Weapon) -> str:
     return "\n".join(lines)
 
 
-def render_between_floors(floor: int, interest: InterestManager) -> str:
+def render_between_floors(floor: int, interest: InterestManager, upgrade_shards: int = 0) -> str:
     lines = [
         box_top(),
         box_blank(),
@@ -495,6 +541,7 @@ def render_between_floors(floor: int, interest: InterestManager) -> str:
         box_blank(),
         box_divider(),
         box_line(f"  Patience: {patience_bar(interest)}"),
+        box_line(f"  ◇ Upgrade Shards: {upgrade_shards}"),
         box_divider(),
     ]
     # Sera idle sprite
@@ -504,8 +551,9 @@ def render_between_floors(floor: int, interest: InterestManager) -> str:
     lines.append(box_line("  ▸ [1] Continue to next floor"))
     lines.append(box_line("  ▸ [2] Equip weapon"))
     lines.append(box_line("  ▸ [3] Craft (apply material to weapon)"))
-    lines.append(box_line("  ▸ [4] View inventory"))
-    lines.append(box_line("  ▸ [5] Quit"))
+    lines.append(box_line("  ▸ [4] Upgrade weapon (spend shards)"))
+    lines.append(box_line("  ▸ [5] View inventory"))
+    lines.append(box_line("  ▸ [6] Quit"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)

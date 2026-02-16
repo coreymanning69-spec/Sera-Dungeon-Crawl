@@ -105,3 +105,23 @@ def generate_loot_material() -> CraftingMaterial | None:
     if random.random() < 0.4:
         return copy.deepcopy(random.choice(list(CRAFTING_MATERIALS.values())))
     return None
+
+
+def generate_loot_shards(floor: int) -> int:
+    """
+    Generate upgrade shards as loot. Higher floors = more shards.
+
+    Floor 1: 0-1 shards (50% chance)
+    Floor 2: 0-1 shards (60% chance)
+    Floor 3: 1-2 shards (70% chance)
+    Floor 4: 1-2 shards (80% chance)
+    Floor 5: 2-3 shards (guaranteed)
+    """
+    chance = min(0.5 + floor * 0.1, 1.0)
+    if random.random() > chance:
+        return 0
+    if floor <= 2:
+        return random.randint(0, 1) or 1  # at least 1 if we passed the check
+    if floor <= 4:
+        return random.randint(1, 2)
+    return random.randint(2, 3)

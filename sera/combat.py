@@ -79,6 +79,10 @@ def resolve_combat(
                 continue
             if interest.game_over:
                 break
+            if enemy.is_frozen():
+                log.append(f'\n  {enemy.name} is FROZEN solid! Skipping turn.')
+                log.append(f'  Sera: "Stay still. I like you better this way."')
+                continue
             log.extend(_resolve_enemy_turn(enemy, interest))
 
         # --- Status Tick ---
@@ -176,12 +180,16 @@ def _resolve_enemy_turn(
             log.append(f'  Sera: "Hurry up or I\'m leaving."')
         return log
 
-    # Resolve the annoyance
-    cost = ANNOYANCE_COST[ability.annoyance]
+    # Resolve the annoyance (WEAKENED reduces cost)
+    base_cost = ANNOYANCE_COST[ability.annoyance]
+    mult = enemy.get_annoyance_multiplier()
+    cost = max(1, int(base_cost * mult))
     flavor = ability.flavor or ANNOYANCE_FLAVOR[ability.annoyance]
 
     log.append(f"\n  {enemy.name} uses {ability.name}!")
     log.append(f'  "{flavor}"')
+    if mult < 1.0:
+        log.append(f'  (WEAKENED: {base_cost} -> {cost} patience drain)')
     log.extend(interest.take_annoyance(cost, f"{ability.name} ({ability.annoyance.name})"))
 
     return log
@@ -200,5 +208,8 @@ def _status_quip(effect: StatusEffect) -> str:
         StatusEffect.HUMILIATED: "That's the face of someone who knows they've lost.",
         StatusEffect.TERRIFIED: "Good instinct.",
         StatusEffect.SLOWED: "Take your time. Actually, don't.",
+        StatusEffect.WEAKENED: "Feel that? That's your relevance fading.",
+        StatusEffect.FROZEN: "Ice cold. Like my expectations.",
+        StatusEffect.DOOMED: "Tick tock. Enjoy the countdown.",
     }
     return quips.get(effect, "Noted.")
