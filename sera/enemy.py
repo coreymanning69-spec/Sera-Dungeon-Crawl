@@ -58,6 +58,14 @@ class EnemyAbility:
         return ANNOYANCE_COST[self.annoyance]
 
 
+@dataclass(frozen=True)
+class StatusKillEvent:
+    """A kill caused by a status-expiry detonation."""
+    enemy_name: str
+    damage_dealt: int
+    enemy_hp_was: int
+
+
 @dataclass
 class Enemy:
     """
@@ -143,26 +151,33 @@ class Enemy:
             mult *= s.annoyance_reduction()
         return mult
 
-    def tick_statuses(self) -> list[str]:
-        """Advance all status timers. Returns log of expired/detonated effects."""
+    def tick_statuses(self) -> tuple[list[str], list[StatusKillEvent]]:
+        """Advance all status timers. Returns (status_log, kill_events)."""
         log = []
+        kill_events = []
         surviving = []
         for s in self.statuses:
             if not s.tick():
                 # Check for DOOMED detonation on expiry
                 det = s.detonate_damage()
                 if det > 0:
+                    hp_before = self.current_hp
                     self.current_hp -= det
                     log.append(f"  DOOM detonates on {self.name} for {det} damage! "
                                f"({self.current_hp}/{self.max_hp})")
-                    if self.current_hp <= 0:
+                    if hp_before > 0 and self.current_hp <= 0:
+                        kill_events.append(StatusKillEvent(
+                            enemy_name=self.name,
+                            damage_dealt=det,
+                            enemy_hp_was=hp_before,
+                        ))
                         log.append(f"  {self.name} is destroyed by DOOM!")
                 else:
                     log.append(f"  {s.effect.name} expired on {self.name}.")
             else:
                 surviving.append(s)
         self.statuses = surviving
-        return log
+        return log, kill_events
 
     def tick_dot_damage(self) -> tuple[int, list[str]]:
         """Apply damage-over-time from status effects. Returns (total_dot, log)."""

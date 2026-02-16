@@ -16,7 +16,12 @@ import copy
 from dataclasses import dataclass
 
 from sera.weapon import Weapon
-from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR
+from sera.enemy import (
+    Enemy,
+    AnnoyanceType,
+    ANNOYANCE_COST,
+    ANNOYANCE_FLAVOR,
+)
 from sera.interest import InterestManager
 from sera.status import StatusEffect
 
@@ -88,9 +93,16 @@ def resolve_combat(
         # --- Status Tick ---
         for enemy in enemies:
             if enemy.current_hp > 0:
-                tick_log = enemy.tick_statuses()
+                tick_log, kill_events = enemy.tick_statuses()
                 if tick_log:
                     log.extend(tick_log)
+                for event in kill_events:
+                    kills += 1
+                    log.extend(interest.register_kill(
+                        event.enemy_name,
+                        event.damage_dealt,
+                        event.enemy_hp_was,
+                    ))
                 enemy.tick_cooldowns()
 
         # --- Regen Phase ---
