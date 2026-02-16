@@ -605,8 +605,8 @@ def craft_screen(state: GameState):
 # ─────────────────────────────────────────────────────────
 
 def run_simulation():
-    """Run the 3 scripted scenarios and show a summary table."""
-    from main import run_scenario_1, run_scenario_2, run_scenario_3
+    """Run the scripted scenarios and show a summary table."""
+    from main import run_scenario_1, run_scenario_2, run_scenario_3, run_scenario_4
 
     ui.clear()
     print(ui.box_top())
@@ -617,6 +617,7 @@ def run_simulation():
         run_scenario_1(verbose=False),
         run_scenario_2(verbose=False),
         run_scenario_3(verbose=False),
+        run_scenario_4(verbose=False),
     ]
 
     while True:

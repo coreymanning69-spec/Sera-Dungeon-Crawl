@@ -149,6 +149,66 @@
       "inflicts_status": "MARKED",
       "status_duration": 3,
       "status_potency": 1
+    },
+    {
+      "name": "Glacial",
+      "affix_type": "prefix",
+      "description": "Cold focus. Grants Ice and punishes full-health targets.",
+      "flat_bonus": 2,
+      "flat_condition": "enemy_full_hp",
+      "multiplier": 1.0,
+      "mult_condition": "always",
+      "per_stack_bonus": 0,
+      "per_stack_source": "",
+      "granted_tag": "ICE",
+      "inflicts_status": "SLOWED",
+      "status_duration": 2,
+      "status_potency": 1
+    },
+    {
+      "name": "Blazing",
+      "affix_type": "prefix",
+      "description": "Everything burns eventually. Grants Fire.",
+      "flat_bonus": 1,
+      "flat_condition": "always",
+      "multiplier": 1.5,
+      "mult_condition": "enemy_has_debuffs",
+      "per_stack_bonus": 0,
+      "per_stack_source": "",
+      "granted_tag": "FIRE",
+      "inflicts_status": "BURNING",
+      "status_duration": 2,
+      "status_potency": 1
+    },
+    {
+      "name": "of Kindling",
+      "affix_type": "suffix",
+      "description": "Casting targets ignite beautifully.",
+      "flat_bonus": 0,
+      "flat_condition": "always",
+      "multiplier": 2.0,
+      "mult_condition": "enemy_casting",
+      "per_stack_bonus": 0,
+      "per_stack_source": "",
+      "granted_tag": null,
+      "inflicts_status": "BURNING",
+      "status_duration": 3,
+      "status_potency": 1
+    },
+    {
+      "name": "of Winter",
+      "affix_type": "suffix",
+      "description": "Below half HP, they freeze and break.",
+      "flat_bonus": 2,
+      "flat_condition": "enemy_below_half",
+      "multiplier": 1.0,
+      "mult_condition": "always",
+      "per_stack_bonus": 1,
+      "per_stack_source": "debuffs_on_target",
+      "granted_tag": "ICE",
+      "inflicts_status": "SLOWED",
+      "status_duration": 2,
+      "status_potency": 1
     }
   ]
 }

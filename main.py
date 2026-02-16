@@ -2,11 +2,12 @@
 """
 SERA: ENDLESS ENGAGEMENT — Combat Simulation Demo
 
-Runs 3 scripted combat scenarios showing the math engine in action.
+Runs scripted combat scenarios showing the math engine in action.
 
 Scenario 1: "The Setup" — Petty Shiv vs Flickering Imps (multi-kill overkill)
 Scenario 2: "The Permission Problem" — Wrong weapon vs Ghost, then crafted fix
 Scenario 3: "The Boss Fight" — Full build vs Dreadknight (all systems firing)
+Scenario 4: "Elemental Counterplay" — Fire and Ice matchup tuning
 
 Each scenario function returns a dict with structured results for the UI,
 and can also be run standalone for verbose output.
@@ -279,6 +280,72 @@ def run_scenario_3(verbose: bool = True) -> dict:
     }
 
 
+
+def run_scenario_4(verbose: bool = True) -> dict:
+    """Elemental Counterplay: Fire weapon versus ice target to validate tuning."""
+    name = "Elemental Counterplay: Inferno Pike vs Rimebound Golem"
+
+    weapon = Weapon(
+        name="Inferno Pike",
+        base_damage=3,
+        tags=[DamageTag.FIRE, DamageTag.HEAVY],
+        prefix=Affix(
+            name="Blazing",
+            description="Everything burns eventually.",
+            affix_type="prefix",
+            flat_bonus=1,
+            flat_condition="always",
+            multiplier=1.5,
+            mult_condition="enemy_has_debuffs",
+            inflicts_status="BURNING",
+            status_duration=2,
+        ),
+        suffix=Affix(
+            name="of Kindling",
+            description="Casting targets ignite beautifully.",
+            affix_type="suffix",
+            multiplier=2.0,
+            mult_condition="enemy_casting",
+            inflicts_status="BURNING",
+            status_duration=2,
+        ),
+    )
+
+    golem = Enemy(
+        name="Rimebound Golem",
+        max_hp=34,
+        archetype="elite",
+        vulnerability=EnemyVulnerability.REQUIRES_HEAVY,
+        armor=3,
+        elemental_weaknesses=[DamageTag.FIRE],
+        elemental_resistances=[DamageTag.ICE],
+        abilities=[
+            EnemyAbility("Permafrost Slam", AnnoyanceType.STUN, cooldown=4, flavor="It swings an iceberg. Groundbreaking."),
+            EnemyAbility("Cold Shoulder", AnnoyanceType.WEAK_HIT, flavor="A glacial jab. Emotionally accurate."),
+        ],
+    )
+
+    interest = InterestManager(current_patience=75)
+    result = resolve_combat(weapon, [golem], interest, max_turns=4)
+
+    if verbose:
+        print(banner("SCENARIO 4: ELEMENTAL COUNTERPLAY"))
+        print('  "Fire into ice. Finally, a basic concept lands."')
+        print(f"\n  Weapon: {weapon}")
+        print("  Target weak to FIRE, resistant to ICE")
+        for line in result.log:
+            print(line)
+
+    return {
+        "name": name,
+        "kills": result.enemies_killed,
+        "patience": result.patience_remaining,
+        "max_patience": interest.max_patience,
+        "turns": result.turns_taken,
+        "game_over": result.game_over,
+        "log": result.log,
+    }
+
 def main():
     print(banner("SERA: ENDLESS ENGAGEMENT"))
     print('  "I am a Goddess. Entertain me or I leave."')
@@ -293,6 +360,8 @@ def main():
     run_scenario_2(verbose=True)
     print("\n" + "─" * 60)
     run_scenario_3(verbose=True)
+    print("\n" + "─" * 60)
+    run_scenario_4(verbose=True)
 
     print(banner("END OF SIMULATION"))
     print('  Sera: "Not bad. Not GOOD, but not bad."')

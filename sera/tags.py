@@ -17,6 +17,7 @@ class DamageTag(Enum):
     SILVER = auto()
     CORROSIVE = auto()
     FIRE = auto()
+    ICE = auto()
     ARCANE = auto()
     BLEED = auto()
     SONIC = auto()

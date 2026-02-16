@@ -68,6 +68,8 @@ def load_enemies() -> list[Enemy]:
                 charge_time=ab["charge_time"],
                 flavor=ab["flavor"],
             ))
+        weaknesses = [DamageTag[tag] for tag in e.get("elemental_weaknesses", [])]
+        resistances = [DamageTag[tag] for tag in e.get("elemental_resistances", [])]
         enemies.append(Enemy(
             name=e["name"],
             max_hp=e["max_hp"],
@@ -77,6 +79,8 @@ def load_enemies() -> list[Enemy]:
             armor=e["armor"],
             regen_per_turn=e["regen_per_turn"],
             dodge_chance=e["dodge_chance"],
+            elemental_weaknesses=weaknesses,
+            elemental_resistances=resistances,
             flavor=e["flavor"],
         ))
     return enemies
