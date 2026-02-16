@@ -13,6 +13,8 @@ from sera.weapon import Weapon
 from sera.enemy import Enemy, ANNOYANCE_COST
 from sera.interest import InterestManager
 from sera.crafting import CraftingMaterial
+from sera.equipment import EquipmentItem, EquipmentLoadout, SLOT_ORDER
+from sera.stats import PlayerStats
 from sera import sprites
 
 
@@ -202,6 +204,8 @@ def render_combat_hud(
     weapon: Weapon,
     enemies: list[Enemy],
     interest: InterestManager,
+    stats: PlayerStats,
+    healing_charges: int,
 ) -> str:
     tag_str = ", ".join(t.name for t in weapon.all_tags)
     turn_label = f"╍╍╍ TURN {turn} ╍╍╍"
@@ -213,6 +217,7 @@ def render_combat_hud(
         box_divider_thin(),
         box_line(f"  ⚔ {weapon.display_name} ({weapon.base_damage} dmg)"),
         box_line(f"    Tags: [{tag_str}]"),
+        box_line(f"  Flask Charges: {healing_charges}  |  AP bonus: +{stats.attack_bonus()}"),
         box_divider(),
     ]
 
@@ -238,6 +243,7 @@ def render_combat_hud(
         lines.append(box_line(f"  ▸ [{i+1}] Attack {e.name}"))
     lines.append(box_line(f"  ▸ [I] Inspect enemy"))
     lines.append(box_line(f"  ▸ [W] View weapon details"))
+    lines.append(box_line(f"  ▸ [H] Use healing flask"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -360,6 +366,8 @@ def render_inventory(
     materials: list[CraftingMaterial],
     equipped_idx: int,
     upgrade_shards: int = 0,
+    equipment_items: list[EquipmentItem] | None = None,
+    stats: PlayerStats | None = None,
 ) -> str:
     lines = [
         box_top(),
@@ -388,7 +396,17 @@ def render_inventory(
         lines.append(box_line("  (empty)"))
 
     lines.append(box_divider())
+    lines.append(box_header("EQUIPMENT STASH"))
+    if equipment_items:
+        for i, item in enumerate(equipment_items):
+            lines.append(box_line(f"  ▸ [{i+1}] {item.name} ({item.slot}) {item.ascii_art}"))
+    else:
+        lines.append(box_line("  (empty)"))
+
+    lines.append(box_divider())
     lines.append(box_line(f"  ◇ Upgrade Shards: {upgrade_shards}"))
+    if stats:
+        lines.append(box_line("  Stats: " + " | ".join(stats.as_lines())))
 
     lines.append(box_blank())
     lines.append(box_bot())
@@ -533,7 +551,7 @@ def render_weapon_detail(weapon: Weapon) -> str:
     return "\n".join(lines)
 
 
-def render_between_floors(floor: int, interest: InterestManager, upgrade_shards: int = 0) -> str:
+def render_between_floors(floor: int, interest: InterestManager, upgrade_shards: int = 0, flasks: int = 0) -> str:
     lines = [
         box_top(),
         box_blank(),
@@ -542,6 +560,7 @@ def render_between_floors(floor: int, interest: InterestManager, upgrade_shards:
         box_divider(),
         box_line(f"  Patience: {patience_bar(interest)}"),
         box_line(f"  ◇ Upgrade Shards: {upgrade_shards}"),
+        box_line(f"  ✚ Healing Flasks: {flasks}"),
         box_divider(),
     ]
     # Sera idle sprite
@@ -553,8 +572,47 @@ def render_between_floors(floor: int, interest: InterestManager, upgrade_shards:
     lines.append(box_line("  ▸ [3] Craft (apply material to weapon)"))
     lines.append(box_line("  ▸ [4] Upgrade weapon (spend shards)"))
     lines.append(box_line("  ▸ [5] View inventory"))
-    lines.append(box_line("  ▸ [6] Quit"))
+    lines.append(box_line("  ▸ [6] Equipment menu"))
+    lines.append(box_line("  ▸ [7] Quit"))
     lines.append(box_blank())
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_equipment_menu(
+    loadout: EquipmentLoadout,
+    stash: list[EquipmentItem],
+    stats: PlayerStats,
+) -> str:
+    lines = [
+        box_top(),
+        box_line("░▒▓█ EQUIPMENT MENU █▓▒░", "center"),
+        box_divider(),
+    ]
+
+    for slot in SLOT_ORDER:
+        item = loadout.equipped.get(slot)
+        if item:
+            lines.append(box_line(f"  [{slot}] {item.name} {item.ascii_art}"))
+            lines.append(box_line(f"      +Stats: {item.stat_bonuses} | DR {item.damage_reduction} | RES {item.damage_resistance}%"))
+            if item.resistances:
+                lines.append(box_line(f"      Elem: {item.resistances}"))
+            lines.append(box_line(f"      Ability: {item.ability or 'None'}"))
+        else:
+            lines.append(box_line(f"  [{slot}] (empty)"))
+        lines.append(box_divider_thin())
+
+    lines.append(box_header("TOTAL STATS"))
+    lines.append(box_line("  " + " | ".join(stats.as_lines())))
+    lines.append(box_blank())
+    lines.append(box_header("STASH"))
+    if stash:
+        for i, item in enumerate(stash):
+            lines.append(box_line(f"  ▸ [{i+1}] {item.name} ({item.slot}) {item.ascii_art}"))
+    else:
+        lines.append(box_line("  (no equipment items)"))
+    lines.append(box_blank())
+    lines.append(box_line("  ▸ [0] Back"))
     lines.append(box_bot())
     return "\n".join(lines)
 

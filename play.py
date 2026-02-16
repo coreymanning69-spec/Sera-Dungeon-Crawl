@@ -18,9 +18,11 @@ from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR
 from sera.interest import InterestManager
 from sera.status import StatusEffect
 from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
-from sera.loader import load_weapons, load_affixes, load_enemies
+from sera.loader import load_weapons, load_affixes, load_enemies, load_equipment_items
 from sera.encounters import generate_encounter, generate_loot_weapon, generate_loot_material, generate_loot_shards
 from sera import ui
+from sera.stats import PlayerStats
+from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem
 
 
 # ─────────────────────────────────────────────────────────
@@ -98,10 +100,19 @@ class GameState:
         self.all_weapons = load_weapons()
         self.all_affixes = load_affixes()
         self.floors_cleared: int = 0
+        self.base_stats = PlayerStats()
+        self.equipment_loadout = EquipmentLoadout()
+        self.equipment_stash: list[EquipmentItem] = []
+        self.all_equipment = load_equipment_items()
+        self.healing_flasks: int = 2
 
     @property
     def equipped_weapon(self) -> Weapon:
         return self.weapons[self.equipped_idx]
+
+    @property
+    def final_stats(self) -> PlayerStats:
+        return self.equipment_loadout.build_final_stats(self.base_stats)
 
 
 # ─────────────────────────────────────────────────────────
@@ -215,7 +226,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         # --- PLAYER TURN ---
         alive = [e for e in enemies if e.current_hp > 0]
         ui.clear()
-        print(ui.render_combat_hud(combat_turn, weapon, enemies, interest))
+        print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
 
         # Patience-based commentary
         if interest.current_patience <= 20:
@@ -226,21 +237,29 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         print()
 
         # Get player action
-        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w"]
+        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h"]
         action = None
         while action is None:
             choice = get_choice("  Your move > ", valid_actions)
             if choice == "quit":
                 return False
             if choice == "i":
-                _do_inspect(alive, combat_turn, weapon, enemies, interest)
+                _do_inspect(alive, combat_turn, weapon, enemies, interest, state)
                 continue
             if choice == "w":
                 ui.clear()
                 print(ui.render_weapon_detail(weapon))
                 pause()
                 ui.clear()
-                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest))
+                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                continue
+            if choice == "h":
+                _use_healing_flask(state)
+                if interest.game_over:
+                    return False
+                pause()
+                ui.clear()
+                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
                 continue
             action = int(choice) - 1
 
@@ -248,7 +267,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- RESOLVE ATTACK ---
         print()
-        _resolve_player_attack(weapon, target, interest)
+        _resolve_player_attack(weapon, target, interest, state.final_stats)
         pause()
 
         if interest.game_over:
@@ -267,7 +286,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 print(ui.box_bot())
                 pause()
                 continue
-            _resolve_enemy_action(enemy, interest)
+            _resolve_enemy_action(enemy, state)
 
             if interest.game_over:
                 return False
@@ -338,7 +357,7 @@ def _show_room_clear(interest: InterestManager):
     pause()
 
 
-def _do_inspect(alive, combat_turn, weapon, enemies, interest):
+def _do_inspect(alive, combat_turn, weapon, enemies, interest, state):
     if len(alive) == 1:
         inspect_idx = 0
     else:
@@ -351,10 +370,10 @@ def _do_inspect(alive, combat_turn, weapon, enemies, interest):
     print(ui.render_inspect(alive[inspect_idx]))
     pause()
     ui.clear()
-    print(ui.render_combat_hud(combat_turn, weapon, enemies, interest))
+    print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
 
 
-def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestManager):
+def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats):
     """Full attack resolution with dodge, permission, interrupt, damage."""
 
     # --- Permission Check ---
@@ -385,6 +404,10 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
 
     # --- Damage Calculation ---
     damage, steps = weapon.calculate_damage(target)
+    stat_bonus = stats.attack_bonus()
+    if stat_bonus > 0:
+        damage += stat_bonus
+        steps.append(f"  + {stat_bonus} (stats: STR/AP)")
     hp_before = target.current_hp
     actual, dead = target.take_damage(damage)
     armor_absorbed = damage - actual if damage > actual else 0
@@ -416,8 +439,9 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
         print(ui.render_kill_report(target.name, kill_log))
 
 
-def _resolve_enemy_action(enemy: Enemy, interest: InterestManager):
-    """Resolve one enemy's turn."""
+def _resolve_enemy_action(enemy: Enemy, state: GameState):
+    """Resolve one enemy's turn with defensive bonuses from equipment/stats."""
+    interest = state.interest
     ability = enemy.choose_action()
 
     if ability is None:
@@ -430,23 +454,66 @@ def _resolve_enemy_action(enemy: Enemy, interest: InterestManager):
                 f"{enemy.pending_ability.name} "
                 f"({remaining} turn{'s' if remaining != 1 else ''} left)",
                 "center"))
-            print(ui.box_line(f'Sera: "Hurry up or I\'m leaving."', "center"))
+            print(ui.box_line('Sera: "Hurry up or I\'m leaving."', "center"))
             print(ui.box_bot())
             pause()
         return
 
     base_cost = ANNOYANCE_COST[ability.annoyance]
     mult = enemy.get_annoyance_multiplier()
-    cost = max(1, int(base_cost * mult))
+    pre_mitigation = max(1, int(base_cost * mult))
+
+    final_stats = state.final_stats
+    reduction = state.equipment_loadout.total_damage_reduction() + final_stats.annoyance_reduction()
+    resistance = state.equipment_loadout.total_damage_resistance()
+    elem = _infer_resistance_key(ability.name + " " + (ability.flavor or ""))
+    elem_res = state.equipment_loadout.total_resistances().get(elem, 0)
+
+    mitigated = max(1, pre_mitigation - reduction)
+    resist_pct = min(0.75, (resistance + elem_res) / 100)
+    cost = max(1, int(round(mitigated * (1 - resist_pct))))
+
     flavor = ability.flavor or ANNOYANCE_FLAVOR[ability.annoyance]
 
     ui.clear()
     print(ui.render_enemy_action(enemy, ability.name, flavor, cost))
     if mult < 1.0:
-        print(f"  (WEAKENED: {base_cost} -> {cost} patience drain)")
+        print(f"  (WEAKENED: {base_cost} -> {pre_mitigation} patience drain)")
+    if reduction > 0 or resistance > 0 or elem_res > 0:
+        print(f"  Defensive bonuses: -{reduction} flat, -{resistance}% general, -{elem_res}% {elem.title()}.")
     interest.take_annoyance(cost, f"{ability.name}")
     print(f"  Patience: {ui.patience_bar(interest)}")
     pause()
+
+
+def _infer_resistance_key(text: str) -> str:
+    t = text.lower()
+    for key in ["ice", "earth", "dark", "fire", "water", "divine", "decay"]:
+        if key in t:
+            return "darkness" if key == "dark" else key
+    return "generic"
+
+
+def _use_healing_flask(state: GameState):
+    interest = state.interest
+    if state.healing_flasks <= 0:
+        print('  No healing flasks left. "Try not to disappoint me instead."')
+        return
+    if interest.current_patience >= interest.max_patience:
+        print('  Patience already full. "I am already perfectly entertained."')
+        return
+
+    heal = state.final_stats.healing_power()
+    for item in state.equipment_loadout.equipped.values():
+        if item and "Second Wind" in (item.ability or ""):
+            heal += 2
+
+    before = interest.current_patience
+    interest._restore(heal)
+    state.healing_flasks -= 1
+    gained = interest.current_patience - before
+    print(f"  Used Healing Flask: +{gained} Patience ({interest.current_patience}/{interest.max_patience})")
+    print('  Sera: "Better. Keep the momentum."')
 
 
 # ─────────────────────────────────────────────────────────
@@ -458,6 +525,7 @@ def loot_phase(state: GameState):
     weapon_drop = generate_loot_weapon(state.floor, state.all_weapons, state.all_affixes)
     material_drop = generate_loot_material()
     shard_drop = generate_loot_shards(state.floor)
+    equipment_drop = roll_item(random.choice(state.all_equipment)) if state.all_equipment and random.random() < 0.55 else None
 
     ui.clear()
     screen, choices = ui.render_loot_screen(
@@ -471,6 +539,19 @@ def loot_phase(state: GameState):
         print(f'  Total shards: {state.upgrade_shards}')
         print(f'  Sera: "Shiny. Useful."')
         print()
+
+    if equipment_drop:
+        print(f"  [E] Found equipment: {equipment_drop.name} ({equipment_drop.slot}) {equipment_drop.ascii_art}")
+        print(f"      Bonuses: {equipment_drop.stat_bonuses} | DR {equipment_drop.damage_reduction} | RES {equipment_drop.damage_resistance}%")
+        if equipment_drop.resistances:
+            print(f"      Elemental: {equipment_drop.resistances}")
+        print(f"      Ability: {equipment_drop.ability}")
+        c = get_choice("  Take equipment? [y/n] > ", ["y", "n"])
+        if c == "y":
+            state.equipment_stash.append(equipment_drop)
+            print('  Sera: "Finally, something wearable."')
+        else:
+            print('  Sera: "Then leave it to rust."')
 
     if not choices:
         pause()
@@ -510,10 +591,10 @@ def between_floors(state: GameState) -> bool:
     while True:
         ui.clear()
         print(ui.render_between_floors(
-            state.floor, state.interest, state.upgrade_shards))
+            state.floor, state.interest, state.upgrade_shards, state.healing_flasks))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6"])
-        if choice in ("quit", "6"):
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7"])
+        if choice in ("quit", "7"):
             return False
 
         if choice == "1":
@@ -532,8 +613,11 @@ def between_floors(state: GameState) -> bool:
             ui.clear()
             print(ui.render_inventory(
                 state.weapons, state.materials, state.equipped_idx,
-                state.upgrade_shards))
+                state.upgrade_shards, state.equipment_stash, state.final_stats))
             pause()
+
+        if choice == "6":
+            equipment_screen(state)
 
 
 def equip_screen(state: GameState):
@@ -554,6 +638,31 @@ def equip_screen(state: GameState):
     print(f'  Equipped: {w.display_name}')
     print(f'  Sera: "This will do."')
     pause()
+
+
+def equipment_screen(state: GameState):
+    while True:
+        ui.clear()
+        print(ui.render_equipment_menu(state.equipment_loadout, state.equipment_stash, state.final_stats))
+        if not state.equipment_stash:
+            pause()
+            return
+
+        valid = [str(i+1) for i in range(len(state.equipment_stash))] + ["0"]
+        choice = get_choice("  Equip item # (or 0 to leave) > ", valid)
+        if choice in ("0", "quit"):
+            return
+
+        idx = int(choice) - 1
+        item = state.equipment_stash.pop(idx)
+        old = state.equipment_loadout.equip(item)
+        if old:
+            state.equipment_stash.append(old)
+            print(f"  Replaced {old.name} with {item.name} in [{item.slot}].")
+        else:
+            print(f"  Equipped {item.name} in [{item.slot}].")
+        print('  Sera: "That had better look good in motion."')
+        pause()
 
 
 def craft_screen(state: GameState):
@@ -675,6 +784,7 @@ def main():
 
         # Loot
         loot_phase(state)
+        state.healing_flasks = min(state.healing_flasks + 1, 3)
 
         # Between floors (except after final)
         if floor_num < state.max_floors:

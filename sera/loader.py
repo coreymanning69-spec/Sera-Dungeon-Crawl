@@ -9,6 +9,7 @@ from pathlib import Path
 from sera.tags import DamageTag, EnemyVulnerability
 from sera.weapon import Weapon, Affix
 from sera.enemy import Enemy, EnemyAbility, AnnoyanceType
+from sera.equipment import EquipmentItem
 
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -80,6 +81,23 @@ def load_enemies() -> list[Enemy]:
             flavor=e["flavor"],
         ))
     return enemies
+
+
+def load_equipment_items() -> list[EquipmentItem]:
+    with open(DATA_DIR / "equipment_items.json") as f:
+        data = json.load(f)
+    items = []
+    for item in data["equipment_items"]:
+        items.append(EquipmentItem(
+            name=item["name"],
+            slot=item["slot"],
+            ascii_art=item.get("ascii_art", "[ ]"),
+            stat_bonuses=item.get("stat_bonuses", {}),
+            damage_reduction=item.get("damage_reduction", 0),
+            damage_resistance=item.get("damage_resistance", 0),
+            resistances=item.get("resistances", {}),
+        ))
+    return items
 
 
 def get_affix_by_name(name: str, affixes: list[Affix] | None = None) -> Affix | None:
