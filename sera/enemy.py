@@ -12,6 +12,21 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from sera.tags import DamageTag, EnemyVulnerability
+
+
+ATTACK_TYPE_TO_DEFENSE_KEY: dict[str, str] = {
+    "generic": "generic",
+    "physical": "physical",
+    "fire": "fire",
+    "ice": "ice",
+    "water": "water",
+    "earth": "earth",
+    "divine": "divine",
+    "darkness": "darkness",
+    "decay": "decay",
+    "arcane": "arcane",
+    "sonic": "sonic",
+}
 from sera.status import StatusEffect, StatusInstance
 
 
@@ -53,9 +68,19 @@ class EnemyAbility:
     cooldown: int = 0          # turns between uses
     charge_time: int = 0       # turns to charge (Monologue = 3)
     flavor: str = ""
+    attack_type: str = "generic"
 
     def patience_cost(self) -> int:
         return ANNOYANCE_COST[self.annoyance]
+
+
+def normalize_attack_type(value: str) -> str:
+    key = (value or "generic").strip().lower()
+    return ATTACK_TYPE_TO_DEFENSE_KEY.get(key, "generic")
+
+
+def defense_key_for_attack(attack_type: str) -> str:
+    return ATTACK_TYPE_TO_DEFENSE_KEY.get(normalize_attack_type(attack_type), "generic")
 
 
 @dataclass(frozen=True)
@@ -247,6 +272,7 @@ class Enemy:
             name="Flail",
             annoyance=AnnoyanceType.WEAK_HIT,
             flavor="It tries. How sad.",
+            attack_type="physical",
         )
 
     def tick_cooldowns(self):

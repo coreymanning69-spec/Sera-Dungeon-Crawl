@@ -8,8 +8,8 @@ from pathlib import Path
 
 from sera.tags import DamageTag, EnemyVulnerability
 from sera.weapon import Weapon, Affix
-from sera.enemy import Enemy, EnemyAbility, AnnoyanceType
-from sera.equipment import EquipmentItem
+from sera.enemy import Enemy, EnemyAbility, AnnoyanceType, normalize_attack_type
+from sera.equipment import EquipmentItem, normalize_defense_key
 
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -68,6 +68,7 @@ def load_enemies() -> list[Enemy]:
                 cooldown=ab["cooldown"],
                 charge_time=ab["charge_time"],
                 flavor=ab["flavor"],
+                attack_type=normalize_attack_type(ab.get("attack_type", "generic")),
             ))
         enemies.append(Enemy(
             name=e["name"],
@@ -95,7 +96,7 @@ def load_equipment_items() -> list[EquipmentItem]:
             stat_bonuses=item.get("stat_bonuses", {}),
             damage_reduction=item.get("damage_reduction", 0),
             damage_resistance=item.get("damage_resistance", 0),
-            resistances=item.get("resistances", {}),
+            resistances={normalize_defense_key(k): v for k, v in item.get("resistances", {}).items()},
         ))
     return items
 

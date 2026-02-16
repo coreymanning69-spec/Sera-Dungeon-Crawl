@@ -244,6 +244,7 @@ def render_combat_hud(
     lines.append(box_line(f"  ▸ [I] Inspect enemy"))
     lines.append(box_line(f"  ▸ [W] View weapon details"))
     lines.append(box_line(f"  ▸ [H] Use healing flask"))
+    lines.append(box_line(f"  ▸ [A] Auto-battle ({10} turns)"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -551,7 +552,14 @@ def render_weapon_detail(weapon: Weapon) -> str:
     return "\n".join(lines)
 
 
-def render_between_floors(floor: int, interest: InterestManager, upgrade_shards: int = 0, flasks: int = 0) -> str:
+def render_between_floors(
+    floor: int,
+    interest: InterestManager,
+    upgrade_shards: int = 0,
+    flasks: int = 0,
+    revision_set: list[EquipmentItem] | None = None,
+    revision_claimed: bool = False,
+) -> str:
     lines = [
         box_top(),
         box_blank(),
@@ -567,13 +575,21 @@ def render_between_floors(floor: int, interest: InterestManager, upgrade_shards:
     for sl in sprites.SERA_IDLE.strip().split("\n"):
         lines.append(box_line(sl, "center"))
     lines.append(box_divider_thin())
+    if revision_set:
+        lines.append(box_divider_thin())
+        status = "CLAIMED" if revision_claimed else "READY"
+        lines.append(box_line(f"  Next Revision Kit: {len(revision_set)} pieces [{status}]"))
+        preview = ", ".join(item.slot for item in revision_set[:4])
+        if preview:
+            lines.append(box_line(f"    Preview slots: {preview}"))
     lines.append(box_line("  ▸ [1] Continue to next floor"))
     lines.append(box_line("  ▸ [2] Equip weapon"))
     lines.append(box_line("  ▸ [3] Craft (apply material to weapon)"))
     lines.append(box_line("  ▸ [4] Upgrade weapon (spend shards)"))
     lines.append(box_line("  ▸ [5] View inventory"))
     lines.append(box_line("  ▸ [6] Equipment menu"))
-    lines.append(box_line("  ▸ [7] Quit"))
+    lines.append(box_line("  ▸ [7] Claim next-revision gear set"))
+    lines.append(box_line("  ▸ [8] Quit"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
