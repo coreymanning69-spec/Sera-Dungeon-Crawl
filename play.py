@@ -14,7 +14,7 @@ import random
 
 from sera.tags import DamageTag
 from sera.weapon import Weapon, Affix
-from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR
+from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR, defense_key_for_attack
 from sera.interest import InterestManager
 from sera.status import StatusEffect
 from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
@@ -22,7 +22,7 @@ from sera.loader import load_weapons, load_affixes, load_enemies, load_equipment
 from sera.encounters import generate_encounter, generate_loot_weapon, generate_loot_material, generate_loot_shards
 from sera import ui
 from sera.stats import PlayerStats
-from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem
+from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_revision_set
 
 
 # ─────────────────────────────────────────────────────────
@@ -78,6 +78,8 @@ LOW_PATIENCE_QUIPS = [
     '"One more disappointment. That\'s all you get."',
 ]
 
+AUTO_BATTLE_TURNS = 10
+
 
 def sera_quip(pool: list[str]) -> str:
     return random.choice(pool)
@@ -105,6 +107,8 @@ class GameState:
         self.equipment_stash: list[EquipmentItem] = []
         self.all_equipment = load_equipment_items()
         self.healing_flasks: int = 2
+        self.next_revision_set: list[EquipmentItem] = generate_revision_set(self.all_equipment, floor=1)
+        self.revision_set_claimed: bool = False
 
     @property
     def equipped_weapon(self) -> Weapon:
@@ -237,7 +241,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         print()
 
         # Get player action
-        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h"]
+        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h", "a"]
         action = None
         while action is None:
             choice = get_choice("  Your move > ", valid_actions)
@@ -260,6 +264,17 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 pause()
                 ui.clear()
                 print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                continue
+            if choice == "a":
+                turns_run = _run_auto_battle_burst(state, enemies, AUTO_BATTLE_TURNS)
+                combat_turn += max(0, turns_run - 1)
+                if interest.game_over:
+                    return False
+                if not any(e.current_hp > 0 for e in enemies):
+                    _show_room_clear(interest)
+                    return True
+                pause()
+                action = None
                 continue
             action = int(choice) - 1
 
@@ -294,6 +309,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         # --- DOT PHASE ---
         for enemy in enemies:
             if enemy.current_hp > 0:
+                hp_before_dot = enemy.current_hp
                 dot_total, dot_log = enemy.tick_dot_damage()
                 if dot_log:
                     kill_name = enemy.name if enemy.current_hp <= 0 else None
@@ -301,17 +317,15 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     print(ui.render_dot_tick(dot_log, kill_name))
                     if kill_name:
                         kill_log = interest.register_kill(
-                            enemy.name, dot_total, dot_total)
+                            enemy.name, dot_total, hp_before_dot)
                         print(ui.render_kill_report(enemy.name, kill_log))
                     pause()
 
         # --- CLEANUP PHASE ---
         for enemy in enemies:
             if enemy.current_hp > 0:
-                hp_before_tick = enemy.current_hp
-                status_log = enemy.tick_statuses()
+                status_log, kill_events = enemy.tick_statuses()
                 if status_log:
-                    doom_killed = enemy.current_hp <= 0
                     # Show any detonations or expirations
                     for line in status_log:
                         if "DOOM" in line or "destroyed" in line:
@@ -319,16 +333,16 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                             print(ui.box_top())
                             print(ui.box_line("░░ DOOM DETONATES ░░", "center"))
                             print(ui.box_line(line.strip(), "center"))
-                            if doom_killed:
-                                print(ui.box_line('Sera: "Tick tock. Time\'s up."', "center"))
                             print(ui.box_bot())
                             pause()
-                    if doom_killed:
-                        doom_dmg = hp_before_tick
-                        kill_log = interest.register_kill(
-                            enemy.name, doom_dmg, doom_dmg)
-                        print(ui.render_kill_report(enemy.name, kill_log))
-                        pause()
+                for event in kill_events:
+                    kill_log = interest.register_kill(
+                        event.enemy_name,
+                        event.damage_dealt,
+                        event.enemy_hp_was,
+                    )
+                    print(ui.render_kill_report(event.enemy_name, kill_log))
+                    pause()
                 enemy.tick_cooldowns()
                 healed = enemy.tick_regen()
                 if healed > 0:
@@ -406,8 +420,11 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
     damage, steps = weapon.calculate_damage(target)
     stat_bonus = stats.attack_bonus()
     if stat_bonus > 0:
-        damage += stat_bonus
-        steps.append(f"  + {stat_bonus} (stats: STR/AP)")
+        pre_stat = damage
+        damage = min(30, damage + stat_bonus)
+        steps.append(f"  + {stat_bonus} (stats: STR/AP) = {pre_stat + stat_bonus}")
+        if damage < pre_stat + stat_bonus:
+            steps.append("  Clamp after stats: 30")
     hp_before = target.current_hp
     actual, dead = target.take_damage(damage)
     armor_absorbed = damage - actual if damage > actual else 0
@@ -439,6 +456,106 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
         print(ui.render_kill_report(target.name, kill_log))
 
 
+def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: int) -> int:
+    """Run a quick auto-battle burst and print a compact turn-by-turn summary."""
+    interest = state.interest
+    weapon = state.equipped_weapon
+    stats = state.final_stats
+    turns_run = 0
+
+    ui.clear()
+    print(ui.box_top())
+    print(ui.box_line(f"░▒▓█ AUTO-BATTLE ({max_turns} TURNS MAX) █▓▒░", "center"))
+    print(ui.box_line('Sera: "Fine. I\'ll do it myself for a bit."', "center"))
+    print(ui.box_divider())
+
+    for _ in range(max_turns):
+        alive = [e for e in enemies if e.current_hp > 0]
+        if not alive or interest.game_over:
+            break
+
+        turns_run += 1
+        interest.turn_number += 1
+        interest._kills_this_turn = 0
+        interest._drain(interest.TICK_DRAIN, "Time passes.")
+        print(ui.box_line(f"Turn {interest.turn_number}: -1 Patience (time)"))
+        if interest.game_over:
+            break
+
+        target = alive[0]
+        damage, _steps = weapon.calculate_damage(target)
+        damage = min(30, damage + stats.attack_bonus())
+        hp_before = target.current_hp
+        actual, dead = target.take_damage(damage)
+        print(ui.box_line(f"  Attack {target.name}: {actual} damage ({target.current_hp}/{target.max_hp})"))
+
+        for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
+            if affix and affix.inflicts_status:
+                effect = StatusEffect[affix.inflicts_status]
+                target.apply_status(effect, affix.status_duration, affix.status_potency)
+
+        if dead:
+            interest.register_kill(target.name, damage, hp_before)
+            print(ui.box_line(f"  {target.name} defeated. Patience now {interest.current_patience}."))
+
+        for enemy in [e for e in enemies if e.current_hp > 0]:
+            if enemy.is_frozen():
+                print(ui.box_line(f"  {enemy.name} is frozen and skips."))
+                continue
+            ability = enemy.choose_action()
+            if ability is None:
+                if enemy.is_casting and enemy.pending_ability:
+                    print(ui.box_line(f"  {enemy.name} charges {enemy.pending_ability.name}."))
+                continue
+
+            base_cost = ANNOYANCE_COST[ability.annoyance]
+            mult = enemy.get_annoyance_multiplier()
+            pre_mitigation = max(1, int(base_cost * mult))
+            reduction = state.equipment_loadout.total_damage_reduction() + stats.annoyance_reduction()
+            resistance = state.equipment_loadout.total_damage_resistance()
+            attack_type = defense_key_for_attack(ability.attack_type)
+            elem_res = state.equipment_loadout.total_resistances().get(attack_type, 0)
+            mitigated = max(1, pre_mitigation - reduction)
+            resist_pct = min(0.75, (resistance + elem_res) / 100)
+            cost = max(1, int(round(mitigated * (1 - resist_pct))))
+            interest.take_annoyance(cost, ability.name)
+            print(ui.box_line(f"  {enemy.name} uses {ability.name} [{attack_type}]: -{cost} Patience"))
+            if interest.game_over:
+                break
+
+        if interest.game_over:
+            break
+
+        for enemy in enemies:
+            if enemy.current_hp <= 0:
+                continue
+            hp_before_dot = enemy.current_hp
+            dot_total, _ = enemy.tick_dot_damage()
+            if dot_total > 0:
+                print(ui.box_line(f"  DOT on {enemy.name}: {dot_total} ({enemy.current_hp}/{enemy.max_hp})"))
+            if enemy.current_hp <= 0:
+                interest.register_kill(enemy.name, dot_total, hp_before_dot)
+                continue
+
+            _status_log, kill_events = enemy.tick_statuses()
+            for event in kill_events:
+                interest.register_kill(event.enemy_name, event.damage_dealt, event.enemy_hp_was)
+                print(ui.box_line(f"  {event.enemy_name} destroyed by status detonation."))
+
+            enemy.tick_cooldowns()
+            healed = enemy.tick_regen()
+            if healed > 0:
+                print(ui.box_line(f"  {enemy.name} regenerates {healed}."))
+
+        print(ui.box_line(f"  End Patience: {interest.current_patience}/{interest.max_patience}"))
+        print(ui.box_divider_thin())
+
+    print(ui.box_line(f"Auto-battle complete after {turns_run} turns.", "center"))
+    print(ui.box_line(f"Patience: {interest.current_patience}/{interest.max_patience}", "center"))
+    print(ui.box_bot())
+    return turns_run
+
+
 def _resolve_enemy_action(enemy: Enemy, state: GameState):
     """Resolve one enemy's turn with defensive bonuses from equipment/stats."""
     interest = state.interest
@@ -466,8 +583,8 @@ def _resolve_enemy_action(enemy: Enemy, state: GameState):
     final_stats = state.final_stats
     reduction = state.equipment_loadout.total_damage_reduction() + final_stats.annoyance_reduction()
     resistance = state.equipment_loadout.total_damage_resistance()
-    elem = _infer_resistance_key(ability.name + " " + (ability.flavor or ""))
-    elem_res = state.equipment_loadout.total_resistances().get(elem, 0)
+    attack_type = defense_key_for_attack(ability.attack_type)
+    elem_res = state.equipment_loadout.total_resistances().get(attack_type, 0)
 
     mitigated = max(1, pre_mitigation - reduction)
     resist_pct = min(0.75, (resistance + elem_res) / 100)
@@ -476,22 +593,16 @@ def _resolve_enemy_action(enemy: Enemy, state: GameState):
     flavor = ability.flavor or ANNOYANCE_FLAVOR[ability.annoyance]
 
     ui.clear()
-    print(ui.render_enemy_action(enemy, ability.name, flavor, cost))
+    print(ui.render_enemy_action(enemy, f"{ability.name} [{attack_type}]", flavor, cost))
     if mult < 1.0:
         print(f"  (WEAKENED: {base_cost} -> {pre_mitigation} patience drain)")
     if reduction > 0 or resistance > 0 or elem_res > 0:
-        print(f"  Defensive bonuses: -{reduction} flat, -{resistance}% general, -{elem_res}% {elem.title()}.")
+        print(f"  Defensive bonuses: -{reduction} flat, -{resistance}% general, -{elem_res}% {attack_type.title()}.")
     interest.take_annoyance(cost, f"{ability.name}")
     print(f"  Patience: {ui.patience_bar(interest)}")
     pause()
 
 
-def _infer_resistance_key(text: str) -> str:
-    t = text.lower()
-    for key in ["ice", "earth", "dark", "fire", "water", "divine", "decay"]:
-        if key in t:
-            return "darkness" if key == "dark" else key
-    return "generic"
 
 
 def _use_healing_flask(state: GameState):
@@ -591,10 +702,11 @@ def between_floors(state: GameState) -> bool:
     while True:
         ui.clear()
         print(ui.render_between_floors(
-            state.floor, state.interest, state.upgrade_shards, state.healing_flasks))
+            state.floor, state.interest, state.upgrade_shards, state.healing_flasks,
+            state.next_revision_set, state.revision_set_claimed))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7"])
-        if choice in ("quit", "7"):
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8"])
+        if choice in ("quit", "8"):
             return False
 
         if choice == "1":
@@ -618,6 +730,9 @@ def between_floors(state: GameState) -> bool:
 
         if choice == "6":
             equipment_screen(state)
+
+        if choice == "7":
+            claim_revision_set(state)
 
 
 def equip_screen(state: GameState):
@@ -741,6 +856,26 @@ def upgrade_screen(state: GameState):
     pause()
 
 
+def claim_revision_set(state: GameState):
+    if state.revision_set_claimed:
+        print('  Revision set already claimed this floor.')
+        pause()
+        return
+    if not state.next_revision_set:
+        print('  No revision set prepared yet.')
+        pause()
+        return
+
+    for item in state.next_revision_set:
+        state.equipment_stash.append(copy.deepcopy(item))
+
+    state.revision_set_claimed = True
+    print(f"  Claimed next-revision set: {len(state.next_revision_set)} items added to stash.")
+    print('  Sera: "Good. Now we\'re actually planning ahead."')
+    pause()
+
+
+
 # ─────────────────────────────────────────────────────────
 # Main game loop
 # ─────────────────────────────────────────────────────────
@@ -785,6 +920,8 @@ def main():
         # Loot
         loot_phase(state)
         state.healing_flasks = min(state.healing_flasks + 1, 3)
+        state.next_revision_set = generate_revision_set(state.all_equipment, floor_num + 1)
+        state.revision_set_claimed = False
 
         # Between floors (except after final)
         if floor_num < state.max_floors:
