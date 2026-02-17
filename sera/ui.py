@@ -22,7 +22,7 @@ from sera import sprites
 # Drawing primitives — retro pixel style
 # ─────────────────────────────────────────────────────────
 
-W = 60  # standard box width
+W = 210  # standard box width (expanded for better spacing)
 
 
 def clear():
@@ -147,7 +147,14 @@ def render_title_screen() -> str:
         lines.append(box_line(portrait_line, "center"))
     lines.append(box_blank())
     lines.append(box_divider())
-    lines.append(box_line('"I am a Goddess. Entertain me."', "center"))
+    import random
+    title_quotes = [
+        '"I am a Goddess. Entertain me."',
+        '"Hiii. Here we are, now. Nice to meet you ^_^"',
+        '"I don\'t think there\'s anything at all that can stop me."',
+        '"Well, what do you think we should go fix first?"',
+    ]
+    lines.append(box_line(random.choice(title_quotes), "center"))
     lines.append(box_divider())
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
@@ -253,6 +260,7 @@ def render_combat_hud(
     lines.append(box_line(f"  ▸ [W] View weapon details"))
     lines.append(box_line(f"  ▸ [H] Use healing flask"))
     lines.append(box_line(f"  ▸ [A] Auto-battle ({10} turns)"))
+    lines.append(box_line(f"  ▸ [0] Commands menu (cheat/debug)"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)

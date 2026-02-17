@@ -46,6 +46,8 @@ ATTACK_QUIPS = [
     '"Adequate violence."',
     '"Try not to bore me."',
     '"I could do this in my sleep. I have."',
+    '"You get one mercy. Did you think you\'d get two?"',
+    '"Nice try."',
 ]
 
 KILL_QUIPS = [
@@ -54,6 +56,8 @@ KILL_QUIPS = [
     '"That was almost satisfying."',
     '"Acceptable."',
     '"You lasted longer than I expected. Low bar."',
+    '"Well. That\'s done."',
+    '"Fixed."',
 ]
 
 OVERKILL_QUIPS = [
@@ -61,12 +65,14 @@ OVERKILL_QUIPS = [
     '"Excessive? No. Efficient."',
     '"THAT is how you kill something."',
     '"More of that. Less of everything else."',
+    '"See? I fix everything."',
 ]
 
 DODGE_QUIPS = [
     '"Stand still, insect."',
     '"Do that again and I\'m leaving."',
     '"Dodging is for things that fear death. You should."',
+    '"Hey. Don\'t ignore me. That\'s rude."',
 ]
 
 IMMUNE_QUIPS = [
@@ -79,6 +85,7 @@ INTERRUPT_QUIPS = [
     '"I said shut up."',
     '"Nobody asked for your monologue."',
     '"Interrupted. You\'re welcome."',
+    '"No, no. Only I get to talk that long."',
 ]
 
 LOW_PATIENCE_QUIPS = [
@@ -86,6 +93,26 @@ LOW_PATIENCE_QUIPS = [
     '"This is getting tedious."',
     '"Entertain me or I leave. Simple."',
     '"One more disappointment. That\'s all you get."',
+    '"I don\'t think there\'s anything at all that can stop me."',
+]
+
+FLOOR_INTRO_QUIPS = [
+    '"Let\'s get this over with."',
+    '"This better not be boring."',
+    '"I sense... mediocrity ahead."',
+    '"Show me something new."',
+    '"Last chance. Impress me."',
+    '"Well, what do you think we should fix first?"',
+    '"Smells like... old apples. And blood. But not bad blood. Just scared."',
+]
+
+ROOM_CLEAR_QUIPS = [
+    '"That was almost interesting."',
+    '"Is that all? Really?"',
+    '"I expected more. I always do."',
+    '"Done. What else do you have?"',
+    '"All I see... is fear... and dead men."',
+    '"Well. My work here is done."',
 ]
 
 AUTO_BATTLE_TURNS = 10
@@ -239,6 +266,138 @@ def choose_starting_weapon(state: GameState):
 
 
 # ─────────────────────────────────────────────────────────
+# Commands menu (debug/cheat commands)
+# ─────────────────────────────────────────────────────────
+
+def _show_commands_menu(state: GameState, enemies: list[Enemy]):
+    """Show cheat/debug commands menu."""
+    ui.clear()
+    print(ui.box_top())
+    print(ui.box_line("░▒▓█ COMMANDS MENU █▓▒░", "center"))
+    print(ui.box_line('Sera: "Cheating? How refreshingly honest."', "center"))
+    print(ui.box_divider())
+    print(ui.box_line("  ▸ [1] GetItem <item_name> - Add item to inventory"))
+    print(ui.box_line("  ▸ [2] FightMonster <name> - Spawn specific enemy"))
+    print(ui.box_line("  ▸ [3] SetHP <amount> - Set current Patience"))
+    print(ui.box_line("  ▸ [4] SetDMG <amount> - Set weapon base damage"))
+    print(ui.box_line("  ▸ [5] SetSTR <amount> - Set STR stat"))
+    print(ui.box_line("  ▸ [6] SetAP <amount> - Set AP stat"))
+    print(ui.box_line("  ▸ [0] Back to combat"))
+    print(ui.box_blank())
+    print(ui.box_bot())
+
+    choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "0"])
+    if choice in ("0", "quit"):
+        return
+
+    if choice == "1":
+        _cmd_get_item(state)
+    elif choice == "2":
+        _cmd_fight_monster(state, enemies)
+    elif choice == "3":
+        _cmd_set_hp(state)
+    elif choice == "4":
+        _cmd_set_dmg(state)
+    elif choice == "5":
+        _cmd_set_str(state)
+    elif choice == "6":
+        _cmd_set_ap(state)
+
+    pause()
+
+
+def _cmd_get_item(state: GameState):
+    """Cheat command: Get a weapon or material by name."""
+    print("  Available weapons:")
+    for i, w in enumerate(state.all_weapons[:5]):
+        print(f"    [{i+1}] {w.name}")
+    print("  Available materials:")
+    for i, m in enumerate(state.materials if state.materials else []):
+        print(f"    [M{i+1}] {m.name}")
+
+    item_name = ui.get_input("  Item name > ")
+    if not item_name:
+        return
+
+    # Try to find weapon
+    for w in state.all_weapons:
+        if w.name.lower() == item_name.lower():
+            new_weapon = copy.deepcopy(w)
+            state.weapons.append(new_weapon)
+            print(f'  Added {new_weapon.name}! Sera: "Interesting choice."')
+            return
+
+    print(f'  Item "{item_name}" not found. Sera: "You can\'t even cheat correctly."')
+
+
+def _cmd_fight_monster(state: GameState, enemies: list[Enemy]):
+    """Cheat command: Spawn a specific enemy."""
+    print("  Available enemy archetypes:")
+    seen_names = set()
+    for e in state.all_enemies:
+        if e.name not in seen_names:
+            print(f"    - {e.name} ({e.archetype})")
+            seen_names.add(e.name)
+
+    monster_name = ui.get_input("  Monster name > ")
+    if not monster_name:
+        return
+
+    for e in state.all_enemies:
+        if e.name.lower() == monster_name.lower():
+            new_enemy = copy.deepcopy(e)
+            enemies.append(new_enemy)
+            print(f'  Spawned {new_enemy.name}! Sera: "More toys to break."')
+            return
+
+    print(f'  Monster "{monster_name}" not found.')
+
+
+def _cmd_set_hp(state: GameState):
+    """Cheat command: Set Patience."""
+    amount_str = ui.get_input("  Set Patience to > ")
+    try:
+        amount = int(amount_str)
+        state.interest.current_patience = max(0, min(amount, state.interest.max_patience))
+        print(f'  Patience set to {state.interest.current_patience}. Sera: "How generous of you."')
+    except ValueError:
+        print('  Invalid number. Sera: "Try using actual numbers."')
+
+
+def _cmd_set_dmg(state: GameState):
+    """Cheat command: Set weapon base damage."""
+    amount_str = ui.get_input("  Set base damage to > ")
+    try:
+        amount = int(amount_str)
+        state.equipped_weapon.base_damage = max(1, min(amount, 30))
+        print(f'  Base damage set to {state.equipped_weapon.base_damage}. Sera: "Now we\'re talking."')
+    except ValueError:
+        print('  Invalid number.')
+
+
+def _cmd_set_str(state: GameState):
+    """Cheat command: Set STR stat."""
+    amount_str = ui.get_input("  Set STR to > ")
+    try:
+        amount = int(amount_str)
+        state.base_stats.STR = max(0, amount)
+        print(f'  STR set to {state.base_stats.STR}.')
+    except ValueError:
+        print('  Invalid number.')
+
+
+def _cmd_set_ap(state: GameState):
+    """Cheat command: Set AP stat."""
+    amount_str = ui.get_input("  Set AP to > ")
+    try:
+        amount = int(amount_str)
+        state.base_stats.AP = max(0, amount)
+        print(f'  AP set to {state.base_stats.AP}.')
+    except ValueError:
+        print('  Invalid number.')
+
+
+# ─────────────────────────────────────────────────────────
 # Interactive combat
 # ─────────────────────────────────────────────────────────
 
@@ -283,12 +442,17 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         print()
 
         # Get player action
-        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h", "a"]
+        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h", "a", "0"]
         action = None
         while action is None:
             choice = get_choice("  Your move > ", valid_actions)
             if choice == "quit":
                 return False
+            if choice == "0":
+                _show_commands_menu(state, enemies)
+                ui.clear()
+                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                continue
             if choice == "i":
                 _do_inspect(alive, combat_turn, weapon, enemies, interest, state)
                 continue
@@ -399,16 +563,10 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
 
 def _show_room_clear(interest: InterestManager):
-    quips = [
-        '"That was almost interesting."',
-        '"Is that all? Really?"',
-        '"I expected more. I always do."',
-        '"Done. What else do you have?"',
-    ]
     ui.clear()
     print(ui.box_top())
     print(ui.box_line("░▒▓█ ROOM CLEARED █▓▒░", "center"))
-    print(ui.box_line(sera_quip(quips), "center"))
+    print(ui.box_line(sera_quip(ROOM_CLEAR_QUIPS), "center"))
     print(ui.box_line(f"Patience: {ui.patience_bar(interest)}", "center"))
     print(ui.box_bot())
     pause()
@@ -441,6 +599,25 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
         ann_log = interest.take_annoyance(5, f"{target.name} is immune")
         for line in ann_log:
             print(f"  {line.strip()}")
+        return
+
+    # --- Miss Chance (based on low Patience) ---
+    # As Patience drops, Sera cares less about accuracy
+    patience_ratio = interest.current_patience / interest.max_patience
+    miss_chance = max(0, (1.0 - patience_ratio) * 0.25)  # Up to 25% miss at 0 patience
+    if random.random() < miss_chance:
+        ui.clear()
+        print(ui.box_top())
+        for art_line in ["   ~  ~  ~", "  ~  MISS  ~", "   ~  ~  ~"]:
+            print(ui.box_line(art_line, "center"))
+        print(ui.box_line("░░ SERA MISSES! ░░", "center"))
+        print(ui.box_divider())
+        print(ui.box_line(f"  Sera swings at {target.name}... and misses completely!"))
+        print(ui.box_line(f'  Sera: "I don\'t even care anymore."'))
+        print(ui.box_line(f"  Low Patience = {int(miss_chance * 100)}% miss chance"))
+        print(ui.box_line(f"  [-1 Patience] Frustration"))
+        print(ui.box_bot())
+        interest._drain(1, "Miss due to low patience")
         return
 
     # --- Dodge Roll ---
@@ -511,6 +688,12 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
     stats = state.final_stats
     turns_run = 0
 
+    # Track stats for summary table
+    total_damage_dealt = 0
+    total_kills = 0
+    total_patience_lost = 0
+    turn_results = []
+
     ui.clear()
     print(ui.box_top())
     print(ui.box_line(f"░▒▓█ AUTO-BATTLE ({max_turns} TURNS MAX) █▓▒░", "center"))
@@ -525,16 +708,22 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
         turns_run += 1
         interest.turn_number += 1
         interest._kills_this_turn = 0
+        patience_before_turn = interest.current_patience
         interest._drain(interest.TICK_DRAIN, "Time passes.")
         print(ui.box_line(f"Turn {interest.turn_number}: -1 Patience (time)"))
         if interest.game_over:
             break
+
+        turn_damage = 0
+        turn_kills = 0
 
         target = alive[0]
         damage, _steps = weapon.calculate_damage(target)
         damage = min(30, damage + stats.attack_bonus())
         hp_before = target.current_hp
         actual, dead = target.take_damage(damage)
+        turn_damage += actual
+        total_damage_dealt += actual
         print(ui.box_line(f"  Attack {target.name}: {actual} damage ({target.current_hp}/{target.max_hp})"))
 
         for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
@@ -544,6 +733,8 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
 
         if dead:
             interest.register_kill(target.name, damage, hp_before)
+            turn_kills += 1
+            total_kills += 1
             print(ui.box_line(f"  {target.name} defeated. Patience now {interest.current_patience}."))
 
         reduction, resistance, resistances = _build_defense_profile(state, stats)
@@ -594,11 +785,35 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
             if healed > 0:
                 print(ui.box_line(f"  {enemy.name} regenerates {healed}."))
 
+        patience_after_turn = interest.current_patience
+        patience_delta = patience_after_turn - patience_before_turn
+        total_patience_lost += abs(min(0, patience_delta))
+
+        turn_results.append({
+            "turn": interest.turn_number,
+            "damage": turn_damage,
+            "kills": turn_kills,
+            "patience": f"{patience_after_turn}/{interest.max_patience}",
+        })
+
         print(ui.box_line(f"  End Patience: {interest.current_patience}/{interest.max_patience}"))
         print(ui.box_divider_thin())
 
-    print(ui.box_line(f"Auto-battle complete after {turns_run} turns.", "center"))
-    print(ui.box_line(f"Patience: {interest.current_patience}/{interest.max_patience}", "center"))
+    # Display summary table
+    print(ui.box_divider())
+    print(ui.box_header("AUTO-BATTLE SUMMARY"))
+    print(ui.box_divider_thin())
+    print(ui.box_line(f"  {'Turn':<8} {'Damage':<10} {'Kills':<8} {'Patience':<20}"))
+    print(ui.box_divider_thin())
+    for result in turn_results[-5:]:  # Show last 5 turns
+        print(ui.box_line(f"  {result['turn']:<8} {result['damage']:<10} {result['kills']:<8} {result['patience']:<20}"))
+    print(ui.box_divider())
+    print(ui.box_line(f"  Total Turns: {turns_run}"))
+    print(ui.box_line(f"  Total Damage Dealt: {total_damage_dealt}"))
+    print(ui.box_line(f"  Total Kills: {total_kills}"))
+    print(ui.box_line(f"  Final Patience: {interest.current_patience}/{interest.max_patience}"))
+    print(ui.box_blank())
+    print(ui.box_line(f"Auto-battle complete.", "center"))
     print(ui.box_bot())
     return turns_run
 
@@ -985,14 +1200,7 @@ def main():
         # Floor intro
         ui.clear()
         print(ui.render_floor_intro(floor_num, enemies, state.interest))
-        sera_lines = [
-            '"Let\'s get this over with."',
-            '"This better not be boring."',
-            '"I sense... mediocrity ahead."',
-            '"Show me something new."',
-            '"Last chance. Impress me."',
-        ]
-        print(f"  Sera: {sera_lines[min(floor_num - 1, len(sera_lines) - 1)]}")
+        print(f"  Sera: {sera_quip(FLOOR_INTRO_QUIPS)}")
         pause()
 
         # Combat
@@ -1000,6 +1208,11 @@ def main():
         if not survived:
             ui.clear()
             print(ui.render_game_over(state.interest, state.floor))
+            pause()
+            # Show run statistics before returning to main menu
+            ui.clear()
+            print(ui.render_run_stats(state.run_stats.to_dict(state)))
+            pause()
             return
 
         state.floors_cleared = floor_num
@@ -1019,6 +1232,11 @@ def main():
     # Victory
     ui.clear()
     print(ui.render_victory(state.max_floors, state.interest))
+    pause()
+    # Show run statistics
+    ui.clear()
+    print(ui.render_run_stats(state.run_stats.to_dict(state)))
+    pause()
 
 
 if __name__ == "__main__":
