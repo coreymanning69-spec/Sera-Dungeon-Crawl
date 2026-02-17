@@ -70,6 +70,8 @@ def load_enemies() -> list[Enemy]:
                 flavor=ab["flavor"],
                 attack_type=normalize_attack_type(ab.get("attack_type", "generic")),
             ))
+        elem_weak = [DamageTag[t] for t in e.get("elemental_weaknesses", [])]
+        elem_resist = [DamageTag[t] for t in e.get("elemental_resistances", [])]
         enemies.append(Enemy(
             name=e["name"],
             max_hp=e["max_hp"],
@@ -80,6 +82,8 @@ def load_enemies() -> list[Enemy]:
             regen_per_turn=e["regen_per_turn"],
             dodge_chance=e["dodge_chance"],
             flavor=e["flavor"],
+            elemental_weaknesses=elem_weak,
+            elemental_resistances=elem_resist,
         ))
     return enemies
 

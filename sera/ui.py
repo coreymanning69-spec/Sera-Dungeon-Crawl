@@ -151,7 +151,8 @@ def render_title_screen() -> str:
     lines.append(box_divider())
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
-    lines.append(box_line("  ▸ [2] Quit"))
+    lines.append(box_line("  ▸ [2] Simulation Mode"))
+    lines.append(box_line("  ▸ [3] Quit"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_bot())
@@ -233,6 +234,13 @@ def render_combat_hud(
         lines.append(box_line(f"        HP: {hp_bar(e.current_hp, e.max_hp, 15)}"))
         if e.armor > 0:
             lines.append(box_line(f"        Armor: {'▓' * min(e.armor, 10)} ({e.armor})"))
+        if e.elemental_weaknesses or e.elemental_resistances:
+            elem_parts = []
+            if e.elemental_weaknesses:
+                elem_parts.append("Weak:" + ",".join(t.name for t in e.elemental_weaknesses))
+            if e.elemental_resistances:
+                elem_parts.append("Resist:" + ",".join(t.name for t in e.elemental_resistances))
+            lines.append(box_line(f"        [{' | '.join(elem_parts)}]"))
         if e.statuses:
             st = ", ".join(f"{s.effect.name}({s.potency})" for s in e.statuses)
             lines.append(box_line(f"        [{st}]"))
@@ -589,7 +597,8 @@ def render_between_floors(
     lines.append(box_line("  ▸ [5] View inventory"))
     lines.append(box_line("  ▸ [6] Equipment menu"))
     lines.append(box_line("  ▸ [7] Claim next-revision gear set"))
-    lines.append(box_line("  ▸ [8] Quit"))
+    lines.append(box_line("  ▸ [8] View Run Stats"))
+    lines.append(box_line("  ▸ [9] Quit"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -716,6 +725,12 @@ def render_inspect(enemy: Enemy) -> str:
         lines.append(box_line(f"  Regen/turn:    +{enemy.regen_per_turn}"))
     req = enemy.vulnerability.name if enemy.vulnerability.name != "NONE" else "NONE (any weapon works)"
     lines.append(box_line(f"  Requires tag:  [{req}]"))
+    if enemy.elemental_weaknesses:
+        weak = ", ".join(tag.name for tag in enemy.elemental_weaknesses)
+        lines.append(box_line(f"  Weak to:       [{weak}] (+2 dmg each)"))
+    if enemy.elemental_resistances:
+        resist = ", ".join(tag.name for tag in enemy.elemental_resistances)
+        lines.append(box_line(f"  Resists:       [{resist}] (-1 dmg each)"))
     if enemy.statuses:
         st = ", ".join(f"{s.effect.name}(p:{s.potency} t:{s.duration})" for s in enemy.statuses)
         lines.append(box_line(f"  Debuffs:       {st}"))
@@ -779,6 +794,52 @@ def render_interrupt(enemy_name: str, ability_name: str) -> str:
     lines.append(box_line(f"  {enemy_name}'s {ability_name} was cancelled!"))
     lines.append(box_line(f'  Sera: "I said shut up."'))
     lines.append(box_line(f"  [+3 Patience]"))
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_run_stats(stats_dict: dict) -> str:
+    """Render cumulative run statistics."""
+    lines = [
+        box_top(),
+        box_blank(),
+        box_line("░▒▓█ RUN STATISTICS █▓▒░", "center"),
+        box_blank(),
+        box_divider(),
+    ]
+    lines.append(box_line(f"  Total Damage Dealt:    {stats_dict.get('total_damage', 0)}"))
+    lines.append(box_line(f"  Best Overkill:         {stats_dict.get('best_overkill', 0)}"))
+    lines.append(box_line(f"  Weapons Found:         {stats_dict.get('weapons_found', 0)}"))
+    lines.append(box_line(f"  Materials Used:         {stats_dict.get('materials_used', 0)}"))
+    lines.append(box_line(f"  Floors Cleared:        {stats_dict.get('floors_cleared', 0)}"))
+    lines.append(box_line(f"  Current Patience:      {stats_dict.get('patience', '?')}"))
+    lines.append(box_blank())
+    lines.append(box_divider_pixel())
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_sim_summary(results: list[dict]) -> str:
+    """Render a simulation summary table for all scenarios."""
+    lines = [
+        box_top(),
+        box_blank(),
+        box_line("░▒▓█ SIMULATION SUMMARY █▓▒░", "center"),
+        box_blank(),
+        box_divider(),
+        box_line(f"  {'#':<4} {'Scenario':<24} {'Kills':<7} {'Pat':<8} {'Turns':<6}"),
+        box_divider_thin(),
+    ]
+    for i, r in enumerate(results, 1):
+        name = r.get("name", f"Scenario {i}")[:24]
+        kills = r.get("kills", "?")
+        pat = f"{r.get('patience', '?')}/{r.get('max_patience', '?')}"
+        turns = r.get("turns", "?")
+        over = " GAME OVER" if r.get("game_over") else ""
+        lines.append(box_line(f"  {i:<4} {name:<24} {kills:<7} {pat:<8} {turns:<6}{over}"))
+    lines.append(box_blank())
+    lines.append(box_divider_pixel())
+    lines.append(box_line('Sera: "Not bad. Not GOOD, but not bad."', "center"))
     lines.append(box_bot())
     return "\n".join(lines)
 

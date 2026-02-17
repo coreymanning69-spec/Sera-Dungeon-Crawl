@@ -119,6 +119,30 @@
       "base_damage": 2,
       "tags": ["CORROSIVE", "FIRE"],
       "flavor": "Shoots bolts that melt on impact. Science was a mistake. A beautiful mistake."
+    },
+    {
+      "name": "Frostbite Dagger",
+      "base_damage": 2,
+      "tags": ["PHYSICAL", "ICE"],
+      "flavor": "Cold steel. Warmer than my opinion of you."
+    },
+    {
+      "name": "Inferno Pike",
+      "base_damage": 3,
+      "tags": ["FIRE", "HEAVY"],
+      "flavor": "A spear of spite and open flame."
+    },
+    {
+      "name": "Stormglass Wand",
+      "base_damage": 2,
+      "tags": ["ARCANE", "SONIC"],
+      "flavor": "It hums before it hurts."
+    },
+    {
+      "name": "Glacier Chakram",
+      "base_damage": 2,
+      "tags": ["ICE", "ETHEREAL"],
+      "flavor": "It returns. Unlike your dignity."
     }
   ]
 }

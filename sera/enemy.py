@@ -112,6 +112,8 @@ class Enemy:
     regen_per_turn: int = 0         # for werewolf-type regen
     armor: int = 0                  # flat damage reduction
     dodge_chance: float = 0.0       # 0.0 - 1.0
+    elemental_weaknesses: list[DamageTag] = field(default_factory=list)
+    elemental_resistances: list[DamageTag] = field(default_factory=list)
 
     # --- Runtime state ---
     current_hp: int = -1            # set in __post_init__
@@ -291,7 +293,9 @@ class Enemy:
     def __repr__(self) -> str:
         status_str = ", ".join(str(s) for s in self.statuses)
         vuln = self.vulnerability.name if self.vulnerability != EnemyVulnerability.NONE else "OPEN"
+        weak = ",".join(tag.name for tag in self.elemental_weaknesses) or "-"
+        resist = ",".join(tag.name for tag in self.elemental_resistances) or "-"
         return (f"{self.name} [{self.archetype}] "
                 f"HP:{self.current_hp}/{self.max_hp} "
-                f"Armor:{self.armor} Vuln:{vuln}"
+                f"Armor:{self.armor} Vuln:{vuln} Elem+:{weak} Elem-:{resist}"
                 f"{f' ({status_str})' if status_str else ''}")

@@ -163,6 +163,104 @@
           "attack_type": "decay"
         }
       ]
+    },
+    {
+      "name": "Rimebound Golem",
+      "archetype": "elite",
+      "max_hp": 34,
+      "vulnerability": "REQUIRES_HEAVY",
+      "armor": 3,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "elemental_weaknesses": ["FIRE"],
+      "elemental_resistances": ["ICE"],
+      "flavor": "A walking glacier with posture issues.",
+      "abilities": [
+        {
+          "name": "Permafrost Slam",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It swings an iceberg. Groundbreaking.",
+          "attack_type": "ice"
+        },
+        {
+          "name": "Cold Shoulder",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "A glacial jab. Emotionally accurate.",
+          "attack_type": "ice"
+        }
+      ]
+    },
+    {
+      "name": "Ashen Salamander",
+      "archetype": "trash",
+      "max_hp": 16,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 1,
+      "dodge_chance": 0.1,
+      "elemental_weaknesses": ["ICE"],
+      "elemental_resistances": ["FIRE"],
+      "flavor": "It leaves soot and disappointment.",
+      "abilities": [
+        {
+          "name": "Cinder Spit",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It spits embers. How charming.",
+          "attack_type": "fire"
+        },
+        {
+          "name": "Molten Scamper",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It wriggles away like a bad argument.",
+          "attack_type": "fire"
+        }
+      ]
+    },
+    {
+      "name": "Static Oracle",
+      "archetype": "boss",
+      "max_hp": 44,
+      "vulnerability": "REQUIRES_ARCANE",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.05,
+      "elemental_weaknesses": ["SONIC", "CORROSIVE"],
+      "elemental_resistances": ["ARCANE"],
+      "flavor": "Predicts the future. Still loses.",
+      "abilities": [
+        {
+          "name": "Feedback Pulse",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "Static fills the room. My patience leaves it.",
+          "attack_type": "arcane"
+        },
+        {
+          "name": "Forecast Monologue",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 6,
+          "charge_time": 2,
+          "flavor": "It explains probabilities nobody asked for.",
+          "attack_type": "arcane"
+        },
+        {
+          "name": "Voltage Nudge",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "A spark. Mildly rude.",
+          "attack_type": "sonic"
+        }
+      ]
     }
   ]
 }

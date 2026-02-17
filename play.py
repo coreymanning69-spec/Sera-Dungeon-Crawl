@@ -99,6 +99,32 @@ def sera_quip(pool: list[str]) -> str:
 # Game State
 # ─────────────────────────────────────────────────────────
 
+class RunStats:
+    """Tracks cumulative run metrics for display."""
+    def __init__(self):
+        self.total_damage: int = 0
+        self.best_overkill: int = 0
+        self.weapons_found: int = 0
+        self.materials_used: int = 0
+
+    def record_damage(self, amount: int):
+        self.total_damage += amount
+
+    def record_overkill(self, excess: int):
+        if excess > self.best_overkill:
+            self.best_overkill = excess
+
+    def to_dict(self, state: "GameState") -> dict:
+        return {
+            "total_damage": self.total_damage,
+            "best_overkill": self.best_overkill,
+            "weapons_found": self.weapons_found,
+            "materials_used": self.materials_used,
+            "floors_cleared": state.floors_cleared,
+            "patience": f"{state.interest.current_patience}/{state.interest.max_patience}",
+        }
+
+
 class GameState:
     def __init__(self):
         self.interest = InterestManager()
@@ -119,6 +145,7 @@ class GameState:
         self.healing_flasks: int = 2
         self.next_revision_set: list[EquipmentItem] = generate_revision_set(self.all_equipment, floor=1)
         self.revision_set_claimed: bool = False
+        self.run_stats: RunStats = RunStats()
 
     @property
     def equipped_weapon(self) -> Weapon:
@@ -151,11 +178,16 @@ def pause(msg: str = "  [Press Enter]"):
 # Title screen
 # ─────────────────────────────────────────────────────────
 
-def title_screen() -> bool:
+def title_screen() -> str:
+    """Returns 'new_game', 'simulation', or 'quit'."""
     ui.clear()
     print(ui.render_title_screen())
-    choice = get_choice("> ", ["1", "2"])
-    return choice == "1"
+    choice = get_choice("> ", ["1", "2", "3"])
+    if choice in ("quit", "3"):
+        return "quit"
+    if choice == "2":
+        return "simulation"
+    return "new_game"
 
 
 # ─────────────────────────────────────────────────────────
@@ -292,7 +324,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- RESOLVE ATTACK ---
         print()
-        _resolve_player_attack(weapon, target, interest, state.final_stats)
+        _resolve_player_attack(weapon, target, interest, state.final_stats, state.run_stats)
         pause()
 
         if interest.game_over:
@@ -398,7 +430,7 @@ def _do_inspect(alive, combat_turn, weapon, enemies, interest, state):
     print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
 
 
-def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats):
+def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats, run_stats: RunStats | None = None):
     """Full attack resolution with dodge, permission, interrupt, damage."""
 
     # --- Permission Check ---
@@ -440,6 +472,9 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
     actual, dead = target.take_damage(damage)
     armor_absorbed = damage - actual if damage > actual else 0
 
+    if run_stats:
+        run_stats.record_damage(actual)
+
     print(ui.render_damage_report(steps, target.name, actual, armor_absorbed))
 
     # Attack quip
@@ -463,6 +498,8 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
         # Check for overkill
         excess = max(0, damage - hp_before)
         if excess > 0:
+            if run_stats:
+                run_stats.record_overkill(excess)
             print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
         print(ui.render_kill_report(target.name, kill_log))
 
@@ -686,6 +723,7 @@ def loot_phase(state: GameState):
             c = get_choice("  > ", ["y", "n"])
             if c == "y":
                 state.weapons.append(weapon_drop)
+                state.run_stats.weapons_found += 1
                 print(f'  Sera: "This might be useful."')
             else:
                 print(f'  Sera: "Trash."')
@@ -717,8 +755,8 @@ def between_floors(state: GameState) -> bool:
             state.floor, state.interest, state.upgrade_shards, state.healing_flasks,
             state.next_revision_set, state.revision_set_claimed))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8"])
-        if choice in ("quit", "8"):
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
+        if choice in ("quit", "9"):
             return False
 
         if choice == "1":
@@ -745,6 +783,11 @@ def between_floors(state: GameState) -> bool:
 
         if choice == "7":
             claim_revision_set(state)
+
+        if choice == "8":
+            ui.clear()
+            print(ui.render_run_stats(state.run_stats.to_dict(state)))
+            pause()
 
 
 def equip_screen(state: GameState):
@@ -820,6 +863,7 @@ def craft_screen(state: GameState):
 
     craft_log = apply_material(weapon, material)
     state.materials.pop(m_idx)
+    state.run_stats.materials_used += 1
 
     ui.clear()
     print(ui.box_top())
@@ -892,9 +936,40 @@ def claim_revision_set(state: GameState):
 # Main game loop
 # ─────────────────────────────────────────────────────────
 
+def run_simulation():
+    """Run all scripted scenarios from main.py and show summary."""
+    from main import run_scenario_1, run_scenario_2, run_scenario_3, run_scenario_4
+    ui.clear()
+    print(ui.box_top())
+    print(ui.box_line("░▒▓█ SIMULATION MODE █▓▒░", "center"))
+    print(ui.box_line('Sera: "Show me the math."', "center"))
+    print(ui.box_bot())
+    print()
+
+    run_scenario_1()
+    print("\n" + "─" * 60)
+    run_scenario_2()
+    print("\n" + "─" * 60)
+    run_scenario_3()
+    print("\n" + "─" * 60)
+    run_scenario_4()
+
+    print()
+    print(ui.box_top())
+    print(ui.box_line("░▒▓█ SIMULATION COMPLETE █▓▒░", "center"))
+    print(ui.box_line('Sera: "Not bad. Not GOOD, but not bad."', "center"))
+    print(ui.box_bot())
+    pause()
+
+
 def main():
-    if not title_screen():
+    choice = title_screen()
+    if choice == "quit":
         print("  Sera didn't even show up.")
+        return
+
+    if choice == "simulation":
+        run_simulation()
         return
 
     state = GameState()
