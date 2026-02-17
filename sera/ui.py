@@ -22,7 +22,7 @@ from sera import sprites
 # Drawing primitives — retro pixel style
 # ─────────────────────────────────────────────────────────
 
-W = 210  # standard box width (expanded for better spacing)
+W = 80  # standard box width
 
 
 def clear():
@@ -147,14 +147,7 @@ def render_title_screen() -> str:
         lines.append(box_line(portrait_line, "center"))
     lines.append(box_blank())
     lines.append(box_divider())
-    import random
-    title_quotes = [
-        '"I am a Goddess. Entertain me."',
-        '"Hiii. Here we are, now. Nice to meet you ^_^"',
-        '"I don\'t think there\'s anything at all that can stop me."',
-        '"Well, what do you think we should go fix first?"',
-    ]
-    lines.append(box_line(random.choice(title_quotes), "center"))
+    lines.append(box_line('"I am a Goddess. Entertain me."', "center"))
     lines.append(box_divider())
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
