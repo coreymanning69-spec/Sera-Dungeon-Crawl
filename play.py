@@ -100,6 +100,7 @@ ROOM_CLEAR_QUIPS = [
 ]
 
 AUTO_BATTLE_TURNS = 10
+AUTO_ADVANCE_ENEMY_PHASE = True
 
 
 def sera_quip(pool: list[str]) -> str:
@@ -477,6 +478,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- ENEMY PHASE ---
         alive = [e for e in enemies if e.current_hp > 0]
+        enemy_phase_had_output = False
         defense_profile = _build_defense_profile(state)
         for enemy in alive:
             if interest.game_over:
@@ -487,9 +489,12 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 print(ui.box_line(f"░░ {enemy.name} is FROZEN! ░░", "center"))
                 print(ui.box_line('Sera: "Stay still. I like you better this way."', "center"))
                 print(ui.box_bot())
-                pause()
+                enemy_phase_had_output = True
+                if not AUTO_ADVANCE_ENEMY_PHASE:
+                    pause()
                 continue
-            _resolve_enemy_action(enemy, state, defense_profile)
+            resolved = _resolve_enemy_action(enemy, state, defense_profile, wait_for_input=not AUTO_ADVANCE_ENEMY_PHASE)
+            enemy_phase_had_output = enemy_phase_had_output or resolved
 
             if interest.game_over:
                 return False
@@ -503,11 +508,13 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     kill_name = enemy.name if enemy.current_hp <= 0 else None
                     ui.clear()
                     print(ui.render_dot_tick(dot_log, kill_name))
+                    enemy_phase_had_output = True
                     if kill_name:
                         kill_log = interest.register_kill(
                             enemy.name, dot_total, hp_before_dot)
                         print(ui.render_kill_report(enemy.name, kill_log))
-                    pause()
+                    if not AUTO_ADVANCE_ENEMY_PHASE:
+                        pause()
 
         # --- CLEANUP PHASE ---
         for enemy in enemies:
@@ -522,7 +529,9 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                             print(ui.box_line("░░ DOOM DETONATES ░░", "center"))
                             print(ui.box_line(line.strip(), "center"))
                             print(ui.box_bot())
-                            pause()
+                            enemy_phase_had_output = True
+                            if not AUTO_ADVANCE_ENEMY_PHASE:
+                                pause()
                 for event in kill_events:
                     kill_log = interest.register_kill(
                         event.enemy_name,
@@ -530,7 +539,9 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                         event.enemy_hp_was,
                     )
                     print(ui.render_kill_report(event.enemy_name, kill_log))
-                    pause()
+                    enemy_phase_had_output = True
+                    if not AUTO_ADVANCE_ENEMY_PHASE:
+                        pause()
                 enemy.tick_cooldowns()
                 healed = enemy.tick_regen()
                 if healed > 0:
@@ -540,7 +551,12 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     print(ui.box_line(f"HP: {ui.hp_bar(enemy.current_hp, enemy.max_hp, 15)}", "center"))
                     print(ui.box_line(f'Sera: "Stop healing. It\'s dragging on."', "center"))
                     print(ui.box_bot())
-                    pause()
+                    enemy_phase_had_output = True
+                    if not AUTO_ADVANCE_ENEMY_PHASE:
+                        pause()
+
+        if AUTO_ADVANCE_ENEMY_PHASE and enemy_phase_had_output and any(e.current_hp > 0 for e in enemies):
+            pause("  [Press Enter for next player turn]")
 
 
 def _show_room_clear(interest: InterestManager):
@@ -791,7 +807,8 @@ def _resolve_enemy_action(
     enemy: Enemy,
     state: GameState,
     defense_profile: tuple[int, int, dict[str, int]] | None = None,
-):
+    wait_for_input: bool = True,
+) -> bool:
     """Resolve one enemy's turn with defensive bonuses from equipment/stats."""
     interest = state.interest
     ability = enemy.choose_action()
@@ -808,8 +825,10 @@ def _resolve_enemy_action(
                 "center"))
             print(ui.box_line('Sera: "Hurry up or I\'m leaving."', "center"))
             print(ui.box_bot())
-            pause()
-        return
+            if wait_for_input:
+                pause()
+            return True
+        return False
 
     base_cost = ANNOYANCE_COST[ability.annoyance]
     mult = enemy.get_annoyance_multiplier()
@@ -833,7 +852,9 @@ def _resolve_enemy_action(
         print(f"  Defensive bonuses: -{reduction} flat, -{resistance}% general, -{elem_res}% {attack_type.title()}.")
     interest.take_annoyance(cost, f"{ability.name}")
     print(f"  Patience: {ui.patience_bar(interest)}")
-    pause()
+    if wait_for_input:
+        pause()
+    return True
 
 
 
@@ -1143,23 +1164,35 @@ def run_simulation():
     print(ui.box_line("░▒▓█ SIMULATION COMPLETE █▓▒░", "center"))
     print(ui.box_line('Sera: "Not bad. Not GOOD, but not bad."', "center"))
     print(ui.box_bot())
-    pause()
 
 
-def main():
-    choice = title_screen()
-    if choice == "quit":
-        print("  Sera didn't even show up.")
-        return
+def _show_closing_menu(title: str, quote: str) -> str:
+    """Show a restart/title/quit menu after a mode ends."""
+    ui.clear()
+    print(ui.box_top())
+    print(ui.box_line(title, "center"))
+    print(ui.box_divider())
+    print(ui.box_line(quote, "center"))
+    print(ui.box_blank())
+    print(ui.box_line("[1] Restart", "center"))
+    print(ui.box_line("[2] Back to title", "center"))
+    print(ui.box_line("[3] Quit", "center"))
+    print(ui.box_bot())
 
-    if choice == "simulation":
-        run_simulation()
-        return
+    choice = get_choice("> ", ["1", "2", "3"])
+    if choice in ("quit", "3"):
+        return "quit"
+    if choice == "1":
+        return "restart"
+    return "title"
 
+
+def run_new_game_session() -> str:
+    """Run one full interactive game session."""
     state = GameState()
 
     if not choose_starting_weapon(state):
-        return
+        return "title"
 
     for floor_num in range(1, state.max_floors + 1):
         state.floor = floor_num
@@ -1178,11 +1211,10 @@ def main():
             ui.clear()
             print(ui.render_game_over(state.interest, state.floor))
             pause()
-            # Show run statistics before returning to main menu
             ui.clear()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
-            return
+            return _show_closing_menu("░▒▓█ RUN OVER █▓▒░", 'Sera: "You can do better. Try again."')
 
         state.floors_cleared = floor_num
 
@@ -1196,16 +1228,43 @@ def main():
         if floor_num < state.max_floors:
             if not between_floors(state):
                 print('  Sera: "Fine. I was getting bored anyway."')
-                return
+                return "title"
 
     # Victory
     ui.clear()
     print(ui.render_victory(state.max_floors, state.interest))
     pause()
-    # Show run statistics
     ui.clear()
     print(ui.render_run_stats(state.run_stats.to_dict(state)))
     pause()
+    return _show_closing_menu("░▒▓█ VICTORY LOGGED █▓▒░", 'Sera: "...Acceptable."')
+
+
+def main():
+    while True:
+        choice = title_screen()
+        if choice == "quit":
+            print("  Sera didn't even show up.")
+            return
+
+        if choice == "simulation":
+            while True:
+                run_simulation()
+                next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."')
+                if next_step == "restart":
+                    continue
+                if next_step == "quit":
+                    print("  Sera: \"We're done here.\"")
+                    return
+                break
+            continue
+
+        next_step = run_new_game_session()
+        if next_step == "quit":
+            print("  Sera: \"We're done here.\"")
+            return
+        if next_step == "restart":
+            continue
 
 
 if __name__ == "__main__":
