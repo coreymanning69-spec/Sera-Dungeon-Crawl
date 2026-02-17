@@ -29,15 +29,22 @@ def _disambiguate_names(enemies: list[Enemy]) -> None:
 
 def _scale_enemy(enemy: Enemy, floor: int) -> None:
     """Scale enemy stats based on floor. Keeps small-number feel."""
+    # Add a random dodge chance (0-15%) if enemy doesn't already have one
+    if enemy.dodge_chance == 0.0 and random.random() < 0.4:
+        enemy.dodge_chance = random.uniform(0.05, 0.15)
+
     if floor <= 1:
         return
-    # +10% HP per floor past 1, rounded
-    bonus_hp = int(enemy.max_hp * 0.10 * (floor - 1))
+    # +28% HP per floor past 1, rounded (increased from 10% for challenge)
+    bonus_hp = int(enemy.max_hp * 0.28 * (floor - 1))
     enemy.max_hp += bonus_hp
     enemy.current_hp = enemy.max_hp
     # +1 armor every 3 floors for armored enemies
     if enemy.armor > 0 and floor >= 3:
         enemy.armor += (floor - 1) // 2
+    # Slightly increase dodge chance on higher floors
+    if enemy.dodge_chance > 0.0 and floor >= 3:
+        enemy.dodge_chance = min(0.30, enemy.dodge_chance + (floor - 1) * 0.02)
 
 
 def generate_encounter(floor: int, all_enemies: list[Enemy]) -> list[Enemy]:
