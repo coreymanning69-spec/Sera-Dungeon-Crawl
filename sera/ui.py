@@ -609,6 +609,7 @@ def render_combat_hud(
         lines.append(box_line(f"  [{i+1}] Attack {e.name}"))
     lines.append(box_line(f"  [I] Inspect enemy"))
     lines.append(box_line(f"  [W] View weapon details"))
+    lines.append(box_line(f"  [A] Toggle auto-battle"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -626,6 +627,29 @@ def render_damage_report(steps: list[str], target_name: str, actual: int, armor_
         lines.append(box_line(f"  Armor absorbs: {armor_absorbed}"))
     lines.append(box_divider())
     lines.append(box_line(f"DEALT: {actual} damage", "center"))
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_turn_result(turn: int, patience_before: int, patience_after: int, events: list[str]) -> str:
+    """Render a compact per-turn result card (used by auto-battle)."""
+    delta = patience_after - patience_before
+    delta_str = f"{delta:+d}"
+
+    lines = [
+        box_top(),
+        box_line(f"TURN {turn} RESULT", "center"),
+        box_divider(),
+        box_line(f"Patience: {patience_before} -> {patience_after} ({delta_str})"),
+        box_divider(),
+    ]
+
+    for event in events[:8]:
+        lines.append(box_line(f"- {event}"))
+
+    if len(events) > 8:
+        lines.append(box_line(f"... {len(events) - 8} more events"))
+
     lines.append(box_bot())
     return "\n".join(lines)
 
