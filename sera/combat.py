@@ -15,6 +15,8 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 
+import random
+
 from sera.weapon import Weapon
 from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR
 from sera.interest import InterestManager
@@ -29,6 +31,7 @@ class CombatResult:
     enemies_killed: int
     patience_remaining: int
     game_over: bool
+    final_enemies: list[Enemy]  # deepcopied enemies with final HP/status state
 
 
 def resolve_combat(
@@ -66,8 +69,9 @@ def resolve_combat(
 
         # --- Sera's Attack ---
         target = next((e for e in enemies if e.current_hp > 0), None)
+        living_count = sum(1 for e in enemies if e.current_hp > 0)
         if target:
-            log.extend(_resolve_sera_attack(weapon, target, interest))
+            log.extend(_resolve_sera_attack(weapon, target, interest, living_count))
 
             # Check for kill
             if target.current_hp <= 0:
@@ -81,9 +85,16 @@ def resolve_combat(
                 break
             log.extend(_resolve_enemy_turn(enemy, interest))
 
-        # --- Status Tick ---
+        # --- Status Tick (DoT damage first, then expire durations) ---
         for enemy in enemies:
             if enemy.current_hp > 0:
+                dot_total, dot_log = enemy.tick_dot_damage()
+                if dot_log:
+                    log.extend(dot_log)
+                if dot_total > 0 and enemy.current_hp <= 0:
+                    kills += 1
+                    log.append(f'\n  {enemy.name} succumbs to the damage over time.')
+                    log.extend(interest.register_kill(enemy.name, dot_total, dot_total))
                 tick_log = enemy.tick_statuses()
                 if tick_log:
                     log.extend(tick_log)
@@ -106,6 +117,7 @@ def resolve_combat(
         enemies_killed=kills,
         patience_remaining=interest.current_patience,
         game_over=interest.game_over,
+        final_enemies=enemies,
     )
 
 
@@ -113,19 +125,25 @@ def _resolve_sera_attack(
     weapon: Weapon,
     target: Enemy,
     interest: InterestManager,
+    living_count: int = 1,
 ) -> list[str]:
     """Resolve Sera swinging at something."""
     log: list[str] = []
 
     # --- Permission Check ---
     if not target.check_permission(weapon.all_tags):
+        immune_quip = random.choice([
+            "Boring. I can't even touch it.",
+            "I can't touch it. YOUR fault.",
+            "The wrong weapon. Again. Think.",
+        ])
         log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}...")
-        log.append(f'  IMMUNE. Weapon lacks required tag. "Boring. I can\'t even touch it."')
+        log.append(f'  IMMUNE. Weapon lacks required tag. "{immune_quip}"')
         log.extend(interest.take_annoyance(5, f'"{target.name} is immune. What a waste of my time."'))
         return log
 
     # --- Damage Calculation (transparent) ---
-    damage, steps = weapon.calculate_damage(target)
+    damage, steps = weapon.calculate_damage(target, enemy_count=living_count)
 
     log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}!")
     log.append("  --- DAMAGE MATH ---")
@@ -171,9 +189,14 @@ def _resolve_enemy_turn(
         # Enemy is charging
         if enemy.is_casting and enemy.pending_ability:
             remaining = enemy.cast_turns_remaining
+            wait_quip = random.choice([
+                "Hurry up or I'm leaving.",
+                "Three turns? I don't have three turns.",
+                "Charging something. Cute. Hurry.",
+            ])
             log.append(f"\n  {enemy.name} is charging {enemy.pending_ability.name}... "
                        f"({remaining} turn{'s' if remaining != 1 else ''} left)")
-            log.append(f'  Sera: "Hurry up or I\'m leaving."')
+            log.append(f'  Sera: "{wait_quip}"')
         return log
 
     # Resolve the annoyance
@@ -189,16 +212,17 @@ def _resolve_enemy_turn(
 
 def _status_quip(effect: StatusEffect) -> str:
     """Sera's commentary on inflicting status effects."""
-    quips = {
-        StatusEffect.BURNING: "Burn brighter. Entertain me.",
-        StatusEffect.BLEEDING: "Bleed faster.",
-        StatusEffect.SILENCED: "Finally. Quiet.",
-        StatusEffect.CORRODED: "Your armor was ugly anyway.",
-        StatusEffect.CURSED: "Consider this a divine opinion.",
-        StatusEffect.STUNNED: "Freeze. I wasn't done with you.",
-        StatusEffect.MARKED: "I see you. You can't hide.",
-        StatusEffect.HUMILIATED: "That's the face of someone who knows they've lost.",
-        StatusEffect.TERRIFIED: "Good instinct.",
-        StatusEffect.SLOWED: "Take your time. Actually, don't.",
+    quips: dict[StatusEffect, list[str]] = {
+        StatusEffect.BURNING: ["Burn brighter. Entertain me.", "There we go. Brighter."],
+        StatusEffect.BLEEDING: ["Bleed faster.", "Keep bleeding. Faster."],
+        StatusEffect.SILENCED: ["Finally. Quiet.", "Better. Much better."],
+        StatusEffect.CORRODED: ["Your armor was ugly anyway.", "Armor was decorative anyway."],
+        StatusEffect.CURSED: ["Consider this a divine opinion.", "A divine annotation."],
+        StatusEffect.STUNNED: ["Freeze. I wasn't done with you."],
+        StatusEffect.MARKED: ["I see you. You can't hide."],
+        StatusEffect.HUMILIATED: ["That's the face of someone who knows they've lost."],
+        StatusEffect.TERRIFIED: ["Good instinct."],
+        StatusEffect.SLOWED: ["Take your time. Actually, don't."],
     }
-    return quips.get(effect, "Noted.")
+    options = quips.get(effect, ["Noted."])
+    return random.choice(options)

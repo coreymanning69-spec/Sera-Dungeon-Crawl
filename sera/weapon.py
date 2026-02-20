@@ -94,10 +94,12 @@ class Weapon:
                 tags.add(affix.granted_tag)
         return tags
 
-    def calculate_damage(self, enemy: Enemy) -> tuple[int, list[str]]:
+    def calculate_damage(self, enemy: Enemy, enemy_count: int = 1) -> tuple[int, list[str]]:
         """
         Resolve the full damage pipeline against a target.
         Returns (final_damage, list_of_math_steps_for_display).
+
+        enemy_count: number of living enemies in the encounter (used for enemy_alone condition).
         """
         steps: list[str] = []
         dmg = self.base_damage
@@ -106,14 +108,14 @@ class Weapon:
         # --- Phase 1: Flat bonuses ---
         for affix in [self.prefix, self.suffix, self.set_bonus]:
             if affix and affix.flat_bonus != 0:
-                if _check_condition(affix.flat_condition, enemy):
+                if _check_condition(affix.flat_condition, enemy, enemy_count):
                     dmg += affix.flat_bonus
                     steps.append(f'  + {affix.flat_bonus} ({affix.name}: {affix.flat_condition}) = {dmg}')
 
         # --- Phase 2: Multipliers ---
         for affix in [self.prefix, self.suffix, self.set_bonus]:
             if affix and affix.multiplier != 1.0:
-                if _check_condition(affix.mult_condition, enemy):
+                if _check_condition(affix.mult_condition, enemy, enemy_count):
                     dmg = int(dmg * affix.multiplier)
                     steps.append(f'  x {affix.multiplier} ({affix.name}: {affix.mult_condition}) = {dmg}')
 
@@ -144,7 +146,7 @@ class Weapon:
 # Condition resolver — keeps affix logic declarative
 # ---------------------------------------------------------------------------
 
-def _check_condition(condition: str, enemy: Enemy) -> bool:
+def _check_condition(condition: str, enemy: Enemy, enemy_count: int = 1) -> bool:
     """Evaluate a named condition against the current enemy state."""
     if condition == "always":
         return True
@@ -157,7 +159,7 @@ def _check_condition(condition: str, enemy: Enemy) -> bool:
     if condition == "enemy_has_debuffs":
         return len(enemy.statuses) > 0
     if condition == "enemy_alone":
-        return True  # simplified — full impl needs encounter context
+        return enemy_count <= 1
     if condition == "first_hit":
         return enemy.times_hit == 0
     return False

@@ -150,6 +150,98 @@
           "flavor": "Death magic. On a Goddess. Read the room."
         }
       ]
+    },
+    {
+      "name": "Stone Golem",
+      "archetype": "boss",
+      "max_hp": 45,
+      "vulnerability": "REQUIRES_CORROSIVE",
+      "armor": 8,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "8 armor. Immune to everything except the right kind of patience. Specifically, mine.",
+      "abilities": [
+        {
+          "name": "Boulder Slam",
+          "annoyance": "STUN",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It slams. Slow, deliberate, infuriating."
+        },
+        {
+          "name": "Stone Gaze",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 6,
+          "charge_time": 3,
+          "flavor": "It stares. For three whole turns. It doesn't even have eyes."
+        },
+        {
+          "name": "Gravel Throw",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "Debris. An insult to the concept of combat."
+        }
+      ]
+    },
+    {
+      "name": "Howling Banshee",
+      "archetype": "elite",
+      "max_hp": 20,
+      "vulnerability": "REQUIRES_SILVER",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.25,
+      "flavor": "Incorporeal. Dramatic. 25% chance of being annoying by simply not being there.",
+      "abilities": [
+        {
+          "name": "Death Wail",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 4,
+          "charge_time": 3,
+          "flavor": "It screams about its tragic past. For three turns. Sera's eye twitches."
+        },
+        {
+          "name": "Phase Dodge",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 2,
+          "charge_time": 0,
+          "flavor": "It phases through the attack. Stand still, you translucent nuisance."
+        },
+        {
+          "name": "Cold Touch",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "An icy grasp. Temperature: aggressively mediocre."
+        }
+      ]
+    },
+    {
+      "name": "Plague Rat Swarm",
+      "archetype": "trash",
+      "max_hp": 10,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Dozens of rats. One health pool. This is either clever or embarrassing.",
+      "abilities": [
+        {
+          "name": "Scatter",
+          "annoyance": "SUMMON",
+          "cooldown": 2,
+          "charge_time": 0,
+          "flavor": "More rats. From where? Doesn't matter. Unacceptable."
+        },
+        {
+          "name": "Gnaw",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "They gnaw. Collectively. Sera is offended by the logistics."
+        }
+      ]
     }
   ]
 }

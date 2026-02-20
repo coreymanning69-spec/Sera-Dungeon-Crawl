@@ -59,6 +59,66 @@
       "base_damage": 2,
       "tags": ["SONIC"],
       "flavor": "Rings at a frequency that makes lesser beings reconsider existing."
+    },
+    {
+      "name": "Celestial Spear",
+      "base_damage": 3,
+      "tags": ["DIVINE", "HEAVY"],
+      "flavor": "Forged from a collapsed star. I was bored that afternoon."
+    },
+    {
+      "name": "Plague Dagger",
+      "base_damage": 2,
+      "tags": ["BLEED", "CORROSIVE"],
+      "flavor": "Two problems in one blade. Efficient. I approve."
+    },
+    {
+      "name": "Crystal Wand",
+      "base_damage": 2,
+      "tags": ["ARCANE", "ETHEREAL"],
+      "flavor": "It hums with contained power. Try not to drop it. Actually, drop it. See what happens."
+    },
+    {
+      "name": "Thunder Maul",
+      "base_damage": 3,
+      "tags": ["HEAVY", "SONIC"],
+      "flavor": "Hits hard. Hits loud. The sound is part of the point."
+    },
+    {
+      "name": "Shadow Blade",
+      "base_damage": 2,
+      "tags": ["PHYSICAL", "SILVER"],
+      "flavor": "Cuts through shapeshifters and lies equally well."
+    },
+    {
+      "name": "Frost Lance",
+      "base_damage": 2,
+      "tags": ["ARCANE"],
+      "flavor": "Cold enough to make even constructs pause. Briefly."
+    },
+    {
+      "name": "Blessed Gauntlets",
+      "base_damage": 1,
+      "tags": ["DIVINE", "PHYSICAL"],
+      "flavor": "Punching with the authority of a Goddess. Which is me. Obviously."
+    },
+    {
+      "name": "Barbed Chain",
+      "base_damage": 2,
+      "tags": ["PHYSICAL", "BLEED"],
+      "flavor": "Every link is a promise. Every promise draws blood."
+    },
+    {
+      "name": "Moonfire Bow",
+      "base_damage": 2,
+      "tags": ["FIRE", "SILVER"],
+      "flavor": "Burns silver-hot. Werewolves find this particularly unpleasant."
+    },
+    {
+      "name": "Void Shard",
+      "base_damage": 2,
+      "tags": ["ETHEREAL", "ARCANE"],
+      "flavor": "A piece of nothing, weaponized. I thought of it. You're welcome."
     }
   ]
 }

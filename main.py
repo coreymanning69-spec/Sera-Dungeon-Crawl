@@ -241,7 +241,8 @@ def run_scenario_3():
     for line in result.log:
         print(line)
 
-    print(f"\n  After 3 turns: Boss at {boss.current_hp}/{boss.max_hp} HP")
+    final_boss = result.final_enemies[0]
+    print(f"\n  After 3 turns: Boss at {final_boss.current_hp}/{final_boss.max_hp} HP")
     print(f"  Patience: {result.patience_remaining}/{interest.max_patience}")
     print(f"  {'GAME OVER' if result.game_over else 'The fight continues...'}")
 
