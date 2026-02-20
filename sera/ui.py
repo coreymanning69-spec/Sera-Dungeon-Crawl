@@ -8,6 +8,9 @@ Monospace terminal assumed.
 
 from __future__ import annotations
 import os
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Callable
 
 from sera.weapon import Weapon
 from sera.enemy import Enemy, ANNOYANCE_COST
@@ -16,6 +19,443 @@ from sera.crafting import CraftingMaterial
 from sera.equipment import EquipmentItem, EquipmentLoadout, SLOT_ORDER
 from sera.stats import PlayerStats
 from sera import sprites
+
+
+# ─────────────────────────────────────────────────────────
+# Pixel UI system (overlay architecture)
+# ─────────────────────────────────────────────────────────
+
+
+class UIStateType(str, Enum):
+    VIEWPORT = "VIEWPORT"
+    OVERLAY = "OVERLAY"
+    MODAL = "MODAL"
+
+
+@dataclass(frozen=True)
+class Rect:
+    x: int
+    y: int
+    w: int
+    h: int
+
+    def contains(self, px: int, py: int) -> bool:
+        return self.x <= px < self.x + self.w and self.y <= py < self.y + self.h
+
+
+@dataclass(frozen=True)
+class UIEvent:
+    event_type: str
+    x: int = 0
+    y: int = 0
+    key: str = ""
+
+
+@dataclass(frozen=True)
+class UIRequest:
+    request_type: str
+    payload: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EventResult:
+    consumed: bool
+    request: UIRequest | None = None
+
+
+class IWidget:
+    id: str
+    rect: Rect
+    visible: bool
+    enabled: bool
+
+    def layout(self, _ctx: dict[str, object] | None = None):
+        return None
+
+    def render(self, _ctx: dict[str, object] | None = None) -> list[tuple[int, str]]:
+        return []
+
+    def handle_event(self, _ev: UIEvent) -> EventResult:
+        return EventResult(consumed=False)
+
+    def hit_test(self, x: int, y: int) -> bool:
+        return self.rect.contains(x, y)
+
+
+class IOverlay(IWidget):
+    overlay_id: str
+
+    def open(self, payload: dict[str, object] | None = None):
+        _ = payload
+        self.visible = True
+
+    def close(self):
+        self.visible = False
+
+    def is_blocking_viewport(self) -> bool:
+        return True
+
+
+class PanelOverlay(IOverlay):
+    def __init__(
+        self,
+        overlay_id: str,
+        rect: Rect,
+        title: str,
+        *,
+        blocking: bool,
+        action_buttons: list[Rect] | None = None,
+    ):
+        self.id = overlay_id
+        self.overlay_id = overlay_id
+        self.rect = rect
+        self.title = title
+        self.visible = False
+        self.enabled = True
+        self.blocking = blocking
+        self.action_buttons = action_buttons or []
+
+    def render(self, _ctx: dict[str, object] | None = None) -> list[tuple[int, str]]:
+        if not self.visible:
+            return []
+        layer = 700 if self.blocking else 300
+        return [(200, f"panel:{self.overlay_id}:{self.rect}"), (layer, f"title:{self.title}")]
+
+    def is_blocking_viewport(self) -> bool:
+        return self.blocking
+
+    def handle_event(self, ev: UIEvent) -> EventResult:
+        if not self.visible or not self.enabled:
+            return EventResult(consumed=False)
+
+        if self.blocking:
+            if ev.event_type == "key" and ev.key.lower() == "esc":
+                return EventResult(consumed=True, request=UIRequest("CloseOverlay"))
+            return EventResult(consumed=True)
+
+        if ev.event_type == "click":
+            for button in self.action_buttons:
+                if button.contains(ev.x, ev.y):
+                    return EventResult(consumed=True)
+        return EventResult(consumed=False)
+
+
+class BottomBar(IWidget):
+    def __init__(self, rect: Rect):
+        self.id = "bottom_bar"
+        self.rect = rect
+        self.visible = True
+        self.enabled = True
+        self._icon_hitboxes: dict[str, Rect] = {}
+
+    def set_icon_hitboxes(self, icon_hitboxes: dict[str, Rect]):
+        self._icon_hitboxes = icon_hitboxes
+
+    def render(self, _ctx: dict[str, object] | None = None) -> list[tuple[int, str]]:
+        return [(100, "bottom_bar")]
+
+    def handle_event(self, ev: UIEvent) -> EventResult:
+        if not self.visible or not self.enabled or ev.event_type != "click":
+            return EventResult(consumed=False)
+        for overlay_id, rect in self._icon_hitboxes.items():
+            if rect.contains(ev.x, ev.y):
+                return EventResult(
+                    consumed=True,
+                    request=UIRequest("OpenOverlay", {"overlay_id": overlay_id}),
+                )
+        return EventResult(consumed=False)
+
+
+@dataclass
+class UIState:
+    state_type: UIStateType = UIStateType.VIEWPORT
+    open_overlay_id: str | None = None
+    modal_id: str | None = None
+    previous_state: "UIState | None" = None
+
+
+class UIRoot:
+    def __init__(self, bottom_bar: BottomBar, viewport_handler: Callable[[UIEvent], EventResult] | None = None):
+        self.state = UIState()
+        self.overlays: dict[str, IOverlay] = {}
+        self.bottom_bar = bottom_bar
+        self.viewport_handler = viewport_handler or (lambda _ev: EventResult(consumed=False))
+        self.context_menu_handler: Callable[[UIEvent], EventResult] | None = None
+        self.modal_handler: Callable[[UIEvent], EventResult] | None = None
+
+    def register_overlay(self, overlay: IOverlay):
+        self.overlays[overlay.overlay_id] = overlay
+
+    def _active_overlay(self) -> IOverlay | None:
+        if self.state.open_overlay_id is None:
+            return None
+        return self.overlays.get(self.state.open_overlay_id)
+
+    def open_overlay(self, overlay_id: str, payload: dict[str, object] | None = None):
+        if self.state.state_type == UIStateType.MODAL:
+            return
+        current = self._active_overlay()
+        if current and current.overlay_id == overlay_id:
+            self.close_overlay()
+            return
+        if current:
+            current.close()
+        target = self.overlays[overlay_id]
+        target.open(payload)
+        self.state = UIState(state_type=UIStateType.OVERLAY, open_overlay_id=overlay_id)
+
+    def close_overlay(self):
+        current = self._active_overlay()
+        if current:
+            current.close()
+        self.state = UIState(state_type=UIStateType.VIEWPORT)
+
+    def open_modal(self, modal_id: str):
+        self.state = UIState(
+            state_type=UIStateType.MODAL,
+            modal_id=modal_id,
+            previous_state=self.state,
+        )
+
+    def close_modal(self):
+        if self.state.state_type != UIStateType.MODAL:
+            return
+        self.state = self.state.previous_state or UIState()
+
+    def is_viewport_suspended(self) -> bool:
+        if self.state.state_type == UIStateType.MODAL:
+            return True
+        overlay = self._active_overlay()
+        return bool(overlay and overlay.is_blocking_viewport())
+
+    def _apply_request(self, req: UIRequest):
+        if req.request_type == "OpenOverlay":
+            overlay_id = str(req.payload.get("overlay_id", ""))
+            if overlay_id:
+                self.open_overlay(overlay_id, req.payload)
+        elif req.request_type == "CloseOverlay":
+            self.close_overlay()
+        elif req.request_type == "OpenModal":
+            modal_id = str(req.payload.get("modal_id", "modal"))
+            self.open_modal(modal_id)
+        elif req.request_type == "CloseModal":
+            self.close_modal()
+
+    def _run_handler(self, handler: Callable[[UIEvent], EventResult] | None, ev: UIEvent) -> bool:
+        if handler is None:
+            return False
+        result = handler(ev)
+        if result.request:
+            self._apply_request(result.request)
+        return result.consumed
+
+    def dispatch_event(self, ev: UIEvent) -> EventResult:
+        if ev.event_type == "key" and ev.key.lower() == "esc":
+            if self.state.state_type == UIStateType.MODAL:
+                self.close_modal()
+                return EventResult(consumed=True)
+            if self.state.state_type == UIStateType.OVERLAY:
+                self.close_overlay()
+                return EventResult(consumed=True)
+            self.open_overlay("system_menu")
+            return EventResult(consumed=True)
+
+        if self.state.state_type == UIStateType.MODAL and self._run_handler(self.modal_handler, ev):
+            return EventResult(consumed=True)
+        if self._run_handler(self.context_menu_handler, ev):
+            return EventResult(consumed=True)
+
+        overlay = self._active_overlay()
+        if overlay:
+            result = overlay.handle_event(ev)
+            if result.request:
+                self._apply_request(result.request)
+            if result.consumed:
+                return EventResult(consumed=True)
+
+        bar_result = self.bottom_bar.handle_event(ev)
+        if bar_result.request:
+            self._apply_request(bar_result.request)
+        if bar_result.consumed:
+            return EventResult(consumed=True)
+
+        viewport_result = self.viewport_handler(ev)
+        if viewport_result.request:
+            self._apply_request(viewport_result.request)
+        return viewport_result
+
+    def render(self, ctx: dict[str, object] | None = None) -> list[tuple[int, str]]:
+        draw_ops = [(0, "viewport")]
+        draw_ops.extend(self.bottom_bar.render(ctx))
+        overlay = self._active_overlay()
+        if overlay:
+            draw_ops.extend(overlay.render(ctx))
+        draw_ops.sort(key=lambda item: item[0])
+        return draw_ops
+
+
+def build_default_ui_root(viewport_handler: Callable[[UIEvent], EventResult] | None = None) -> UIRoot:
+    bottom_bar = BottomBar(Rect(0, 180, 320, 20))
+    bottom_bar.set_icon_hitboxes(
+        {
+            "system_menu": Rect(4, 182, 16, 16),
+            "status_screen": Rect(24, 182, 16, 16),
+            "loadout_screen": Rect(44, 182, 16, 16),
+            "log_screen": Rect(64, 182, 16, 16),
+        }
+    )
+    root = UIRoot(bottom_bar=bottom_bar, viewport_handler=viewport_handler)
+    root.register_overlay(PanelOverlay("system_menu", Rect(60, 20, 200, 150), "System", blocking=True))
+    root.register_overlay(
+        PanelOverlay(
+            "status_screen",
+            Rect(8, 8, 144, 112),
+            "Status",
+            blocking=False,
+            action_buttons=[Rect(16, 30, 60, 16), Rect(16, 50, 60, 16)],
+        )
+    )
+    root.register_overlay(
+        PanelOverlay(
+            "loadout_screen",
+            Rect(160, 8, 152, 112),
+            "Loadout",
+            blocking=False,
+            action_buttons=[Rect(168, 32, 120, 16)],
+        )
+    )
+    root.register_overlay(
+        PanelOverlay(
+            "log_screen",
+            Rect(8, 122, 304, 56),
+            "Log",
+            blocking=False,
+            action_buttons=[Rect(16, 130, 288, 40)],
+        )
+    )
+    return root
+
+
+# ─────────────────────────────────────────────────────────
+# Pixel-style interface art (filesystem-friendly mockups)
+# ─────────────────────────────────────────────────────────
+
+_UI_FRAME_WIDTH = 76
+_UI_VIEWPORT_HEIGHT = 16
+
+
+def _frame_border(width: int = _UI_FRAME_WIDTH) -> str:
+    return "+" + "-" * (width - 2) + "+"
+
+
+def _frame_line(text: str = "", width: int = _UI_FRAME_WIDTH) -> str:
+    inner = width - 4
+    return f"| {text[:inner].ljust(inner)} |"
+
+
+def _overlay_art_lines(overlay_id: str) -> list[str]:
+    if overlay_id == "system_menu":
+        return [
+            "[ SYSTEM ]",
+            "  > Save Run",
+            "  > Options",
+            "  > Return to Title",
+            "  > Exit",
+            "",
+            "(Blocking: combat suspended)",
+        ]
+    if overlay_id == "status_screen":
+        return [
+            "[ STATUS ]",
+            "HP: ########## 999/999",
+            "Dmg Type: PHYSICAL | BLEED",
+            "Resist: FIRE 20% | ARCANE 40%",
+            "Statuses: Marked(2), Haste(1)",
+            "Run: Floor 3 | Kills 27 | Turns 44",
+            "",
+            "(Non-blocking: pass-through outside widgets)",
+        ]
+    if overlay_id == "loadout_screen":
+        return [
+            "[ LOADOUT ]",
+            "Weapon: Petty Rusty Shiv of Agony",
+            "Armor : Threaded Moonplate",
+            "Charm : Sunshard Loop",
+            "",
+            "[1] Equip  [2] Swap Set",
+            "",
+            "(Non-blocking: pass-through outside widgets)",
+        ]
+    if overlay_id == "log_screen":
+        return [
+            "[ LOG ]",
+            "> You hit Clanking Dreadknight for 12",
+            "> BLEED ticks for 3",
+            "> Dreadknight begins Oath of Honor",
+            "> Interrupted! +3 Patience",
+            "",
+            "[Chat] Sera: \"Adequate violence.\"",
+            "(Non-blocking: pass-through outside widgets)",
+        ]
+    return []
+
+
+def render_pixel_interface_art(root: UIRoot, combat_lines: list[str] | None = None) -> str:
+    """Render an ASCII pixel-style interface frame for filesystem previews."""
+    combat_lines = combat_lines or [
+        "Viewport: combat updates continuously unless blocked.",
+        "Enemy: Clanking Dreadknight  HP [#####-----] 26/50",
+        "Sera: \"Entertain me.\"",
+    ]
+
+    lines = [_frame_border()]
+    lines.append(_frame_line("SERA PIXEL UI PREVIEW"))
+    lines.append(_frame_line("=" * (_UI_FRAME_WIDTH - 4)))
+
+    for idx in range(_UI_VIEWPORT_HEIGHT):
+        row = combat_lines[idx] if idx < len(combat_lines) else ""
+        lines.append(_frame_line(row))
+
+    lines.append(_frame_line("-" * (_UI_FRAME_WIDTH - 4)))
+
+    active_id = root.state.open_overlay_id or "none"
+    lines.append(
+        _frame_line(
+            f"BottomBar: [SYS] [STATUS] [LOADOUT] [LOG]      active={active_id}"
+        )
+    )
+
+    overlay = root._active_overlay()
+    if overlay:
+        lines.append(_frame_line("=" * (_UI_FRAME_WIDTH - 4)))
+        for row in _overlay_art_lines(overlay.overlay_id):
+            lines.append(_frame_line(row))
+
+    lines.append(_frame_border())
+    return "\n".join(lines)
+
+
+def export_pixel_ui_mockups(output_dir: str = "docs/pixel-ui") -> list[str]:
+    """Write pixel-style interface mockups to filesystem for quick review."""
+    from pathlib import Path
+
+    root = build_default_ui_root()
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    written: list[str] = []
+
+    viewport = out / "viewport.txt"
+    viewport.write_text(render_pixel_interface_art(root) + "\n")
+    written.append(str(viewport))
+
+    for overlay_id in ["system_menu", "status_screen", "loadout_screen", "log_screen"]:
+        root.open_overlay(overlay_id)
+        target = out / f"{overlay_id}.txt"
+        target.write_text(render_pixel_interface_art(root) + "\n")
+        written.append(str(target))
+
+    return written
 
 
 # ─────────────────────────────────────────────────────────

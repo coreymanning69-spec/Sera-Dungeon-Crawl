@@ -1239,5 +1239,19 @@ def main():
     pause()
 
 
+def main():
+    while True:
+        choice = title_screen()
+        if choice == "quit":
+            print("  Sera didn't even show up.")
+            return
+        if choice == "simulation":
+            run_simulation()
+            continue
+        # choice == "new_game"
+        run_new_game()
+        return
+
+
 if __name__ == "__main__":
     main()
