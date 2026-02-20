@@ -3,61 +3,88 @@
     {
       "name": "Rusty Shiv",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "BLEED"],
+      "tags": [
+        "PHYSICAL",
+        "BLEED"
+      ],
       "flavor": "It's insulting that I'm holding this. But it gets the job done."
     },
     {
       "name": "Iron Claymore",
       "base_damage": 3,
-      "tags": ["PHYSICAL", "HEAVY"],
+      "tags": [
+        "PHYSICAL",
+        "HEAVY"
+      ],
       "flavor": "Finally, something with weight. Compensating for something? Yes. Your incompetence."
     },
     {
       "name": "Bone Whip",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "BLEED"],
+      "tags": [
+        "PHYSICAL",
+        "BLEED"
+      ],
       "flavor": "Vertebrae from something that annoyed me. Poetic."
     },
     {
       "name": "Forbidden Tome",
       "base_damage": 2,
-      "tags": ["ARCANE"],
+      "tags": [
+        "ARCANE"
+      ],
       "flavor": "Forbidden to mortals. Bedtime reading for me."
     },
     {
       "name": "Silver Rapier",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "SILVER"],
+      "tags": [
+        "PHYSICAL",
+        "SILVER"
+      ],
       "flavor": "Elegant. Precise. Everything you aren't."
     },
     {
       "name": "Acid Vial",
       "base_damage": 2,
-      "tags": ["CORROSIVE"],
+      "tags": [
+        "CORROSIVE"
+      ],
       "flavor": "I could dissolve your ambitions with this. And your face."
     },
     {
       "name": "Ember Staff",
       "base_damage": 2,
-      "tags": ["FIRE", "ARCANE"],
+      "tags": [
+        "FIRE",
+        "ARCANE"
+      ],
       "flavor": "Burns at the temperature of my contempt. So, very hot."
     },
     {
       "name": "War Maul",
       "base_damage": 3,
-      "tags": ["PHYSICAL", "HEAVY"],
+      "tags": [
+        "PHYSICAL",
+        "HEAVY"
+      ],
       "flavor": "Subtlety is overrated. This isn't subtle."
     },
     {
       "name": "Spirit Lantern",
       "base_damage": 2,
-      "tags": ["DIVINE", "ETHEREAL"],
+      "tags": [
+        "DIVINE",
+        "ETHEREAL"
+      ],
       "flavor": "It holds a trapped soul. Don't worry, it deserved it."
     },
     {
       "name": "Sonic Bell",
       "base_damage": 2,
-      "tags": ["SONIC"],
+      "tags": [
+        "SONIC"
+      ],
       "flavor": "Rings at a frequency that makes lesser beings reconsider existing."
     },
     {
