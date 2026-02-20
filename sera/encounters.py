@@ -13,6 +13,7 @@ from sera.loader import load_enemies, load_weapons, load_affixes
 from sera.weapon import Weapon, Affix
 from sera.enemy import Enemy
 from sera.crafting import CraftingMaterial, CRAFTING_MATERIALS
+from sera.randomization import RunRNG, select_wave_enemies
 
 
 def _disambiguate_names(enemies: list[Enemy]) -> None:
@@ -47,7 +48,7 @@ def _scale_enemy(enemy: Enemy, floor: int) -> None:
         enemy.dodge_chance = min(0.30, enemy.dodge_chance + (floor - 1) * 0.02)
 
 
-def generate_encounter(floor: int, all_enemies: list[Enemy]) -> list[Enemy]:
+def generate_encounter(floor: int, all_enemies: list[Enemy], rng: RunRNG | None = None) -> list[Enemy]:
     """
     Build an encounter for the given floor number.
 
@@ -60,27 +61,28 @@ def generate_encounter(floor: int, all_enemies: list[Enemy]) -> list[Enemy]:
     trash = [e for e in all_enemies if e.archetype == "trash"]
     elites = [e for e in all_enemies if e.archetype == "elite"]
     bosses = [e for e in all_enemies if e.archetype == "boss"]
+    rand = rng._rng if rng else random
 
     if floor == 1:
         pool = trash if trash else all_enemies
-        picks = [copy.deepcopy(random.choice(pool))]
+        picks = [copy.deepcopy(rand.choice(pool))]
     elif floor == 2:
         pool = trash if trash else all_enemies
-        picks = [copy.deepcopy(random.choice(pool)) for _ in range(2)]
+        picks = [copy.deepcopy(rand.choice(pool)) for _ in range(2)]
     elif floor <= 4:
-        if elites and random.random() < 0.6:
-            picks = [copy.deepcopy(random.choice(elites))]
+        if elites and rand.random() < 0.6:
+            picks = [copy.deepcopy(rand.choice(elites))]
         else:
-            count = random.randint(2, 3)
+            count = rand.randint(2, 3)
             pool = trash if trash else all_enemies
-            picks = [copy.deepcopy(random.choice(pool)) for _ in range(count)]
+            picks = [copy.deepcopy(rand.choice(pool)) for _ in range(count)]
     elif floor == 5:
-        boss = copy.deepcopy(random.choice(bosses)) if bosses else copy.deepcopy(random.choice(elites))
-        escort = copy.deepcopy(random.choice(trash)) if trash else None
+        boss = copy.deepcopy(rand.choice(bosses)) if bosses else copy.deepcopy(rand.choice(elites))
+        escort = copy.deepcopy(rand.choice(trash)) if trash else None
         picks = [boss] + ([escort] if escort else [])
     else:
-        boss = copy.deepcopy(random.choice(bosses)) if bosses else copy.deepcopy(random.choice(elites))
-        extra = copy.deepcopy(random.choice(elites)) if elites else copy.deepcopy(random.choice(trash))
+        boss = copy.deepcopy(rand.choice(bosses)) if bosses else copy.deepcopy(rand.choice(elites))
+        extra = copy.deepcopy(rand.choice(elites)) if elites else copy.deepcopy(rand.choice(trash))
         picks = [boss, extra]
 
     # Scale and disambiguate
