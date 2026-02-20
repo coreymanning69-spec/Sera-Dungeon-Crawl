@@ -13,13 +13,19 @@ Each scenario function returns a dict with structured results for the UI,
 and can also be run standalone for verbose output.
 """
 
+from __future__ import annotations
+import copy
+import random
+
 from sera.tags import DamageTag
 from sera.weapon import Weapon, Affix
 from sera.enemy import Enemy, EnemyAbility, AnnoyanceType, EnemyVulnerability
+from sera.status import StatusEffect
+from sera.loader import load_weapons, load_affixes, load_enemies
+from sera.encounters import generate_encounter, generate_loot_weapon
 from sera.interest import InterestManager
 from sera.combat import resolve_combat
 from sera.crafting import CRAFTING_MATERIALS, apply_material
-from sera.status import StatusEffect, StatusInstance
 
 
 def banner(text: str) -> str:
@@ -346,6 +352,82 @@ def run_scenario_4(verbose: bool = True) -> dict:
         "log": result.log,
     }
 
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def run_scenario_4():
+    """Elemental Counterplay: Inferno Pike vs Rimebound Golem. Fire melts ice."""
+    print(banner("SCENARIO 4: ELEMENTAL COUNTERPLAY"))
+    print('  "A glacier with arms. Let me show it what fire does."')
+
+    weapon = Weapon(
+        name="Inferno Pike",
+        base_damage=3,
+        tags=[DamageTag.FIRE, DamageTag.HEAVY],
+        prefix=Affix(
+            name="Blazing",
+            description="Everything burns eventually. Grants Fire.",
+            affix_type="prefix",
+            flat_bonus=1,
+            flat_condition="always",
+            multiplier=1.5,
+            mult_condition="enemy_has_debuffs",
+            granted_tag=DamageTag.FIRE,
+            inflicts_status="BURNING",
+            status_duration=2,
+            status_potency=1,
+        ),
+        suffix=Affix(
+            name="of Kindling",
+            description="Casting targets ignite beautifully.",
+            affix_type="suffix",
+            multiplier=2.0,
+            mult_condition="enemy_casting",
+            inflicts_status="BURNING",
+            status_duration=3,
+            status_potency=1,
+        ),
+        flavor='"A spear of spite and open flame."',
+    )
+
+    golem = Enemy(
+        name="Rimebound Golem",
+        max_hp=34,
+        archetype="elite",
+        vulnerability=EnemyVulnerability.REQUIRES_HEAVY,
+        armor=3,
+        elemental_weaknesses=[DamageTag.FIRE],
+        elemental_resistances=[DamageTag.ICE],
+        abilities=[
+            EnemyAbility("Permafrost Slam", AnnoyanceType.STUN, cooldown=4,
+                         flavor="It swings an iceberg. Groundbreaking."),
+            EnemyAbility("Cold Shoulder", AnnoyanceType.WEAK_HIT,
+                         flavor="A glacial jab. Emotionally accurate."),
+        ],
+        flavor="A walking glacier with posture issues.",
+    )
+
+    interest = InterestManager(current_patience=80)
+
+    print(f"\n  Weapon: {weapon}")
+    print(f"  Enemy:  {golem}")
+    print(f"  Starting Patience: {interest.current_patience}")
+    print(f"\n  ELEMENTAL MATCHUP:")
+    print(f"    Golem is WEAK to FIRE → +2 bonus damage per hit")
+    print(f"    Golem RESISTS ICE → -1 penalty (not relevant here)")
+    print(f"    Blazing prefix inflicts BURNING → enables x1.5 multiplier next hit")
+    print(f"    Pike has HEAVY tag → passes vulnerability gate")
+
+    result = resolve_combat(weapon, [golem], interest, max_turns=4)
+    for line in result.log:
+        print(line)
+
+    print(f"\n  After 4 turns: Golem at {golem.current_hp}/{golem.max_hp} HP")
+    print(f"  Patience: {result.patience_remaining}/{interest.max_patience}")
+    print(f"  {'GAME OVER' if result.game_over else 'Fire wins. Obviously.'}")
+
+
 def main():
     print(banner("SERA: ENDLESS ENGAGEMENT"))
     print('  "I am a Goddess. Entertain me or I leave."')
@@ -354,14 +436,15 @@ def main():
     print("  Core Loop: Kill aggressively to stay interested.")
     print("  Lose State: Patience hits 0. Sera leaves. Game Over.")
     print("  Scale: 1-30 damage. Build the machine, not the number.")
+    print("  (Simulation draws from JSON data — each run differs.)")
 
     run_scenario_1(verbose=True)
     print("\n" + "─" * 60)
     run_scenario_2(verbose=True)
     print("\n" + "─" * 60)
-    run_scenario_3(verbose=True)
+    run_scenario_3()
     print("\n" + "─" * 60)
-    run_scenario_4(verbose=True)
+    run_scenario_4()
 
     print(banner("END OF SIMULATION"))
     print('  Sera: "Not bad. Not GOOD, but not bad."')

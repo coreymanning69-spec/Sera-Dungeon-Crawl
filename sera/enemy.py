@@ -12,6 +12,21 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from sera.tags import DamageTag, EnemyVulnerability
+
+
+ATTACK_TYPE_TO_DEFENSE_KEY: dict[str, str] = {
+    "generic": "generic",
+    "physical": "physical",
+    "fire": "fire",
+    "ice": "ice",
+    "water": "water",
+    "earth": "earth",
+    "divine": "divine",
+    "darkness": "darkness",
+    "decay": "decay",
+    "arcane": "arcane",
+    "sonic": "sonic",
+}
 from sera.status import StatusEffect, StatusInstance
 
 
@@ -53,9 +68,27 @@ class EnemyAbility:
     cooldown: int = 0          # turns between uses
     charge_time: int = 0       # turns to charge (Monologue = 3)
     flavor: str = ""
+    attack_type: str = "generic"
 
     def patience_cost(self) -> int:
         return ANNOYANCE_COST[self.annoyance]
+
+
+def normalize_attack_type(value: str) -> str:
+    key = (value or "generic").strip().lower()
+    return ATTACK_TYPE_TO_DEFENSE_KEY.get(key, "generic")
+
+
+def defense_key_for_attack(attack_type: str) -> str:
+    return ATTACK_TYPE_TO_DEFENSE_KEY.get(normalize_attack_type(attack_type), "generic")
+
+
+@dataclass(frozen=True)
+class StatusKillEvent:
+    """A kill caused by a status-expiry detonation."""
+    enemy_name: str
+    damage_dealt: int
+    enemy_hp_was: int
 
 
 @dataclass
@@ -134,23 +167,60 @@ class Enemy:
                 return
         self.statuses.append(StatusInstance(effect, duration, potency))
 
-    def tick_statuses(self) -> list[str]:
-        """Advance all status timers. Returns log of expired effects."""
+    def is_frozen(self) -> bool:
+        """Check if this enemy is frozen and can't act."""
+        return any(s.prevents_action() for s in self.statuses)
+
+    def get_annoyance_multiplier(self) -> float:
+        """Get patience-drain multiplier from WEAKENED etc."""
+        mult = 1.0
+        for s in self.statuses:
+            mult *= s.annoyance_reduction()
+        return mult
+
+    def tick_statuses(self) -> tuple[list[str], list[StatusKillEvent]]:
+        """Advance all status timers. Returns (status_log, kill_events)."""
         log = []
+        kill_events = []
         surviving = []
         for s in self.statuses:
             if not s.tick():
-                log.append(f"  {s.effect.name} expired on {self.name}.")
+                # Check for DOOMED detonation on expiry
+                det = s.detonate_damage()
+                if det > 0:
+                    hp_before = self.current_hp
+                    self.current_hp -= det
+                    log.append(f"  DOOM detonates on {self.name} for {det} damage! "
+                               f"({self.current_hp}/{self.max_hp})")
+                    if hp_before > 0 and self.current_hp <= 0:
+                        kill_events.append(StatusKillEvent(
+                            enemy_name=self.name,
+                            damage_dealt=det,
+                            enemy_hp_was=hp_before,
+                        ))
+                        log.append(f"  {self.name} is destroyed by DOOM!")
+                else:
+                    log.append(f"  {s.effect.name} expired on {self.name}.")
             else:
                 surviving.append(s)
         self.statuses = surviving
-        return log
+        return log, kill_events
 
     def tick_dot_damage(self) -> tuple[int, list[str]]:
         """Apply damage-over-time from status effects. Returns (total_dot, log)."""
         total = 0
         log = []
         for s in self.statuses:
+            if s.effect == StatusEffect.CORRODED:
+                # Armor shred — CORRODED described as armor shred, not damage
+                if self.armor > 0:
+                    old_armor = self.armor
+                    self.armor = max(0, self.armor - s.potency)
+                    shredded = old_armor - self.armor
+                    if shredded > 0:
+                        log.append(f"  CORRODED: -{shredded} armor from {self.name}. "
+                                   f"({self.armor} armor remaining)")
+                continue
             dot = s.tick_damage()
             if dot > 0:
                 self.current_hp -= dot
@@ -169,6 +239,8 @@ class Enemy:
         """If enemy is charging, cancel it. Returns ability name or None."""
         if self.is_casting and self.pending_ability:
             name = self.pending_ability.name
+            # Apply cooldown so the interrupted ability isn't immediately retried
+            self.cooldowns[name] = max(self.pending_ability.cooldown, 2)
             self.is_casting = False
             self.cast_turns_remaining = 0
             self.pending_ability = None
@@ -179,10 +251,24 @@ class Enemy:
     def choose_action(self) -> EnemyAbility | None:
         """
         Simple priority AI:
-        1. If charging, continue charge.
-        2. Pick first ability off cooldown, prefer high-impact.
-        3. Default to weak_hit.
+        1. If stunned, skip turn entirely.
+        2. If slowed, 50% chance to skip turn.
+        3. If charging, continue charge.
+        4. Pick first ability off cooldown, prefer high-impact.
+        5. Default to weak_hit.
         """
+        # STUNNED: cannot act
+        if any(s.effect == StatusEffect.STUNNED for s in self.statuses):
+            return None
+
+        # SLOWED: 50% chance to skip turn
+        if any(s.effect == StatusEffect.SLOWED for s in self.statuses):
+            if random.random() < 0.5:
+                return None
+
+        # SILENCED: cannot start new charges (ongoing charges are unaffected)
+        silenced = any(s.effect == StatusEffect.SILENCED for s in self.statuses)
+
         # Continue charge
         if self.is_casting and self.pending_ability:
             self.cast_turns_remaining -= 1
@@ -201,6 +287,8 @@ class Enemy:
             if cd > 0:
                 continue
             if ability.charge_time > 0:
+                if silenced:
+                    continue  # SILENCED: cannot begin a charge this turn
                 # Start charging
                 self.is_casting = True
                 self.cast_turns_remaining = ability.charge_time
@@ -214,6 +302,7 @@ class Enemy:
             name="Flail",
             annoyance=AnnoyanceType.WEAK_HIT,
             flavor="It tries. How sad.",
+            attack_type="physical",
         )
 
     def tick_cooldowns(self):

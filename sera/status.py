@@ -18,6 +18,9 @@ class StatusEffect(Enum):
     MARKED = auto()       # "I see you."
     HUMILIATED = auto()   # "You're pathetic."
     TERRIFIED = auto()    # "Good. Fear me."
+    WEAKENED = auto()     # Reduces patience drain from enemy actions
+    FROZEN = auto()       # Skips enemy turn entirely
+    DOOMED = auto()       # Detonates for big damage when duration expires
 
 
 class StatusInstance:
@@ -40,8 +43,26 @@ class StatusInstance:
         if self.effect == StatusEffect.BLEEDING:
             return self.potency      # 1 per potency stack
         if self.effect == StatusEffect.CORRODED:
-            return 0                 # armor shred, not damage
+            return 0                 # armor shred handled in Enemy.tick_dot_damage, not raw damage
+        if self.effect == StatusEffect.CURSED:
+            return self.potency      # 1 per potency stack — a divine wound that festers
         return 0
+
+    def detonate_damage(self) -> int:
+        """Return burst damage when DOOMED expires. 0 for other effects."""
+        if self.effect == StatusEffect.DOOMED:
+            return self.potency * 5  # 5 damage per potency stack
+        return 0
+
+    def annoyance_reduction(self) -> float:
+        """Return patience-drain multiplier. 1.0 = normal, <1.0 = reduced."""
+        if self.effect == StatusEffect.WEAKENED:
+            return max(0.2, 1.0 - 0.25 * self.potency)  # 25% less per stack, floor 20%
+        return 1.0
+
+    def prevents_action(self) -> bool:
+        """Whether this status prevents the enemy from acting."""
+        return self.effect == StatusEffect.FROZEN
 
     def __repr__(self) -> str:
         return f"{self.effect.name}({self.duration}t)"

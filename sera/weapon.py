@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from sera.tags import DamageTag
+from sera.status import StatusEffect
 
 if TYPE_CHECKING:
     from sera.enemy import Enemy
@@ -74,6 +75,9 @@ class Weapon:
     suffix: Affix | None = None
     set_bonus: Affix | None = None
     flavor: str = ""               # Sera's opinion of this weapon
+    upgrade_level: int = 0         # +0 to +3, each level = +1 base dmg
+
+    MAX_UPGRADE_LEVEL: int = field(default=3, repr=False)
 
     @property
     def display_name(self) -> str:
@@ -83,7 +87,23 @@ class Weapon:
         parts.append(self.name)
         if self.suffix:
             parts.append(self.suffix.name)
+        if self.upgrade_level > 0:
+            parts.append(f"+{self.upgrade_level}")
         return " ".join(parts)
+
+    @property
+    def effective_base_damage(self) -> int:
+        """Base damage including upgrade bonus."""
+        return self.base_damage + self.upgrade_level
+
+    @property
+    def upgrade_cost(self) -> int:
+        """Shards needed for the next upgrade level."""
+        return self.upgrade_level + 1  # costs 1, 2, 3 shards
+
+    @property
+    def can_upgrade(self) -> bool:
+        return self.upgrade_level < self.MAX_UPGRADE_LEVEL
 
     @property
     def all_tags(self) -> set[DamageTag]:
@@ -94,26 +114,31 @@ class Weapon:
                 tags.add(affix.granted_tag)
         return tags
 
-    def calculate_damage(self, enemy: Enemy) -> tuple[int, list[str]]:
+    def calculate_damage(self, enemy: Enemy, enemy_count: int = 1) -> tuple[int, list[str]]:
         """
         Resolve the full damage pipeline against a target.
         Returns (final_damage, list_of_math_steps_for_display).
+
+        enemy_count: number of living enemies in the encounter (used for enemy_alone condition).
         """
         steps: list[str] = []
-        dmg = self.base_damage
-        steps.append(f"Base: {dmg}")
+        dmg = self.effective_base_damage
+        if self.upgrade_level > 0:
+            steps.append(f"Base: {self.base_damage} + {self.upgrade_level} (upgrade) = {dmg}")
+        else:
+            steps.append(f"Base: {dmg}")
 
         # --- Phase 1: Flat bonuses ---
         for affix in [self.prefix, self.suffix, self.set_bonus]:
             if affix and affix.flat_bonus != 0:
-                if _check_condition(affix.flat_condition, enemy):
+                if _check_condition(affix.flat_condition, enemy, enemy_count):
                     dmg += affix.flat_bonus
                     steps.append(f'  + {affix.flat_bonus} ({affix.name}: {affix.flat_condition}) = {dmg}')
 
         # --- Phase 2: Multipliers ---
         for affix in [self.prefix, self.suffix, self.set_bonus]:
             if affix and affix.multiplier != 1.0:
-                if _check_condition(affix.mult_condition, enemy):
+                if _check_condition(affix.mult_condition, enemy, enemy_count):
                     dmg = int(dmg * affix.multiplier)
                     steps.append(f'  x {affix.multiplier} ({affix.name}: {affix.mult_condition}) = {dmg}')
 
@@ -147,7 +172,7 @@ class Weapon:
 # Condition resolver — keeps affix logic declarative
 # ---------------------------------------------------------------------------
 
-def _check_condition(condition: str, enemy: Enemy) -> bool:
+def _check_condition(condition: str, enemy: Enemy, enemy_count: int = 1) -> bool:
     """Evaluate a named condition against the current enemy state."""
     if condition == "always":
         return True
@@ -160,9 +185,11 @@ def _check_condition(condition: str, enemy: Enemy) -> bool:
     if condition == "enemy_has_debuffs":
         return len(enemy.statuses) > 0
     if condition == "enemy_alone":
-        return True  # simplified — full impl needs encounter context
+        return enemy_count <= 1
     if condition == "first_hit":
         return enemy.times_hit == 0
+    if condition == "enemy_marked":
+        return any(s.effect == StatusEffect.MARKED for s in enemy.statuses)
     return False
 
 

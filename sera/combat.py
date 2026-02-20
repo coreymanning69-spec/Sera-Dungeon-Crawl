@@ -15,8 +15,15 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 
+import random
+
 from sera.weapon import Weapon
-from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR
+from sera.enemy import (
+    Enemy,
+    AnnoyanceType,
+    ANNOYANCE_COST,
+    ANNOYANCE_FLAVOR,
+)
 from sera.interest import InterestManager
 from sera.status import StatusEffect
 
@@ -29,6 +36,7 @@ class CombatResult:
     enemies_killed: int
     patience_remaining: int
     game_over: bool
+    final_enemies: list[Enemy]  # deepcopied enemies with final HP/status state
 
 
 def resolve_combat(
@@ -66,8 +74,9 @@ def resolve_combat(
 
         # --- Sera's Attack ---
         target = next((e for e in enemies if e.current_hp > 0), None)
+        living_count = sum(1 for e in enemies if e.current_hp > 0)
         if target:
-            log.extend(_resolve_sera_attack(weapon, target, interest))
+            log.extend(_resolve_sera_attack(weapon, target, interest, living_count))
 
             # Check for kill
             if target.current_hp <= 0:
@@ -79,14 +88,25 @@ def resolve_combat(
                 continue
             if interest.game_over:
                 break
+            if enemy.is_frozen():
+                log.append(f'\n  {enemy.name} is FROZEN solid! Skipping turn.')
+                log.append(f'  Sera: "Stay still. I like you better this way."')
+                continue
             log.extend(_resolve_enemy_turn(enemy, interest))
 
-        # --- Status Tick ---
+        # --- Status Tick (DoT damage first, then expire durations) ---
         for enemy in enemies:
             if enemy.current_hp > 0:
-                tick_log = enemy.tick_statuses()
+                tick_log, kill_events = enemy.tick_statuses()
                 if tick_log:
                     log.extend(tick_log)
+                for event in kill_events:
+                    kills += 1
+                    log.extend(interest.register_kill(
+                        event.enemy_name,
+                        event.damage_dealt,
+                        event.enemy_hp_was,
+                    ))
                 enemy.tick_cooldowns()
 
         # --- Regen Phase ---
@@ -106,6 +126,7 @@ def resolve_combat(
         enemies_killed=kills,
         patience_remaining=interest.current_patience,
         game_over=interest.game_over,
+        final_enemies=enemies,
     )
 
 
@@ -113,21 +134,41 @@ def _resolve_sera_attack(
     weapon: Weapon,
     target: Enemy,
     interest: InterestManager,
+    living_count: int = 1,
 ) -> list[str]:
     """Resolve Sera swinging at something."""
     log: list[str] = []
 
     # --- Permission Check ---
     if not target.check_permission(weapon.all_tags):
+        immune_quip = random.choice([
+            "Boring. I can't even touch it.",
+            "I can't touch it. YOUR fault.",
+            "The wrong weapon. Again. Think.",
+        ])
         log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}...")
-        log.append(f'  IMMUNE. Weapon lacks required tag. "Boring. I can\'t even touch it."')
+        log.append(f'  IMMUNE. Weapon lacks required tag. "{immune_quip}"')
         log.extend(interest.take_annoyance(5, f'"{target.name} is immune. What a waste of my time."'))
         return log
 
-    # --- Damage Calculation (transparent) ---
-    damage, steps = weapon.calculate_damage(target)
-
     log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}!")
+
+    # --- Dodge Roll ---
+    if target.try_dodge():
+        log.append(f'  {target.name} DODGES! "Stand still, insect."')
+        log.extend(interest.take_annoyance(2, f"{target.name} dodged"))
+        return log
+
+    # --- Interrupt Check (hitting a charging enemy cancels the charge) ---
+    interrupted = target.interrupt_cast()
+    if interrupted:
+        log.append(f'  {target.name}\'s {interrupted} was INTERRUPTED!')
+        log.append('  Sera: "I said shut up." [+3 Patience]')
+        interest._restore(3)
+
+    # --- Damage Calculation (transparent) ---
+    damage, steps = weapon.calculate_damage(target, enemy_count=living_count)
+
     log.append("  --- DAMAGE MATH ---")
     for step in steps:
         log.append(f"    {step}")
@@ -171,18 +212,36 @@ def _resolve_enemy_turn(
         # Enemy is charging
         if enemy.is_casting and enemy.pending_ability:
             remaining = enemy.cast_turns_remaining
+            wait_quip = random.choice([
+                "Hurry up or I'm leaving.",
+                "Three turns? I don't have three turns.",
+                "Charging something. Cute. Hurry.",
+            ])
             log.append(f"\n  {enemy.name} is charging {enemy.pending_ability.name}... "
                        f"({remaining} turn{'s' if remaining != 1 else ''} left)")
-            log.append(f'  Sera: "Hurry up or I\'m leaving."')
+            log.append(f'  Sera: "{wait_quip}"')
         return log
 
-    # Resolve the annoyance
-    cost = ANNOYANCE_COST[ability.annoyance]
+    # Resolve the annoyance (WEAKENED reduces cost)
+    base_cost = ANNOYANCE_COST[ability.annoyance]
+    mult = enemy.get_annoyance_multiplier()
+    cost = max(1, int(base_cost * mult))
     flavor = ability.flavor or ANNOYANCE_FLAVOR[ability.annoyance]
 
     log.append(f"\n  {enemy.name} uses {ability.name}!")
     log.append(f'  "{flavor}"')
+    if mult < 1.0:
+        log.append(f'  (WEAKENED: {base_cost} -> {cost} patience drain)')
     log.extend(interest.take_annoyance(cost, f"{ability.name} ({ability.annoyance.name})"))
+
+    # HEAL_SELF abilities actually heal the enemy
+    if ability.annoyance == AnnoyanceType.HEAL_SELF:
+        heal_amount = min(5, enemy.max_hp - enemy.current_hp)
+        if heal_amount > 0:
+            enemy.current_hp += heal_amount
+            log.append(f"  {enemy.name} heals {heal_amount} HP. "
+                       f"({enemy.current_hp}/{enemy.max_hp})")
+            log.append('  Sera: "Stop healing. It\'s dragging on."')
 
     return log
 
@@ -200,5 +259,8 @@ def _status_quip(effect: StatusEffect) -> str:
         StatusEffect.HUMILIATED: "That's the face of someone who knows they've lost.",
         StatusEffect.TERRIFIED: "Good instinct.",
         StatusEffect.SLOWED: "Take your time. Actually, don't.",
+        StatusEffect.WEAKENED: "Feel that? That's your relevance fading.",
+        StatusEffect.FROZEN: "Ice cold. Like my expectations.",
+        StatusEffect.DOOMED: "Tick tock. Enjoy the countdown.",
     }
     return quips.get(effect, "Noted.")

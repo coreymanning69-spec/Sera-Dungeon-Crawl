@@ -8,7 +8,8 @@ from pathlib import Path
 
 from sera.tags import DamageTag, EnemyVulnerability
 from sera.weapon import Weapon, Affix
-from sera.enemy import Enemy, EnemyAbility, AnnoyanceType
+from sera.enemy import Enemy, EnemyAbility, AnnoyanceType, normalize_attack_type
+from sera.equipment import EquipmentItem, normalize_defense_key
 
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -67,9 +68,10 @@ def load_enemies() -> list[Enemy]:
                 cooldown=ab["cooldown"],
                 charge_time=ab["charge_time"],
                 flavor=ab["flavor"],
+                attack_type=normalize_attack_type(ab.get("attack_type", "generic")),
             ))
-        weaknesses = [DamageTag[tag] for tag in e.get("elemental_weaknesses", [])]
-        resistances = [DamageTag[tag] for tag in e.get("elemental_resistances", [])]
+        elem_weak = [DamageTag[t] for t in e.get("elemental_weaknesses", [])]
+        elem_resist = [DamageTag[t] for t in e.get("elemental_resistances", [])]
         enemies.append(Enemy(
             name=e["name"],
             max_hp=e["max_hp"],
@@ -79,11 +81,28 @@ def load_enemies() -> list[Enemy]:
             armor=e["armor"],
             regen_per_turn=e["regen_per_turn"],
             dodge_chance=e["dodge_chance"],
-            elemental_weaknesses=weaknesses,
-            elemental_resistances=resistances,
             flavor=e["flavor"],
+            elemental_weaknesses=elem_weak,
+            elemental_resistances=elem_resist,
         ))
     return enemies
+
+
+def load_equipment_items() -> list[EquipmentItem]:
+    with open(DATA_DIR / "equipment_items.json") as f:
+        data = json.load(f)
+    items = []
+    for item in data["equipment_items"]:
+        items.append(EquipmentItem(
+            name=item["name"],
+            slot=item["slot"],
+            ascii_art=item.get("ascii_art", "[ ]"),
+            stat_bonuses=item.get("stat_bonuses", {}),
+            damage_reduction=item.get("damage_reduction", 0),
+            damage_resistance=item.get("damage_resistance", 0),
+            resistances={normalize_defense_key(k): v for k, v in item.get("resistances", {}).items()},
+        ))
+    return items
 
 
 def get_affix_by_name(name: str, affixes: list[Affix] | None = None) -> Affix | None:

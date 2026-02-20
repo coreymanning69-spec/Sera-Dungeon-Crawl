@@ -12,7 +12,7 @@ A text-based, turn-based roguelike dungeon crawler written in pure Python 3. The
 # Play the game (Menu: New Game / Simulation Mode / Quit)
 python3 play.py
 
-# Run simulation scenarios directly (3 scripted combat demos)
+# Run simulation scenarios directly (4 scripted combat demos)
 python3 main.py
 
 # Platform launchers

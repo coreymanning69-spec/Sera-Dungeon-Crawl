@@ -29,15 +29,22 @@ def _disambiguate_names(enemies: list[Enemy]) -> None:
 
 def _scale_enemy(enemy: Enemy, floor: int) -> None:
     """Scale enemy stats based on floor. Keeps small-number feel."""
+    # Add a random dodge chance (0-15%) if enemy doesn't already have one
+    if enemy.dodge_chance == 0.0 and random.random() < 0.4:
+        enemy.dodge_chance = random.uniform(0.05, 0.15)
+
     if floor <= 1:
         return
-    # +10% HP per floor past 1, rounded
-    bonus_hp = int(enemy.max_hp * 0.10 * (floor - 1))
+    # +28% HP per floor past 1, rounded (increased from 10% for challenge)
+    bonus_hp = int(enemy.max_hp * 0.28 * (floor - 1))
     enemy.max_hp += bonus_hp
     enemy.current_hp = enemy.max_hp
     # +1 armor every 3 floors for armored enemies
     if enemy.armor > 0 and floor >= 3:
         enemy.armor += (floor - 1) // 2
+    # Slightly increase dodge chance on higher floors
+    if enemy.dodge_chance > 0.0 and floor >= 3:
+        enemy.dodge_chance = min(0.30, enemy.dodge_chance + (floor - 1) * 0.02)
 
 
 def generate_encounter(floor: int, all_enemies: list[Enemy]) -> list[Enemy]:
@@ -105,3 +112,23 @@ def generate_loot_material() -> CraftingMaterial | None:
     if random.random() < 0.4:
         return copy.deepcopy(random.choice(list(CRAFTING_MATERIALS.values())))
     return None
+
+
+def generate_loot_shards(floor: int) -> int:
+    """
+    Generate upgrade shards as loot. Higher floors = more shards.
+
+    Floor 1: 0-1 shards (50% chance)
+    Floor 2: 0-1 shards (60% chance)
+    Floor 3: 1-2 shards (70% chance)
+    Floor 4: 1-2 shards (80% chance)
+    Floor 5: 2-3 shards (guaranteed)
+    """
+    chance = min(0.5 + floor * 0.1, 1.0)
+    if random.random() > chance:
+        return 0
+    if floor <= 2:
+        return random.randint(0, 1) or 1  # at least 1 if we passed the check
+    if floor <= 4:
+        return random.randint(1, 2)
+    return random.randint(2, 3)
