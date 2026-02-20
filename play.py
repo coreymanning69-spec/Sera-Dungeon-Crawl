@@ -252,7 +252,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- RESOLVE ATTACK ---
         print()
-        _resolve_player_attack(weapon, target, interest)
+        _resolve_player_attack(weapon, target, interest, enemy_count=len(alive))
         pause()
 
         if interest.game_over:
@@ -330,7 +330,12 @@ def _do_inspect(alive, combat_turn, weapon, enemies, interest):
     print(ui.render_combat_hud(combat_turn, weapon, enemies, interest))
 
 
-def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestManager):
+def _resolve_player_attack(
+    weapon: Weapon,
+    target: Enemy,
+    interest: InterestManager,
+    enemy_count: int = 1,
+):
     """Full attack resolution with dodge, permission, interrupt, damage."""
 
     # --- Permission Check ---
@@ -360,7 +365,7 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
         pause()
 
     # --- Damage Calculation ---
-    damage, steps = weapon.calculate_damage(target)
+    damage, steps = weapon.calculate_damage(target, enemy_count=enemy_count)
     hp_before = target.current_hp
     actual, dead = target.take_damage(damage)
     armor_absorbed = damage - actual if damage > actual else 0
@@ -417,6 +422,18 @@ def _resolve_enemy_action(enemy: Enemy, interest: InterestManager):
     ui.clear()
     print(ui.render_enemy_action(enemy, ability.name, flavor, cost))
     interest.take_annoyance(cost, f"{ability.name}")
+
+    # HEAL_SELF abilities actually heal the enemy
+    if ability.annoyance == AnnoyanceType.HEAL_SELF:
+        heal_amount = min(5, enemy.max_hp - enemy.current_hp)
+        if heal_amount > 0:
+            enemy.current_hp += heal_amount
+            print(ui.box_top())
+            print(ui.box_line(f"{enemy.name} heals {heal_amount} HP!", "center"))
+            print(ui.box_line(f"HP: {ui.hp_bar(enemy.current_hp, enemy.max_hp, 15)}", "center"))
+            print(ui.box_line('Sera: "Stop healing. It\'s dragging on."', "center"))
+            print(ui.box_bot())
+
     print(f"  Patience: {ui.patience_bar(interest)}")
     pause()
 
@@ -494,7 +511,11 @@ def between_floors(state: GameState) -> bool:
 
 def equip_screen(state: GameState):
     if len(state.weapons) < 2:
-        print('  Only one weapon. "It\'s not like I have options."')
+        ui.clear()
+        print(ui.box_top())
+        print(ui.box_line("Only one weapon.", "center"))
+        print(ui.box_line('"It\'s not like I have options."', "center"))
+        print(ui.box_bot())
         pause()
         return
 
@@ -514,7 +535,11 @@ def equip_screen(state: GameState):
 
 def craft_screen(state: GameState):
     if not state.materials:
-        print('  No materials. "Find me something to work with."')
+        ui.clear()
+        print(ui.box_top())
+        print(ui.box_line("No materials.", "center"))
+        print(ui.box_line('"Find me something to work with."', "center"))
+        print(ui.box_bot())
         pause()
         return
 

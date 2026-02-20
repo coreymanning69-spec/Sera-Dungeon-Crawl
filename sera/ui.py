@@ -543,10 +543,10 @@ def render_floor_intro(floor: int, enemies: list[Enemy], interest: InterestManag
         box_line(f"Patience: {patience_bar(interest)}"),
         box_divider(),
     ]
+    lines.append(box_blank())
     lines.append(box_line("ENEMIES:"))
     for i, e in enumerate(enemies):
         tag_req = e.vulnerability.name if e.vulnerability.name != "NONE" else "any"
-        status = "ALIVE" if e.current_hp > 0 else "DEAD"
         lines.append(box_line(f"  [{i+1}] {e.name} ({e.archetype})"))
         lines.append(box_line(f"      HP: {hp_bar(e.current_hp, e.max_hp, 15)}"))
         if e.armor > 0:
@@ -555,6 +555,7 @@ def render_floor_intro(floor: int, enemies: list[Enemy], interest: InterestManag
         if e.statuses:
             st = ", ".join(f"{s.effect.name}({s.potency})" for s in e.statuses)
             lines.append(box_line(f"      Debuffs: {st}"))
+        lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -590,6 +591,7 @@ def render_combat_hud(
             lines.append(box_line(f"      [{st}]"))
 
     lines.append(box_divider())
+    lines.append(box_blank())
     lines.append(box_line("ACTIONS:"))
     for i, e in enumerate(alive):
         lines.append(box_line(f"  [{i+1}] Attack {e.name}"))
@@ -610,6 +612,7 @@ def render_damage_report(steps: list[str], target_name: str, actual: int, armor_
         lines.append(box_line(f"  {step}"))
     if armor_absorbed > 0:
         lines.append(box_line(f"  Armor absorbs: {armor_absorbed}"))
+    lines.append(box_blank())
     lines.append(box_divider())
     lines.append(box_line(f"DEALT: {actual} damage", "center"))
     lines.append(box_bot())
@@ -621,8 +624,10 @@ def render_enemy_action(enemy: Enemy, ability_name: str, flavor: str, cost: int)
         box_top(),
         box_line(f"{enemy.name} acts!", "center"),
         box_divider(),
+        box_blank(),
         box_line(f"  {ability_name}"),
         box_line(f'  "{flavor}"'),
+        box_blank(),
         box_line(f"  [-{cost} Patience]"),
         box_bot(),
     ]
@@ -632,11 +637,14 @@ def render_enemy_action(enemy: Enemy, ability_name: str, flavor: str, cost: int)
 def render_kill_report(enemy_name: str, events: list[str]) -> str:
     lines = [
         box_top(),
+        box_blank(),
         box_line(f"{enemy_name} DEFEATED", "center"),
+        box_blank(),
         box_divider(),
     ]
     for ev in events:
         lines.append(box_line(ev.strip()))
+    lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -652,6 +660,7 @@ def render_loot_screen(
         box_divider(),
         box_line(f"Patience: {patience_bar(interest)}"),
         box_divider(),
+        box_blank(),
         box_line("LOOT:", "center"),
     ]
     choices = []
@@ -814,10 +823,13 @@ def render_weapon_detail(weapon: Weapon) -> str:
 def render_between_floors(floor: int, interest: InterestManager) -> str:
     lines = [
         box_top(),
+        box_blank(),
         box_line(f"FLOOR {floor} COMPLETE", "center"),
+        box_blank(),
         box_divider(),
         box_line(f"Patience: {patience_bar(interest)}"),
         box_divider(),
+        box_blank(),
         box_line("[1] Continue to next floor"),
         box_line("[2] Equip weapon"),
         box_line("[3] Craft (apply material to weapon)"),
@@ -888,7 +900,9 @@ def render_inspect(enemy: Enemy) -> str:
         lines.append(box_line(f"  Debuffs:       {st}"))
     if enemy.is_casting:
         lines.append(box_line(f"  CASTING:       {enemy.pending_ability.name} ({enemy.cast_turns_remaining}t)"))
+    lines.append(box_blank())
     lines.append(box_divider())
+    lines.append(box_blank())
     lines.append(box_line("Abilities:"))
     for ab in enemy.abilities:
         cost = ANNOYANCE_COST[ab.annoyance]

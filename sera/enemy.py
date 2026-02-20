@@ -149,6 +149,16 @@ class Enemy:
         total = 0
         log = []
         for s in self.statuses:
+            if s.effect == StatusEffect.CORRODED:
+                # Armor shred — CORRODED described as armor shred, not damage
+                if self.armor > 0:
+                    old_armor = self.armor
+                    self.armor = max(0, self.armor - s.potency)
+                    shredded = old_armor - self.armor
+                    if shredded > 0:
+                        log.append(f"  CORRODED: -{shredded} armor from {self.name}. "
+                                   f"({self.armor} armor remaining)")
+                continue
             dot = s.tick_damage()
             if dot > 0:
                 self.current_hp -= dot
@@ -177,10 +187,21 @@ class Enemy:
     def choose_action(self) -> EnemyAbility | None:
         """
         Simple priority AI:
-        1. If charging, continue charge.
-        2. Pick first ability off cooldown, prefer high-impact.
-        3. Default to weak_hit.
+        1. If stunned, skip turn entirely.
+        2. If slowed, 50% chance to skip turn.
+        3. If charging, continue charge.
+        4. Pick first ability off cooldown, prefer high-impact.
+        5. Default to weak_hit.
         """
+        # STUNNED: cannot act
+        if any(s.effect == StatusEffect.STUNNED for s in self.statuses):
+            return None
+
+        # SLOWED: 50% chance to skip turn
+        if any(s.effect == StatusEffect.SLOWED for s in self.statuses):
+            if random.random() < 0.5:
+                return None
+
         # Continue charge
         if self.is_casting and self.pending_ability:
             self.cast_turns_remaining -= 1

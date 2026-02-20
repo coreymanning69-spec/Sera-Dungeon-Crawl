@@ -207,6 +207,15 @@ def _resolve_enemy_turn(
     log.append(f'  "{flavor}"')
     log.extend(interest.take_annoyance(cost, f"{ability.name} ({ability.annoyance.name})"))
 
+    # HEAL_SELF abilities actually heal the enemy
+    if ability.annoyance == AnnoyanceType.HEAL_SELF:
+        heal_amount = min(5, enemy.max_hp - enemy.current_hp)
+        if heal_amount > 0:
+            enemy.current_hp += heal_amount
+            log.append(f"  {enemy.name} heals {heal_amount} HP. "
+                       f"({enemy.current_hp}/{enemy.max_hp})")
+            log.append('  Sera: "Stop healing. It\'s dragging on."')
+
     return log
 
 

@@ -2,20 +2,24 @@
 """
 SERA: ENDLESS ENGAGEMENT — Combat Simulation Demo
 
-Runs 3 scripted combat scenarios showing the math engine in action.
+Runs 3 randomized combat scenarios pulled from the JSON data.
+No two runs are identical — weapons, enemies, and affixes are chosen at random.
 
-Scenario 1: "The Setup" — Petty Shiv vs Flickering Imps (multi-kill overkill)
-Scenario 2: "The Permission Problem" — Wrong weapon vs Ghost, then crafted fix
-Scenario 3: "The Boss Fight" — Full build vs Dreadknight (all systems firing)
+Scenario 1: "First Contact"  — Random encounter, random weapon
+Scenario 2: "Wrong Tool"     — Immune gate, permission failure, crafting fix
+Scenario 3: "Boss Fight"     — Random boss, matched weapon, all systems active
 """
 
+from __future__ import annotations
+import copy
+import random
+
 from sera.tags import DamageTag
-from sera.weapon import Weapon, Affix
-from sera.enemy import Enemy, EnemyAbility, AnnoyanceType, EnemyVulnerability
+from sera.loader import load_weapons, load_affixes, load_enemies
+from sera.encounters import generate_encounter, generate_loot_weapon
 from sera.interest import InterestManager
 from sera.combat import resolve_combat
 from sera.crafting import CRAFTING_MATERIALS, apply_material
-from sera.status import StatusEffect, StatusInstance
 
 
 def banner(text: str) -> str:
@@ -23,72 +27,80 @@ def banner(text: str) -> str:
     return f"\n{'#' * width}\n#  {text.center(width - 6)}  #\n{'#' * width}"
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_VULN_TO_TAG = {
+    "REQUIRES_DIVINE": "DIVINE",
+    "REQUIRES_ETHEREAL": "ETHEREAL",
+    "REQUIRES_SILVER": "SILVER",
+    "REQUIRES_HEAVY": "HEAVY",
+    "REQUIRES_CORROSIVE": "CORROSIVE",
+    "REQUIRES_FIRE": "FIRE",
+    "REQUIRES_ARCANE": "ARCANE",
+}
+
+
+def _pick_weapon_with_affixes(all_weapons, all_affixes, floor, tag_name=None):
+    """Pick a random weapon, optionally filtered to a tag. Prefer results with affixes."""
+    if tag_name:
+        pool = [w for w in all_weapons if tag_name in [t.name for t in w.tags]]
+        if not pool:
+            pool = all_weapons
+    else:
+        pool = all_weapons
+
+    for _ in range(10):
+        weapon = generate_loot_weapon(floor, pool, all_affixes)
+        if weapon.prefix or weapon.suffix:
+            return weapon
+    return generate_loot_weapon(floor, pool, all_affixes)
+
+
+def _ensure_can_hit(weapon, enemy):
+    """If weapon can't hit enemy, craft the required tag onto it. Returns craft log."""
+    if enemy.check_permission(weapon.all_tags):
+        return []
+    tag_name = _VULN_TO_TAG.get(enemy.vulnerability.name)
+    if not tag_name:
+        return []
+    mat = next((m for m in CRAFTING_MATERIALS.values()
+                if m.grants_tag and m.grants_tag.name == tag_name), None)
+    if mat:
+        return apply_material(weapon, copy.deepcopy(mat))
+    weapon.add_tag(DamageTag[tag_name])
+    return [f"  Added [{tag_name}] directly. As a Goddess can."]
+
+
+# ---------------------------------------------------------------------------
+# Scenarios
+# ---------------------------------------------------------------------------
+
 def run_scenario_1():
-    """The Setup: Petty Shiv vs 2 Flickering Imps. Showcases overkill + multi-kill."""
-    print(banner("SCENARIO 1: THE SETUP"))
-    print('  "Two imps. One shiv. This won\'t take long."')
+    """First Contact: Random encounter with a random affixed weapon."""
+    print(banner("SCENARIO 1: FIRST CONTACT"))
 
-    # Build weapon: Petty Rusty Shiv of Agony
-    weapon = Weapon(
-        name="Rusty Shiv",
-        base_damage=1,
-        tags=[DamageTag.PHYSICAL, DamageTag.BLEED],
-        prefix=Affix(
-            name="Petty",
-            description="Hits harder when they're at full HP.",
-            affix_type="prefix",
-            flat_bonus=2,
-            flat_condition="enemy_full_hp",
-        ),
-        suffix=Affix(
-            name="of Agony",
-            description="Every debuff is another reason to hurt.",
-            affix_type="suffix",
-            per_stack_bonus=1,
-            per_stack_source="debuffs_on_target",
-        ),
-        set_bonus=Affix(
-            name="Drama Queen",
-            description="+1 per debuff. Sera rewards suffering.",
-            affix_type="set_bonus",
-            per_stack_bonus=1,
-            per_stack_source="debuffs_on_target",
-        ),
-    )
+    all_weapons = load_weapons()
+    all_affixes = load_affixes()
+    all_enemies = load_enemies()
 
-    # Build enemies: 2 imps, low HP for overkill demo
-    imp1 = Enemy(
-        name="Imp Alpha",
-        max_hp=8,
-        archetype="trash",
-        abilities=[
-            EnemyAbility("Scratch", AnnoyanceType.WEAK_HIT, flavor="It scratches. How original."),
-        ],
-        flavor="Small. Pointless. About to be dead.",
-    )
-    imp2 = Enemy(
-        name="Imp Beta",
-        max_hp=8,
-        archetype="trash",
-        abilities=[
-            EnemyAbility("Scratch", AnnoyanceType.WEAK_HIT, flavor="The other one scratches too."),
-        ],
-        flavor="Backup. There is no backup.",
-    )
+    weapon = _pick_weapon_with_affixes(all_weapons, all_affixes, floor=2)
+    enemies = generate_encounter(random.choice([1, 2]), all_enemies)
+    interest = InterestManager(current_patience=random.randint(75, 90))
 
-    # Pre-apply debuffs to Imp Alpha for the Agony/Drama Queen showcase
-    imp1.apply_status(StatusEffect.BLEEDING, duration=5)
-    imp1.apply_status(StatusEffect.BURNING, duration=5)
-    imp1.apply_status(StatusEffect.CORRODED, duration=5)
+    quip = random.choice([
+        "Let's see what we're working with.",
+        "Small. Pointless. Probably entertaining enough.",
+        "They're already dead. They just don't know it.",
+    ])
+    print(f'\n  Sera: "{quip}"')
+    print(f"\n  Weapon:   {weapon}")
+    for e in enemies:
+        print(f"  Enemy:    {e}")
+    print(f"  Patience: {interest.current_patience}")
 
-    interest = InterestManager(current_patience=85)
-
-    print(f"\n  Weapon: {weapon}")
-    print(f"  Imp Alpha has {len(imp1.statuses)} debuffs pre-applied (Bleed, Burn, Corrode)")
-    print(f"  Imp Alpha HP: {imp1.max_hp}  |  Imp Beta HP: {imp2.max_hp}")
-    print(f"  Starting Patience: {interest.current_patience}")
-
-    result = resolve_combat(weapon, [imp1, imp2], interest, max_turns=3)
+    result = resolve_combat(weapon, enemies, interest, max_turns=5)
     for line in result.log:
         print(line)
 
@@ -98,154 +110,118 @@ def run_scenario_1():
 
 
 def run_scenario_2():
-    """The Permission Problem: Iron Sword vs Ghost (fails), then crafted fix."""
-    print(banner("SCENARIO 2: THE PERMISSION PROBLEM"))
-    print('  "A ghost. And I brought... a sword. A PHYSICAL sword."')
-    print('  "This is YOUR fault."')
+    """Wrong Tool: Random gated elite, permission failure demo, then the crafting fix."""
+    print(banner("SCENARIO 2: WRONG TOOL"))
 
-    # Weapon WITHOUT divine/ethereal tag
-    sword = Weapon(
-        name="Iron Sword",
-        base_damage=3,
-        tags=[DamageTag.PHYSICAL, DamageTag.HEAVY],
-        flavor="A fine weapon. Against the wrong enemy.",
-    )
+    all_weapons = load_weapons()
+    all_affixes = load_affixes()
+    all_enemies = load_enemies()
 
-    ghost = Enemy(
-        name="Wailing Phantom",
-        max_hp=25,
-        archetype="elite",
-        vulnerability=EnemyVulnerability.REQUIRES_DIVINE,
-        abilities=[
-            EnemyAbility("Ethereal Wail", AnnoyanceType.WEAK_HIT, flavor="It screams. Poorly."),
-        ],
-        flavor="Immune to the mundane. Like Sera, actually.",
-    )
+    # Pick an elite with a vulnerability gate
+    gated = [e for e in all_enemies
+             if e.archetype == "elite" and e.vulnerability.name != "NONE"]
+    if not gated:
+        gated = [e for e in all_enemies if e.vulnerability.name != "NONE"]
+    elite_template = random.choice(gated)
+    required_tag_name = _VULN_TO_TAG.get(elite_template.vulnerability.name, "DIVINE")
+
+    # Weapon that CANNOT hit this enemy
+    wrong_pool = [w for w in all_weapons
+                  if required_tag_name not in [t.name for t in w.tags]]
+    if not wrong_pool:
+        wrong_pool = all_weapons
+    wrong_weapon = copy.deepcopy(random.choice(wrong_pool))
 
     interest = InterestManager(current_patience=70)
 
+    print(f'\n  Sera: "I brought {wrong_weapon.name}. It needs [{required_tag_name}]."')
+    print(f'  Sera: "This is YOUR fault."')
     print(f"\n  --- ATTEMPT 1: Wrong weapon ---")
-    print(f"  Weapon: {sword}")
-    print(f"  Ghost requires: [DIVINE] or [ETHEREAL]")
-    print(f"  Sword has: [{', '.join(t.name for t in sword.all_tags)}]")
+    print(f"  Weapon: {wrong_weapon}")
+    print(f"  Enemy:  {copy.deepcopy(elite_template)}")
+    print(f"  Requires: [{required_tag_name}]")
 
-    result1 = resolve_combat(sword, [ghost], interest, max_turns=2)
+    result1 = resolve_combat(wrong_weapon, [copy.deepcopy(elite_template)], interest, max_turns=2)
     for line in result1.log:
         print(line)
 
-    # Now craft the fix
-    print(banner("CRAFTING INTERLUDE"))
-    print('  Sera finds a Moonstone.')
-    print('  "Finally. Let me fix this embarrassment."')
+    # Craft the fix
+    print(banner("CRAFTING FIX"))
+    fix_mat = next((m for m in CRAFTING_MATERIALS.values()
+                    if m.grants_tag and m.grants_tag.name == required_tag_name), None)
+    if fix_mat:
+        print(f'  Sera finds a {fix_mat.name}.')
+        craft_log = apply_material(wrong_weapon, copy.deepcopy(fix_mat))
+        for line in craft_log:
+            print(line)
+    else:
+        wrong_weapon.add_tag(DamageTag[required_tag_name])
+        print(f'  Added [{required_tag_name}] directly. As a Goddess can.')
 
-    craft_log = apply_material(sword, CRAFTING_MATERIALS["Moonstone"])
-    for line in craft_log:
-        print(line)
+    # Add a random suffix for punch
+    suffixes = [a for a in all_affixes if a.affix_type == "suffix"]
+    if suffixes and not wrong_weapon.suffix:
+        wrong_weapon.suffix = copy.deepcopy(random.choice(suffixes))
+        print(f"  Applies suffix: {wrong_weapon.suffix.name}")
 
-    # Reset ghost for round 2
-    ghost2 = Enemy(
-        name="Wailing Phantom",
-        max_hp=25,
-        archetype="elite",
-        vulnerability=EnemyVulnerability.REQUIRES_DIVINE,
-        abilities=[
-            EnemyAbility("Ethereal Wail", AnnoyanceType.WEAK_HIT, flavor="It screams. Again."),
-        ],
-    )
+    print(f"\n  --- ATTEMPT 2: Corrected weapon ---")
+    print(f"  Weapon: {wrong_weapon}")
+    print(f"  Tags:   [{', '.join(t.name for t in wrong_weapon.all_tags)}]")
 
-    # Add a suffix for extra punch
-    sword.suffix = Affix(
-        name="of the First Strike",
-        description="+5 on the opening hit.",
-        affix_type="suffix",
-        flat_bonus=5,
-        flat_condition="first_hit",
-        inflicts_status="MARKED",
-        status_duration=3,
-    )
-
-    print(f"\n  --- ATTEMPT 2: Correct weapon ---")
-    print(f"  Weapon: {sword}")
-    print(f"  Tags: [{', '.join(t.name for t in sword.all_tags)}]")
-
-    result2 = resolve_combat(sword, [ghost2], interest, max_turns=3)
+    result2 = resolve_combat(wrong_weapon, [copy.deepcopy(elite_template)], interest, max_turns=4)
     for line in result2.log:
         print(line)
 
 
 def run_scenario_3():
-    """The Boss Fight: Full build vs Dreadknight. All systems active."""
-    print(banner("SCENARIO 3: THE BOSS FIGHT"))
-    print('  "50 HP. 5 Armor. A monologue. Let\'s see if it lasts 5 turns."')
+    """Boss Fight: Random boss, matched weapon, all systems active."""
+    print(banner("SCENARIO 3: BOSS FIGHT"))
 
-    # Full build weapon
-    weapon = Weapon(
-        name="War Maul",
-        base_damage=3,
-        tags=[DamageTag.PHYSICAL, DamageTag.HEAVY],
-        prefix=Affix(
-            name="Cruel",
-            description="Kicks them when they're down.",
-            affix_type="prefix",
-            flat_bonus=3,
-            flat_condition="enemy_below_half",
-        ),
-        suffix=Affix(
-            name="of Execution",
-            description="x2 below half HP. Finish it.",
-            affix_type="suffix",
-            multiplier=2.0,
-            mult_condition="enemy_below_half",
-            inflicts_status="BLEEDING",
-            status_duration=3,
-        ),
-        set_bonus=Affix(
-            name="Drama Queen",
-            description="+1 per debuff on target.",
-            affix_type="set_bonus",
-            per_stack_bonus=1,
-            per_stack_source="debuffs_on_target",
-        ),
-        flavor='"Heavy. Mean. Perfect."',
-    )
+    all_weapons = load_weapons()
+    all_affixes = load_affixes()
+    all_enemies = load_enemies()
 
-    boss = Enemy(
-        name="Clanking Dreadknight",
-        max_hp=50,
-        archetype="boss",
-        vulnerability=EnemyVulnerability.REQUIRES_HEAVY,
-        armor=5,
-        abilities=[
-            EnemyAbility("Shield Bash", AnnoyanceType.STUN, cooldown=4,
-                         flavor="It tries to stun a Goddess. Bold."),
-            EnemyAbility("Oath of Honor", AnnoyanceType.MONOLOGUE, cooldown=6,
-                         charge_time=3, flavor="It begins its oath. Three turns of this."),
-            EnemyAbility("Sword Swing", AnnoyanceType.WEAK_HIT,
-                         flavor="Predictable."),
-        ],
-        flavor="50 pounds of armor. 0 grams of personality.",
-    )
+    bosses = [e for e in all_enemies if e.archetype == "boss"]
+    boss_template = random.choice(bosses) if bosses else random.choice(all_enemies)
+    boss = copy.deepcopy(boss_template)
+
+    req_tag_name = _VULN_TO_TAG.get(boss.vulnerability.name)
+    weapon = _pick_weapon_with_affixes(all_weapons, all_affixes, floor=5, tag_name=req_tag_name)
+
+    # Pre-craft the required tag if weapon still can't hit the boss
+    craft_lines = _ensure_can_hit(weapon, boss)
 
     interest = InterestManager(current_patience=90)
 
+    quip = random.choice([
+        "Now THIS is why I came down here.",
+        "Finally. Something worth the trip.",
+        "Big. Armored. Still going to die.",
+    ])
+    print(f'\n  Sera: "{quip}"')
     print(f"\n  Weapon: {weapon}")
-    print(f"  Boss: {boss}")
+    print(f"  Boss:   {boss}")
     print(f"  Starting Patience: {interest.current_patience}")
-    print(f"\n  BUILD LOGIC:")
-    print(f"    Base: 3 dmg")
-    print(f"    Above half HP: 3 dmg - 5 armor = 0 effective. Rough start.")
-    print(f"    Below half HP: (3 + 3) x 2 = 12 - 5 armor = 7. Now we're talking.")
-    print(f"    With debuffs:  (3 + 3) x 2 + N = 12+N - 5 armor. It snowballs.")
 
-    result = resolve_combat(weapon, [boss], interest, max_turns=3)
+    if craft_lines:
+        print(f"\n  (Pre-fight crafting:)")
+        for line in craft_lines:
+            print(line)
+
+    result = resolve_combat(weapon, [boss], interest, max_turns=5)
     for line in result.log:
         print(line)
 
     final_boss = result.final_enemies[0]
-    print(f"\n  After 3 turns: Boss at {final_boss.current_hp}/{final_boss.max_hp} HP")
+    print(f"\n  After {result.turns_taken} turns: "
+          f"Boss at {final_boss.current_hp}/{final_boss.max_hp} HP")
     print(f"  Patience: {result.patience_remaining}/{interest.max_patience}")
     print(f"  {'GAME OVER' if result.game_over else 'The fight continues...'}")
 
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 def main():
     print(banner("SERA: ENDLESS ENGAGEMENT"))
@@ -255,6 +231,7 @@ def main():
     print("  Core Loop: Kill aggressively to stay interested.")
     print("  Lose State: Patience hits 0. Sera leaves. Game Over.")
     print("  Scale: 1-30 damage. Build the machine, not the number.")
+    print("  (Simulation draws from JSON data — each run differs.)")
 
     run_scenario_1()
     print("\n" + "─" * 60)
