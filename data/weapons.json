@@ -3,122 +3,125 @@
     {
       "name": "Rusty Shiv",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "BLEED"],
+      "tags": [
+        "PHYSICAL",
+        "BLEED"
+      ],
       "flavor": "It's insulting that I'm holding this. But it gets the job done."
     },
     {
       "name": "Iron Claymore",
       "base_damage": 3,
-      "tags": ["PHYSICAL", "HEAVY"],
+      "tags": [
+        "PHYSICAL",
+        "HEAVY"
+      ],
       "flavor": "Finally, something with weight. Compensating for something? Yes. Your incompetence."
     },
     {
       "name": "Bone Whip",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "BLEED"],
+      "tags": [
+        "PHYSICAL",
+        "BLEED"
+      ],
       "flavor": "Vertebrae from something that annoyed me. Poetic."
     },
     {
       "name": "Forbidden Tome",
       "base_damage": 2,
-      "tags": ["ARCANE"],
+      "tags": [
+        "ARCANE"
+      ],
       "flavor": "Forbidden to mortals. Bedtime reading for me."
     },
     {
       "name": "Silver Rapier",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "SILVER"],
+      "tags": [
+        "PHYSICAL",
+        "SILVER"
+      ],
       "flavor": "Elegant. Precise. Everything you aren't."
     },
     {
       "name": "Acid Vial",
       "base_damage": 2,
-      "tags": ["CORROSIVE"],
+      "tags": [
+        "CORROSIVE"
+      ],
       "flavor": "I could dissolve your ambitions with this. And your face."
     },
     {
       "name": "Ember Staff",
       "base_damage": 2,
-      "tags": ["FIRE", "ARCANE"],
+      "tags": [
+        "FIRE",
+        "ARCANE"
+      ],
       "flavor": "Burns at the temperature of my contempt. So, very hot."
     },
     {
       "name": "War Maul",
       "base_damage": 3,
-      "tags": ["PHYSICAL", "HEAVY"],
+      "tags": [
+        "PHYSICAL",
+        "HEAVY"
+      ],
       "flavor": "Subtlety is overrated. This isn't subtle."
     },
     {
       "name": "Spirit Lantern",
       "base_damage": 2,
-      "tags": ["DIVINE", "ETHEREAL"],
+      "tags": [
+        "DIVINE",
+        "ETHEREAL"
+      ],
       "flavor": "It holds a trapped soul. Don't worry, it deserved it."
     },
     {
       "name": "Sonic Bell",
       "base_damage": 2,
-      "tags": ["SONIC"],
+      "tags": [
+        "SONIC"
+      ],
       "flavor": "Rings at a frequency that makes lesser beings reconsider existing."
     },
     {
-      "name": "Celestial Spear",
+      "name": "Frostbite Dagger",
+      "base_damage": 2,
+      "tags": [
+        "PHYSICAL",
+        "ICE"
+      ],
+      "flavor": "Cold steel. Warmer than my opinion of you."
+    },
+    {
+      "name": "Inferno Pike",
       "base_damage": 3,
-      "tags": ["DIVINE", "HEAVY"],
-      "flavor": "Forged from a collapsed star. I was bored that afternoon."
+      "tags": [
+        "FIRE",
+        "HEAVY"
+      ],
+      "flavor": "A spear of spite and open flame."
     },
     {
-      "name": "Plague Dagger",
+      "name": "Stormglass Wand",
       "base_damage": 2,
-      "tags": ["BLEED", "CORROSIVE"],
-      "flavor": "Two problems in one blade. Efficient. I approve."
+      "tags": [
+        "ARCANE",
+        "SONIC"
+      ],
+      "flavor": "It hums before it hurts."
     },
     {
-      "name": "Crystal Wand",
+      "name": "Glacier Chakram",
       "base_damage": 2,
-      "tags": ["ARCANE", "ETHEREAL"],
-      "flavor": "It hums with contained power. Try not to drop it. Actually, drop it. See what happens."
-    },
-    {
-      "name": "Thunder Maul",
-      "base_damage": 3,
-      "tags": ["HEAVY", "SONIC"],
-      "flavor": "Hits hard. Hits loud. The sound is part of the point."
-    },
-    {
-      "name": "Shadow Blade",
-      "base_damage": 2,
-      "tags": ["PHYSICAL", "SILVER"],
-      "flavor": "Cuts through shapeshifters and lies equally well."
-    },
-    {
-      "name": "Frost Lance",
-      "base_damage": 2,
-      "tags": ["ARCANE"],
-      "flavor": "Cold enough to make even constructs pause. Briefly."
-    },
-    {
-      "name": "Blessed Gauntlets",
-      "base_damage": 1,
-      "tags": ["DIVINE", "PHYSICAL"],
-      "flavor": "Punching with the authority of a Goddess. Which is me. Obviously."
-    },
-    {
-      "name": "Barbed Chain",
-      "base_damage": 2,
-      "tags": ["PHYSICAL", "BLEED"],
-      "flavor": "Every link is a promise. Every promise draws blood."
-    },
-    {
-      "name": "Moonfire Bow",
-      "base_damage": 2,
-      "tags": ["FIRE", "SILVER"],
-      "flavor": "Burns silver-hot. Werewolves find this particularly unpleasant."
-    },
-    {
-      "name": "Void Shard",
-      "base_damage": 2,
-      "tags": ["ETHEREAL", "ARCANE"],
-      "flavor": "A piece of nothing, weaponized. I thought of it. You're welcome."
+      "tags": [
+        "ICE",
+        "ETHEREAL"
+      ],
+      "flavor": "It returns. Unlike your dignity."
     }
   ]
 }

@@ -129,6 +129,9 @@ class Weapon:
                     dmg += bonus
                     steps.append(f'  + {affix.per_stack_bonus} x {stacks} stacks ({affix.name}) = {dmg}')
 
+        # --- Phase 4: Elemental interactions ---
+        dmg += _apply_elemental_bonus(self.all_tags, enemy, steps, dmg)
+
         # --- Clamp ---
         dmg = max(0, min(30, dmg))
         steps.append(f"Final (clamped 0-30): {dmg}")
@@ -176,3 +179,35 @@ def _count_stacks(source: str, enemy: Enemy) -> int:
         missing = enemy.max_hp - enemy.current_hp
         return (missing * 10) // enemy.max_hp  # 0-10 scale
     return 0
+
+
+def _apply_elemental_bonus(
+    weapon_tags: set[DamageTag],
+    enemy: Enemy,
+    steps: list[str],
+    current_damage: int,
+) -> int:
+    """Apply elemental weakness/resistance bonuses and return net delta."""
+    weak_hits = sorted(
+        (tag for tag in weapon_tags if tag in enemy.elemental_weaknesses),
+        key=lambda t: t.name,
+    )
+    resist_hits = sorted(
+        (tag for tag in weapon_tags if tag in enemy.elemental_resistances),
+        key=lambda t: t.name,
+    )
+
+    bonus = 0
+    if weak_hits:
+        weak_delta = 2 * len(weak_hits)
+        bonus += weak_delta
+        names = ", ".join(tag.name for tag in weak_hits)
+        steps.append(f"  + {weak_delta} (elemental weakness: {names}) = {current_damage + bonus}")
+
+    if resist_hits:
+        resist_delta = len(resist_hits)
+        bonus -= resist_delta
+        names = ", ".join(tag.name for tag in resist_hits)
+        steps.append(f"  - {resist_delta} (elemental resistance: {names}) = {current_damage + bonus}")
+
+    return bonus

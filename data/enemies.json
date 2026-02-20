@@ -8,7 +8,7 @@
       "armor": 0,
       "regen_per_turn": 0,
       "dodge_chance": 0.0,
-      "flavor": "It screams. Not in pain—in mediocrity.",
+      "flavor": "It screams. Not in pain\u2014in mediocrity.",
       "abilities": [
         {
           "name": "Ethereal Wail",
@@ -67,7 +67,7 @@
           "annoyance": "STUN",
           "cooldown": 4,
           "charge_time": 0,
-          "flavor": "It stuns Sera. She doesn't flinch—she just gets angrier."
+          "flavor": "It stuns Sera. She doesn't flinch\u2014she just gets angrier."
         },
         {
           "name": "Oath of Honor",
@@ -240,6 +240,106 @@
           "cooldown": 0,
           "charge_time": 0,
           "flavor": "They gnaw. Collectively. Sera is offended by the logistics."
+      "name": "Rimebound Golem",
+      "archetype": "elite",
+      "max_hp": 34,
+      "vulnerability": "REQUIRES_HEAVY",
+      "armor": 3,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "elemental_weaknesses": [
+        "FIRE"
+      ],
+      "elemental_resistances": [
+        "ICE"
+      ],
+      "flavor": "A walking glacier with posture issues.",
+      "abilities": [
+        {
+          "name": "Permafrost Slam",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It swings an iceberg. Groundbreaking."
+        },
+        {
+          "name": "Cold Shoulder",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "A glacial jab. Emotionally accurate."
+        }
+      ]
+    },
+    {
+      "name": "Ashen Salamander",
+      "archetype": "trash",
+      "max_hp": 16,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 1,
+      "dodge_chance": 0.1,
+      "elemental_weaknesses": [
+        "ICE"
+      ],
+      "elemental_resistances": [
+        "FIRE"
+      ],
+      "flavor": "It leaves soot and disappointment.",
+      "abilities": [
+        {
+          "name": "Cinder Spit",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It spits embers. How charming."
+        },
+        {
+          "name": "Molten Scamper",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It wriggles away like a bad argument."
+        }
+      ]
+    },
+    {
+      "name": "Static Oracle",
+      "archetype": "boss",
+      "max_hp": 44,
+      "vulnerability": "REQUIRES_ARCANE",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.05,
+      "elemental_weaknesses": [
+        "SONIC",
+        "CORROSIVE"
+      ],
+      "elemental_resistances": [
+        "ARCANE"
+      ],
+      "flavor": "Predicts the future. Still loses.",
+      "abilities": [
+        {
+          "name": "Feedback Pulse",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "Static fills the room. My patience leaves it."
+        },
+        {
+          "name": "Forecast Monologue",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 6,
+          "charge_time": 2,
+          "flavor": "It explains probabilities nobody asked for."
+        },
+        {
+          "name": "Voltage Nudge",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "A spark. Mildly rude."
         }
       ]
     }
