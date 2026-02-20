@@ -177,6 +177,8 @@ class Enemy:
         """If enemy is charging, cancel it. Returns ability name or None."""
         if self.is_casting and self.pending_ability:
             name = self.pending_ability.name
+            # Apply cooldown so the interrupted ability isn't immediately retried
+            self.cooldowns[name] = max(self.pending_ability.cooldown, 2)
             self.is_casting = False
             self.cast_turns_remaining = 0
             self.pending_ability = None
@@ -202,6 +204,9 @@ class Enemy:
             if random.random() < 0.5:
                 return None
 
+        # SILENCED: cannot start new charges (ongoing charges are unaffected)
+        silenced = any(s.effect == StatusEffect.SILENCED for s in self.statuses)
+
         # Continue charge
         if self.is_casting and self.pending_ability:
             self.cast_turns_remaining -= 1
@@ -220,6 +225,8 @@ class Enemy:
             if cd > 0:
                 continue
             if ability.charge_time > 0:
+                if silenced:
+                    continue  # SILENCED: cannot begin a charge this turn
                 # Start charging
                 self.is_casting = True
                 self.cast_turns_remaining = ability.charge_time

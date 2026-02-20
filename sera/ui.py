@@ -653,7 +653,7 @@ def render_loot_screen(
     weapon_loot: Weapon | None,
     material_loot: CraftingMaterial | None,
     interest: InterestManager,
-) -> str:
+) -> tuple[str, list]:
     lines = [
         box_top(),
         box_line("ROOM CLEARED", "center"),

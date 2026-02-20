@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from sera.tags import DamageTag
+from sera.status import StatusEffect
 
 if TYPE_CHECKING:
     from sera.enemy import Enemy
@@ -162,6 +163,8 @@ def _check_condition(condition: str, enemy: Enemy, enemy_count: int = 1) -> bool
         return enemy_count <= 1
     if condition == "first_hit":
         return enemy.times_hit == 0
+    if condition == "enemy_marked":
+        return any(s.effect == StatusEffect.MARKED for s in enemy.statuses)
     return False
 
 

@@ -142,10 +142,24 @@ def _resolve_sera_attack(
         log.extend(interest.take_annoyance(5, f'"{target.name} is immune. What a waste of my time."'))
         return log
 
+    log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}!")
+
+    # --- Dodge Roll ---
+    if target.try_dodge():
+        log.append(f'  {target.name} DODGES! "Stand still, insect."')
+        log.extend(interest.take_annoyance(2, f"{target.name} dodged"))
+        return log
+
+    # --- Interrupt Check (hitting a charging enemy cancels the charge) ---
+    interrupted = target.interrupt_cast()
+    if interrupted:
+        log.append(f'  {target.name}\'s {interrupted} was INTERRUPTED!')
+        log.append('  Sera: "I said shut up." [+3 Patience]')
+        interest._restore(3)
+
     # --- Damage Calculation (transparent) ---
     damage, steps = weapon.calculate_damage(target, enemy_count=living_count)
 
-    log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}!")
     log.append("  --- DAMAGE MATH ---")
     for step in steps:
         log.append(f"    {step}")
