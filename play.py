@@ -1238,23 +1238,12 @@ def run_simulation():
     pause()
 
 
-def main():
-    choice = title_screen()
-    if choice == "quit":
-        print("  Sera didn't even show up.")
-        return
-
-    if choice == "simulation":
-        run_simulation()
-        return
-
-
+def run_new_game() -> str:
     state = GameState()
 
     if not choose_starting_weapon(state):
         return "menu"
 
-    won = False
     for floor_num in range(1, state.max_floors + 1):
         state.floor = floor_num
 
@@ -1276,7 +1265,9 @@ def main():
             ui.clear()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
-            return
+            print(ui.render_post_game(state.run_stats.to_dict(state), won=False))
+            post_game_choice = get_choice("  > ", ["1", "2"])
+            return "play_again" if post_game_choice == "1" else "menu"
 
         state.floors_cleared = floor_num
 
@@ -1293,8 +1284,6 @@ def main():
                 pause()
                 return "menu"
 
-        if floor_num == state.max_floors:
-            won = True
 
     # Post-game screen with play again option
     ui.clear()
@@ -1304,6 +1293,10 @@ def main():
     ui.clear()
     print(ui.render_run_stats(state.run_stats.to_dict(state)))
     pause()
+    ui.clear()
+    print(ui.render_post_game(state.run_stats.to_dict(state), won=True))
+    post_game_choice = get_choice("  > ", ["1", "2"])
+    return "play_again" if post_game_choice == "1" else "menu"
 
 
 def main():
