@@ -257,14 +257,43 @@ def title_screen() -> str:
 
 def choose_starting_weapon(state: GameState):
     ui.clear()
-    # Guarantee at least one heavy hitter (3 dmg) in the starting options
-    heavy = [w for w in state.all_weapons if w.base_damage >= 3]
-    light = [w for w in state.all_weapons if w.base_damage < 3]
-    if heavy and light:
-        options = [random.choice(heavy)] + random.sample(light, min(2, len(light)))
-        random.shuffle(options)
-    else:
+    # Build guaranteed diverse starting options covering the 3 major vulnerability types:
+    #   Slot 1: DIVINE or ETHEREAL (counters spirits/ghosts on floors 3-4)
+    #   Slot 2: HEAVY (counters armored enemies) — biased toward high-dmg weapons
+    #   Slot 3: ARCANE (counters constructs and bosses on floor 5)
+    # This ensures the player always has a viable tool for every gate in the dungeon.
+    divine_ethereal_pool = [w for w in state.all_weapons
+                            if DamageTag.DIVINE in w.tags or DamageTag.ETHEREAL in w.tags]
+    heavy_pool = [w for w in state.all_weapons
+                  if w.base_damage >= 3 or DamageTag.HEAVY in w.tags]
+    arcane_pool = [w for w in state.all_weapons if DamageTag.ARCANE in w.tags]
+
+    options: list = []
+    used_names: set[str] = set()
+
+    def _pick(pool: list) -> bool:
+        available = [w for w in pool if w.name not in used_names]
+        if not available:
+            return False
+        pick = random.choice(available)
+        options.append(pick)
+        used_names.add(pick.name)
+        return True
+
+    _pick(divine_ethereal_pool)  # slot 1: spirit-killer
+    _pick(heavy_pool)            # slot 2: armor-breaker
+    _pick(arcane_pool)           # slot 3: construct/boss counter
+
+    # Fill to 3 if any pool was empty or exhausted
+    remaining = [w for w in state.all_weapons if w.name not in used_names]
+    while len(options) < 3 and remaining:
+        pick = random.choice(remaining)
+        options.append(pick)
+        remaining = [w for w in remaining if w.name != pick.name]
+
+    if not options:
         options = random.sample(state.all_weapons, min(3, len(state.all_weapons)))
+    random.shuffle(options)
 
     lines = [
         ui.box_top(),
@@ -414,8 +443,8 @@ def _cmd_set_str(state: GameState):
     amount_str = ui.get_input("  Set STR to > ")
     try:
         amount = int(amount_str)
-        state.base_stats.STR = max(0, amount)
-        print(f'  STR set to {state.base_stats.STR}.')
+        state.base_stats.values["STR"] = max(0, amount)
+        print(f'  STR set to {state.base_stats.values["STR"]}.')
     except ValueError:
         print('  Invalid number.')
 
@@ -425,8 +454,8 @@ def _cmd_set_ap(state: GameState):
     amount_str = ui.get_input("  Set AP to > ")
     try:
         amount = int(amount_str)
-        state.base_stats.AP = max(0, amount)
-        print(f'  AP set to {state.base_stats.AP}.')
+        state.base_stats.values["AP"] = max(0, amount)
+        print(f'  AP set to {state.base_stats.values["AP"]}.')
     except ValueError:
         print('  Invalid number.')
 
@@ -679,7 +708,8 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
         damage = min(30, damage + stat_bonus)
         steps.append(f"  + {stat_bonus} (stats: STR/AP) = {pre_stat + stat_bonus}")
         if damage < pre_stat + stat_bonus:
-            steps.append("  Clamp after stats: 30")
+            steps.append("  [Clamped to 30]")
+    steps.append(f"Final (clamped 0-30): {damage}")
     hp_before = target.current_hp
     actual, dead = target.take_damage(damage)
     armor_absorbed = damage - actual if damage > actual else 0

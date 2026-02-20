@@ -4,7 +4,7 @@
       "name": "Wailing Phantom",
       "archetype": "elite",
       "max_hp": 25,
-      "vulnerability": "REQUIRES_DIVINE",
+      "vulnerability": "REQUIRES_DIVINE_OR_ETHEREAL",
       "armor": 0,
       "regen_per_turn": 0,
       "dodge_chance": 0.0,

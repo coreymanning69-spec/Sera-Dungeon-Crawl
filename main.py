@@ -130,7 +130,7 @@ def run_scenario_2(verbose: bool = True) -> dict:
         name="Wailing Phantom",
         max_hp=25,
         archetype="elite",
-        vulnerability=EnemyVulnerability.REQUIRES_DIVINE,
+        vulnerability=EnemyVulnerability.REQUIRES_DIVINE_OR_ETHEREAL,
         abilities=[
             EnemyAbility("Ethereal Wail", AnnoyanceType.WEAK_HIT, flavor="It screams. Poorly."),
         ],
@@ -155,7 +155,7 @@ def run_scenario_2(verbose: bool = True) -> dict:
         name="Wailing Phantom",
         max_hp=25,
         archetype="elite",
-        vulnerability=EnemyVulnerability.REQUIRES_DIVINE,
+        vulnerability=EnemyVulnerability.REQUIRES_DIVINE_OR_ETHEREAL,
         abilities=[
             EnemyAbility("Ethereal Wail", AnnoyanceType.WEAK_HIT, flavor="It screams. Again."),
         ],

@@ -156,7 +156,7 @@ class Weapon:
 
         # --- Clamp ---
         dmg = max(0, min(30, dmg))
-        steps.append(f"Final (clamped 0-30): {dmg}")
+        # "Final" step is appended by the caller after stat bonuses are added
         return dmg, steps
 
     def add_tag(self, tag: DamageTag) -> None:

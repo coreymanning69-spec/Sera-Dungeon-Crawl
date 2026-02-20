@@ -133,6 +133,13 @@ class Enemy:
         req = self.vulnerability
         if req == EnemyVulnerability.NONE:
             return True
+        # Multi-tag vulnerabilities: weapon must have ANY of the listed tags
+        multi_tag_map: dict[EnemyVulnerability, list[DamageTag]] = {
+            EnemyVulnerability.REQUIRES_DIVINE_OR_ETHEREAL: [DamageTag.DIVINE, DamageTag.ETHEREAL],
+        }
+        if req in multi_tag_map:
+            return bool(weapon_tags & set(multi_tag_map[req]))
+        # Single-tag vulnerabilities
         tag_map = {
             EnemyVulnerability.REQUIRES_DIVINE: DamageTag.DIVINE,
             EnemyVulnerability.REQUIRES_ETHEREAL: DamageTag.ETHEREAL,
@@ -236,7 +243,7 @@ class Enemy:
         return random.random() < self.dodge_chance
 
     def interrupt_cast(self) -> str | None:
-        """If enemy is charging, cancel it. Returns ability name or None."""
+        """If enemy is charging, cancel it and apply cooldown. Returns ability name or None."""
         if self.is_casting and self.pending_ability:
             name = self.pending_ability.name
             # Apply cooldown so the interrupted ability isn't immediately retried
