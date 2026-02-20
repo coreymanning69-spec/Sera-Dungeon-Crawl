@@ -35,8 +35,8 @@ def _scale_enemy(enemy: Enemy, floor: int) -> None:
 
     if floor <= 1:
         return
-    # +28% HP per floor past 1, rounded (increased from 10% for challenge)
-    bonus_hp = int(enemy.max_hp * 0.28 * (floor - 1))
+    # +15% HP per floor past 1 — keeps the small-number feel intact
+    bonus_hp = int(enemy.max_hp * 0.15 * (floor - 1))
     enemy.max_hp += bonus_hp
     enemy.current_hp = enemy.max_hp
     # +1 armor every 3 floors for armored enemies
@@ -108,8 +108,8 @@ def generate_loot_weapon(floor: int, all_weapons: list[Weapon], all_affixes: lis
 
 
 def generate_loot_material() -> CraftingMaterial | None:
-    """Random chance to find a crafting material."""
-    if random.random() < 0.4:
+    """Random chance to find a crafting material (65% — players need options to fix immunity gates)."""
+    if random.random() < 0.65:
         return copy.deepcopy(random.choice(list(CRAFTING_MATERIALS.values())))
     return None
 

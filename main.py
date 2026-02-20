@@ -115,7 +115,7 @@ def run_scenario_2():
         name="Wailing Phantom",
         max_hp=25,
         archetype="elite",
-        vulnerability=EnemyVulnerability.REQUIRES_DIVINE,
+        vulnerability=EnemyVulnerability.REQUIRES_DIVINE_OR_ETHEREAL,
         abilities=[
             EnemyAbility("Ethereal Wail", AnnoyanceType.WEAK_HIT, flavor="It screams. Poorly."),
         ],
@@ -126,7 +126,7 @@ def run_scenario_2():
 
     print(f"\n  --- ATTEMPT 1: Wrong weapon ---")
     print(f"  Weapon: {sword}")
-    print(f"  Ghost requires: [DIVINE] or [ETHEREAL]")
+    print(f"  Ghost requires: [DIVINE] or [ETHEREAL] (immune to mundane steel)")
     print(f"  Sword has: [{', '.join(t.name for t in sword.all_tags)}]")
 
     result1 = resolve_combat(sword, [ghost], interest, max_turns=2)
@@ -147,7 +147,7 @@ def run_scenario_2():
         name="Wailing Phantom",
         max_hp=25,
         archetype="elite",
-        vulnerability=EnemyVulnerability.REQUIRES_DIVINE,
+        vulnerability=EnemyVulnerability.REQUIRES_DIVINE_OR_ETHEREAL,
         abilities=[
             EnemyAbility("Ethereal Wail", AnnoyanceType.WEAK_HIT, flavor="It screams. Again."),
         ],
@@ -241,9 +241,8 @@ def run_scenario_3():
     for line in result.log:
         print(line)
 
-    print(f"\n  After 3 turns: Boss at {boss.current_hp}/{boss.max_hp} HP")
-    print(f"  Patience: {result.patience_remaining}/{interest.max_patience}")
-    print(f"  {'GAME OVER' if result.game_over else 'The fight continues...'}")
+    print(f"\n  After 3 turns: {result.enemies_killed} kills, {result.patience_remaining} Patience remaining.")
+    print(f"  {'GAME OVER' if result.game_over else 'The fight continues — armor was eating everything above half HP.'}")
 
 
 def run_scenario_4():
@@ -313,8 +312,7 @@ def run_scenario_4():
     for line in result.log:
         print(line)
 
-    print(f"\n  After 4 turns: Golem at {golem.current_hp}/{golem.max_hp} HP")
-    print(f"  Patience: {result.patience_remaining}/{interest.max_patience}")
+    print(f"\n  After 4 turns: {result.enemies_killed} kill(s). Patience: {result.patience_remaining}/{interest.max_patience}")
     print(f"  {'GAME OVER' if result.game_over else 'Fire wins. Obviously.'}")
 
 

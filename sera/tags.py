@@ -25,11 +25,12 @@ class DamageTag(Enum):
 
 class EnemyVulnerability(Enum):
     """What makes an enemy stop being Boring."""
-    REQUIRES_DIVINE = auto()      # Ghosts, spirits
-    REQUIRES_ETHEREAL = auto()    # Ghosts, spirits (alternative)
-    REQUIRES_SILVER = auto()      # Werewolves, shapeshifters
-    REQUIRES_HEAVY = auto()       # Armored enemies
-    REQUIRES_CORROSIVE = auto()   # Armored enemies (alternative)
-    REQUIRES_FIRE = auto()        # Trolls, regenerators
-    REQUIRES_ARCANE = auto()      # Magic-resistant constructs
-    NONE = auto()                 # Anything works. Basic trash.
+    REQUIRES_DIVINE = auto()             # Spirits (divine weapons only)
+    REQUIRES_ETHEREAL = auto()           # Ghosts (ethereal weapons only)
+    REQUIRES_DIVINE_OR_ETHEREAL = auto() # Wailing spirits: divine OR ethereal works
+    REQUIRES_SILVER = auto()             # Werewolves, shapeshifters
+    REQUIRES_HEAVY = auto()              # Armored enemies
+    REQUIRES_CORROSIVE = auto()          # Armored enemies (alternative)
+    REQUIRES_FIRE = auto()               # Trolls, regenerators
+    REQUIRES_ARCANE = auto()             # Magic-resistant constructs
+    NONE = auto()                        # Anything works. Basic trash.
