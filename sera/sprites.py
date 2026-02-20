@@ -88,6 +88,29 @@ ENEMY_SPRITES = {
 """,
 }
 
+
+ENEMY_NAME_SPRITES = {
+    "flickering imp": r"""
+      /\_/\
+     ( o.o )
+      > ^ <
+     /|_|\
+      / \
+""",
+    "ashen salamander": r"""
+      __/\__
+    _/  ..  \
+   /  /__/\  \
+   \__\  /__/
+      /_/\_\
+""",
+    "plague rat swarm": r"""
+    (\__/)(\__/)
+    (='.'=)(='.'=)
+    (")_(")(")_(")
+""",
+}
+
 SKULL = r"""
      ▄▄███▄▄
     █▀░░░░░▀█
@@ -306,8 +329,11 @@ def get_mood(patience_pct: float) -> str:
     return MOOD_FURIOUS
 
 
-def get_enemy_sprite(archetype: str) -> str:
-    """Get the sprite for an enemy archetype."""
+def get_enemy_sprite(archetype: str, enemy_name: str = "") -> str:
+    """Get sprite by enemy name first, then archetype fallback."""
+    key = enemy_name.strip().lower()
+    if key in ENEMY_NAME_SPRITES:
+        return ENEMY_NAME_SPRITES[key]
     return ENEMY_SPRITES.get(archetype, ENEMY_SPRITES["trash"])
 
 

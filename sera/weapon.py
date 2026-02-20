@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from sera.tags import DamageTag
+from sera.damage_scale import apply_damage_policy, DEFAULT_DAMAGE_POLICY
 from sera.status import StatusEffect
 
 if TYPE_CHECKING:
@@ -154,8 +155,8 @@ class Weapon:
         # --- Phase 4: Elemental interactions ---
         dmg += _apply_elemental_bonus(self.all_tags, enemy, steps, dmg)
 
-        # --- Clamp ---
-        dmg = max(0, min(30, dmg))
+        # --- Damage scale policy ---
+        dmg = apply_damage_policy(dmg, DEFAULT_DAMAGE_POLICY)
         # "Final" step is appended by the caller after stat bonuses are added
         return dmg, steps
 

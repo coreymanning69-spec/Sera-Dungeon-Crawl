@@ -11,6 +11,7 @@ Survive 5 floors. Keep Sera interested. Don't be boring.
 from __future__ import annotations
 import copy
 import random
+from pathlib import Path
 
 from sera.tags import DamageTag
 from sera.weapon import Weapon, Affix
@@ -21,8 +22,12 @@ from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
 from sera.loader import load_weapons, load_affixes, load_enemies, load_equipment_items
 from sera.encounters import generate_encounter, generate_loot_weapon, generate_loot_material, generate_loot_shards
 from sera import ui
+from sera.damage_scale import apply_damage_policy, DEFAULT_DAMAGE_POLICY
 from sera.stats import PlayerStats
 from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_revision_set
+from sera.randomization import RunRNG, select_weapon_choices
+from sera.modes.endless import EndlessProgress
+from sera.save import save_to_file, load_from_file, DEFAULT_SAVE_PATH
 
 
 def _build_defense_profile(state: "GameState", stats: PlayerStats | None = None) -> tuple[int, int, dict[str, int]]:
@@ -116,6 +121,7 @@ ROOM_CLEAR_QUIPS = [
 ]
 
 AUTO_BATTLE_TURNS = 10
+SAVE_PATH = DEFAULT_SAVE_PATH
 
 
 def sera_quip(pool: list[str]) -> str:
@@ -207,6 +213,11 @@ class GameState:
         self.next_revision_set: list[EquipmentItem] = generate_revision_set(self.all_equipment, floor=1)
         self.revision_set_claimed: bool = False
         self.run_stats: RunStats = RunStats()
+        self.mode: str = "campaign"
+        self.rng_seed: int = random.randint(1, 99_999_999)
+        self.rng: RunRNG = RunRNG(self.rng_seed)
+        self.endless: EndlessProgress = EndlessProgress(seed=self.rng_seed)
+        self.material_pool: list[CraftingMaterial] = []
 
     @property
     def equipped_weapon(self) -> Weapon:
@@ -240,14 +251,20 @@ def pause(msg: str = "  [Press Enter]"):
 # ─────────────────────────────────────────────────────────
 
 def title_screen() -> str:
-    """Returns 'new_game', 'simulation', or 'quit'."""
+    """Returns 'new_game', 'continue', 'simulation', or 'quit'."""
     ui.clear()
     print(ui.render_title_screen())
-    choice = get_choice("> ", ["1", "2", "3"])
+    valid = ["1", "2", "3"]
+    if SAVE_PATH.exists():
+        print("  ▸ [C] Continue from save")
+        valid.append("c")
+    choice = get_choice("> ", valid)
     if choice in ("quit", "3"):
         return "quit"
     if choice == "2":
         return "simulation"
+    if choice == "c":
+        return "continue"
     return "new_game"
 
 
@@ -275,7 +292,7 @@ def choose_starting_weapon(state: GameState):
         available = [w for w in pool if w.name not in used_names]
         if not available:
             return False
-        pick = random.choice(available)
+        pick = state.rng.choice(available)
         options.append(pick)
         used_names.add(pick.name)
         return True
@@ -287,13 +304,13 @@ def choose_starting_weapon(state: GameState):
     # Fill to 3 if any pool was empty or exhausted
     remaining = [w for w in state.all_weapons if w.name not in used_names]
     while len(options) < 3 and remaining:
-        pick = random.choice(remaining)
+        pick = state.rng.choice(remaining)
         options.append(pick)
         remaining = [w for w in remaining if w.name != pick.name]
 
     if not options:
-        options = random.sample(state.all_weapons, min(3, len(state.all_weapons)))
-    random.shuffle(options)
+        options = select_weapon_choices(state.all_weapons, min(3, len(state.all_weapons)), state.rng)
+    state.rng.shuffle(options)
 
     lines = [
         ui.box_top(),
@@ -306,6 +323,7 @@ def choose_starting_weapon(state: GameState):
         tag_str = ", ".join(t.name for t in w.all_tags)
         lines.append(ui.box_line(f"  ▸ [{i+1}] {w.name} ({w.base_damage} dmg) [{tag_str}]"))
         lines.append(ui.box_line(f'        "{w.flavor}"'))
+        lines.append(ui.box_blank())
     lines.append(ui.box_blank())
     lines.append(ui.box_bot())
     print("\n".join(lines))
@@ -322,6 +340,9 @@ def choose_starting_weapon(state: GameState):
     ui.clear()
     print(ui.box_top())
     print(ui.box_line(f'Sera picks up the {picked.name}.', "center"))
+    for sl in ui.sprites.get_weapon_sprite(picked.name).strip().split("\n"):
+        print(ui.box_line(sl, "center"))
+    print(ui.box_line(f"Tags: {', '.join(t.name for t in picked.all_tags)}", "center"))
     print(ui.box_line(f'"{picked.flavor}"', "center"))
     print(ui.box_bot())
     pause()
@@ -432,7 +453,7 @@ def _cmd_set_dmg(state: GameState):
     amount_str = ui.get_input("  Set base damage to > ")
     try:
         amount = int(amount_str)
-        state.equipped_weapon.base_damage = max(1, min(amount, 30))
+        state.equipped_weapon.base_damage = max(1, amount)
         print(f'  Base damage set to {state.equipped_weapon.base_damage}. Sera: "Now we\'re talking."')
     except ValueError:
         print('  Invalid number.')
@@ -551,7 +572,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- RESOLVE ATTACK ---
         print()
-        _resolve_player_attack(weapon, target, interest, state.final_stats, state.run_stats)
+        _resolve_player_attack(state, weapon, target, interest, state.final_stats, state.run_stats)
         pause()
 
         if interest.game_over:
@@ -652,7 +673,7 @@ def _do_inspect(alive, combat_turn, weapon, enemies, interest, state):
     print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
 
 
-def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats, run_stats: RunStats | None = None):
+def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats, run_stats: RunStats | None = None):
     """Full attack resolution with dodge, permission, interrupt, damage."""
 
     # --- Permission Check ---
@@ -705,11 +726,11 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
     stat_bonus = stats.attack_bonus()
     if stat_bonus > 0:
         pre_stat = damage
-        damage = min(30, damage + stat_bonus)
+        damage = apply_damage_policy(damage + stat_bonus, DEFAULT_DAMAGE_POLICY, state.endless.wave)
         steps.append(f"  + {stat_bonus} (stats: STR/AP) = {pre_stat + stat_bonus}")
-        if damage < pre_stat + stat_bonus:
-            steps.append("  [Clamped to 30]")
-    steps.append(f"Final (clamped 0-30): {damage}")
+    else:
+        damage = apply_damage_policy(damage, DEFAULT_DAMAGE_POLICY, state.endless.wave)
+    steps.append(f"Final: {damage}")
     hp_before = target.current_hp
     actual, dead = target.take_damage(damage)
     armor_absorbed = damage - actual if damage > actual else 0
@@ -785,7 +806,7 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
 
         target = alive[0]
         damage, _steps = weapon.calculate_damage(target)
-        damage = min(30, damage + stats.attack_bonus())
+        damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
         hp_before = target.current_hp
         actual, dead = target.take_damage(damage)
         turn_damage += actual
@@ -994,6 +1015,8 @@ def loot_phase(state: GameState):
         print()
 
     if equipment_drop:
+        ui.clear()
+        print(screen)
         print(f"  [E] Found equipment: {equipment_drop.name} ({equipment_drop.slot}) {equipment_drop.ascii_art}")
         print(f"      Bonuses: {equipment_drop.stat_bonuses} | DR {equipment_drop.damage_reduction} | RES {equipment_drop.damage_resistance}%")
         if equipment_drop.resistances:
@@ -1012,6 +1035,8 @@ def loot_phase(state: GameState):
 
     for kind, idx in choices:
         if kind == "weapon":
+            ui.clear()
+            print(screen)
             print(f"  [{idx}] Take {weapon_drop.display_name}?  [y/n]")
             c = get_choice("  > ", ["y", "n"])
             if c == "y":
@@ -1022,6 +1047,8 @@ def loot_phase(state: GameState):
                 print(f'  Sera: "Trash."')
 
         if kind == "material":
+            ui.clear()
+            print(screen)
             print(f"  [{idx}] Take {material_drop.name}?  [y/n]")
             c = get_choice("  > ", ["y", "n"])
             if c == "y":
@@ -1273,8 +1300,12 @@ def run_new_game() -> str:
 
     if not choose_starting_weapon(state):
         return "menu"
+    return run_new_game_from_state(state)
 
-    for floor_num in range(1, state.max_floors + 1):
+
+def run_new_game_from_state(state: GameState) -> str:
+    start_floor = max(1, state.floor or 1)
+    for floor_num in range(start_floor, state.max_floors + 1):
         state.floor = floor_num
 
         enemies = generate_encounter(floor_num, state.all_enemies)
@@ -1300,12 +1331,14 @@ def run_new_game() -> str:
             return "play_again" if post_game_choice == "1" else "menu"
 
         state.floors_cleared = floor_num
+        save_to_file(SAVE_PATH, state)
 
         # Loot
         loot_phase(state)
         state.healing_flasks = min(state.healing_flasks + 1, 3)
         state.next_revision_set = generate_revision_set(state.all_equipment, floor_num + 1)
         state.revision_set_claimed = False
+        save_to_file(SAVE_PATH, state)
 
         # Between floors (except after final)
         if floor_num < state.max_floors:
@@ -1339,8 +1372,14 @@ def main():
             run_simulation()
             continue
 
-        # choice == "new_game" (or play_again loop)
-        result = run_new_game()
+        if choice == "continue":
+            state = GameState()
+            if not load_from_file(SAVE_PATH, state):
+                print("  No save found.")
+                continue
+            result = run_new_game_from_state(state)
+        else:
+            result = run_new_game()
         while result == "play_again":
             result = run_new_game()
         if result == "quit":

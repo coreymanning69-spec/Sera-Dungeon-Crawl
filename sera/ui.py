@@ -462,7 +462,7 @@ def export_pixel_ui_mockups(output_dir: str = "docs/pixel-ui") -> list[str]:
 # Drawing primitives — retro pixel style
 # ─────────────────────────────────────────────────────────
 
-W = 210  # standard box width (expanded for better spacing)
+W = 126  # less wide viewport for cleaner terminal readability
 
 
 def clear():
@@ -570,8 +570,8 @@ def xp_bar(current: int, maximum: int, width: int = 15) -> str:
 
 TITLE_ART = [
     "   _____  _____  ____   ___   ",
-    "  / ___/ / ___/ / __ \ /   |  ",
-    "  \__ \  \__ \ / /_/ // /| |  ",
+    "  / ___/ / ___/ / __ \\ /   |  ",
+    "  \\__ \\  \\__ \\ / /_/ // /| |  ",
     " ___/ / ___/ // _, _// ___ |  ",
     "/____/ /____//_/ |_|/_/  |_|  ",
 ]
@@ -595,6 +595,7 @@ def render_title_screen() -> str:
         lines.append(box_line(portrait_line, "center"))
     lines.append(box_blank())
     lines.append(box_divider())
+    lines.append(box_blank())
     import random
     title_quotes = [
         '"I am a Goddess. Entertain me."',
@@ -636,7 +637,7 @@ def render_floor_intro(floor: int, enemies: list[Enemy], interest: InterestManag
     for i, e in enumerate(enemies):
         tag_req = e.vulnerability.name if e.vulnerability.name != "NONE" else "any"
         # Show mini sprite inline
-        sprite_lines = sprites.get_enemy_sprite(e.archetype).strip().split("\n")
+        sprite_lines = sprites.get_enemy_sprite(e.archetype, e.name).strip().split("\n")
         # Just show first 3 lines of sprite as a preview
         for sl in sprite_lines[:3]:
             lines.append(box_line(f"  {sl}"))
@@ -711,9 +712,13 @@ def render_combat_hud(
     for i, e in enumerate(alive):
         lines.append(box_line(f"  ▸ [{i+1}] Attack {e.name}"))
     lines.append(box_line(f"  ▸ [I] Inspect enemy"))
+    lines.append(box_blank())
     lines.append(box_line(f"  ▸ [W] View weapon details"))
+    lines.append(box_blank())
     lines.append(box_line(f"  ▸ [H] Use healing flask"))
+    lines.append(box_blank())
     lines.append(box_line(f"  ▸ [A] Auto-battle ({10} turns)"))
+    lines.append(box_blank())
     lines.append(box_line(f"  ▸ [0] Commands menu (cheat/debug)"))
     lines.append(box_blank())
     lines.append(box_bot())
@@ -746,7 +751,7 @@ def render_enemy_action(enemy: Enemy, ability_name: str, flavor: str, cost: int)
         box_divider(),
     ]
     # Show a couple lines of enemy sprite
-    sprite_lines = sprites.get_enemy_sprite(enemy.archetype).strip().split("\n")
+    sprite_lines = sprites.get_enemy_sprite(enemy.archetype, enemy.name).strip().split("\n")
     for sl in sprite_lines[:4]:
         lines.append(box_line(sl, "center"))
     lines.append(box_divider_thin())
@@ -814,6 +819,7 @@ def render_loot_screen(
             lines.append(box_line(f"        Suffix: {weapon_loot.suffix.name}"))
         if weapon_loot.flavor:
             lines.append(box_line(f'        "{weapon_loot.flavor}"'))
+        lines.append(box_blank())
         choices.append(("weapon", idx))
         idx += 1
 
@@ -822,6 +828,7 @@ def render_loot_screen(
         lines.append(box_line(f"  ▸ [{idx}] {material_loot.name} (grants [{tag_name}])"))
         if material_loot.flavor:
             lines.append(box_line(f'        {material_loot.flavor}'))
+        lines.append(box_blank())
         choices.append(("material", idx))
         idx += 1
 
@@ -1067,6 +1074,27 @@ def render_between_floors(
     return "\n".join(lines)
 
 
+
+
+def render_auto_battle_screen(turn_results: list[dict], total_damage: int, total_kills: int, patience: int, max_patience: int) -> str:
+    """Render live auto-battle telemetry for quick turn-by-turn updates."""
+    lines = [
+        box_top(),
+        box_line("░▒▓█ AUTO BATTLE FEED █▓▒░", "center"),
+        box_divider(),
+        box_line(f"  Total Damage: {total_damage}"),
+        box_line(f"  Total Kills: {total_kills}"),
+        box_line(f"  Patience: {patience}/{max_patience}"),
+        box_divider(),
+    ]
+    for result in turn_results[-6:]:
+        lines.append(box_line(f"  Turn {result['turn']}: {result['target']} for {result['damage']} ({result['target_hp']})"))
+        if result["kills"] > 0:
+            lines.append(box_line(f"      Kills +{result['kills']} | Patience now {result['patience']}"))
+    lines.append(box_blank())
+    lines.append(box_bot())
+    return "\n".join(lines)
+
 def render_equipment_menu(
     loadout: EquipmentLoadout,
     stash: list[EquipmentItem],
@@ -1175,7 +1203,7 @@ def render_inspect(enemy: Enemy) -> str:
         box_divider(),
     ]
     # Full enemy sprite
-    sprite = sprites.get_enemy_sprite(enemy.archetype)
+    sprite = sprites.get_enemy_sprite(enemy.archetype, enemy.name)
     for sl in sprite.strip().split("\n"):
         lines.append(box_line(sl, "center"))
     lines.append(box_divider_thin())
