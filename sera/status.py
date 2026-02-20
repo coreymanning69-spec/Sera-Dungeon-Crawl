@@ -43,7 +43,9 @@ class StatusInstance:
         if self.effect == StatusEffect.BLEEDING:
             return self.potency      # 1 per potency stack
         if self.effect == StatusEffect.CORRODED:
-            return 0                 # armor shred, not damage
+            return 0                 # armor shred handled in Enemy.tick_dot_damage, not raw damage
+        if self.effect == StatusEffect.CURSED:
+            return self.potency      # 1 per potency stack — a divine wound that festers
         return 0
 
     def detonate_damage(self) -> int:

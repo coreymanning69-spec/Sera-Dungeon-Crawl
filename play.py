@@ -123,6 +123,40 @@ def sera_quip(pool: list[str]) -> str:
 
 
 # ─────────────────────────────────────────────────────────
+# Run Stats — tracks cumulative stats across a run
+# ─────────────────────────────────────────────────────────
+
+class RunStats:
+    """Tracks cumulative statistics for a single game run."""
+    def __init__(self):
+        self.total_damage: int = 0
+        self.best_overkill: int = 0
+        self.weapons_found: int = 0
+        self.materials_used: int = 0
+
+    def record_damage(self, amount: int):
+        self.total_damage += amount
+
+    def record_overkill(self, excess: int):
+        if excess > self.best_overkill:
+            self.best_overkill = excess
+
+    def to_dict(self, state: GameState) -> dict:
+        return {
+            "floors_cleared": state.floors_cleared,
+            "total_kills": state.interest.total_kills,
+            "total_turns": state.interest.turn_number,
+            "total_damage": self.total_damage,
+            "best_overkill": self.best_overkill,
+            "weapons_found": self.weapons_found,
+            "materials_used": self.materials_used,
+            "patience": state.interest.current_patience,
+            "max_patience": state.interest.max_patience,
+            "weapon_name": state.equipped_weapon.display_name if state.weapons else "",
+        }
+
+
+# ─────────────────────────────────────────────────────────
 # Game State
 # ─────────────────────────────────────────────────────────
 
@@ -526,6 +560,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                         kill_log = interest.register_kill(
                             enemy.name, dot_total, hp_before_dot)
                         print(ui.render_kill_report(enemy.name, kill_log))
+                        state.run_stats.record_damage(dot_total)
                     pause()
 
         # --- CLEANUP PHASE ---
@@ -678,6 +713,7 @@ def _resolve_player_attack(weapon: Weapon, target: Enemy, interest: InterestMana
             if run_stats:
                 run_stats.record_overkill(excess)
             print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
+            run_stats.record_overkill(excess)
         print(ui.render_kill_report(target.name, kill_log))
 
 
@@ -863,6 +899,18 @@ def _resolve_enemy_action(
     if reduction > 0 or resistance > 0 or elem_res > 0:
         print(f"  Defensive bonuses: -{reduction} flat, -{resistance}% general, -{elem_res}% {attack_type.title()}.")
     interest.take_annoyance(cost, f"{ability.name}")
+
+    # HEAL_SELF abilities actually heal the enemy
+    if ability.annoyance == AnnoyanceType.HEAL_SELF:
+        heal_amount = min(5, enemy.max_hp - enemy.current_hp)
+        if heal_amount > 0:
+            enemy.current_hp += heal_amount
+            print(ui.box_top())
+            print(ui.box_line(f"{enemy.name} heals {heal_amount} HP!", "center"))
+            print(ui.box_line(f"HP: {ui.hp_bar(enemy.current_hp, enemy.max_hp, 15)}", "center"))
+            print(ui.box_line('Sera: "Stop healing. It\'s dragging on."', "center"))
+            print(ui.box_bot())
+
     print(f"  Patience: {ui.patience_bar(interest)}")
     pause()
 
@@ -1004,10 +1052,19 @@ def between_floors(state: GameState) -> bool:
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
 
+        if choice == "5":
+            ui.clear()
+            print(ui.render_run_stats(state.run_stats.to_dict(state)))
+            pause()
+
 
 def equip_screen(state: GameState):
     if len(state.weapons) < 2:
-        print('  Only one weapon. "It\'s not like I have options."')
+        ui.clear()
+        print(ui.box_top())
+        print(ui.box_line("Only one weapon.", "center"))
+        print(ui.box_line('"It\'s not like I have options."', "center"))
+        print(ui.box_bot())
         pause()
         return
 
@@ -1052,7 +1109,11 @@ def equipment_screen(state: GameState):
 
 def craft_screen(state: GameState):
     if not state.materials:
-        print('  No materials. "Find me something to work with."')
+        ui.clear()
+        print(ui.box_top())
+        print(ui.box_line("No materials.", "center"))
+        print(ui.box_line('"Find me something to work with."', "center"))
+        print(ui.box_bot())
         pause()
         return
 
@@ -1148,7 +1209,7 @@ def claim_revision_set(state: GameState):
 
 
 # ─────────────────────────────────────────────────────────
-# Main game loop
+# Simulation mode — summary UI with drill-down
 # ─────────────────────────────────────────────────────────
 
 def run_simulation():
@@ -1187,11 +1248,13 @@ def main():
         run_simulation()
         return
 
+
     state = GameState()
 
     if not choose_starting_weapon(state):
-        return
+        return "menu"
 
+    won = False
     for floor_num in range(1, state.max_floors + 1):
         state.floor = floor_num
 
@@ -1227,9 +1290,13 @@ def main():
         if floor_num < state.max_floors:
             if not between_floors(state):
                 print('  Sera: "Fine. I was getting bored anyway."')
-                return
+                pause()
+                return "menu"
 
-    # Victory
+        if floor_num == state.max_floors:
+            won = True
+
+    # Post-game screen with play again option
     ui.clear()
     print(ui.render_victory(state.max_floors, state.interest))
     pause()
@@ -1248,9 +1315,14 @@ def main():
         if choice == "simulation":
             run_simulation()
             continue
-        # choice == "new_game"
-        run_new_game()
-        return
+
+        # choice == "new_game" (or play_again loop)
+        result = run_new_game()
+        while result == "play_again":
+            result = run_new_game()
+        if result == "quit":
+            return
+        # result == "menu" → loop back to title
 
 
 if __name__ == "__main__":

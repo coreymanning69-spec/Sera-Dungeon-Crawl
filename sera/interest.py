@@ -9,6 +9,7 @@ Hit 0 Patience and she leaves. Game Over.
 """
 
 from __future__ import annotations
+import random
 from dataclasses import dataclass, field
 
 
@@ -74,18 +75,33 @@ class InterestManager:
 
         # Base kill restore
         self._restore(self.KILL_RESTORE)
-        log.append(f'  [+{self.KILL_RESTORE} Patience] Killed {enemy_name}. "Adequate."')
+        kill_quip = random.choice([
+            "Adequate.",
+            "Gone. Next.",
+            "It won't be missed.",
+        ])
+        log.append(f'  [+{self.KILL_RESTORE} Patience] Killed {enemy_name}. "{kill_quip}"')
 
         # Overkill bonus
         excess = max(0, damage_dealt - enemy_hp_was)
         if excess > 0:
             self._restore(excess)
-            log.append(f'  [+{excess} Patience] OVERKILL! "Now THAT was satisfying."')
+            overkill_quip = random.choice([
+                "Now THAT was satisfying.",
+                "Efficient. Almost artistic.",
+                "NOW that had commitment.",
+            ])
+            log.append(f'  [+{excess} Patience] OVERKILL! "{overkill_quip}"')
 
         # Multi-kill check
         if self._kills_this_turn >= self.MULTI_KILL_THRESHOLD:
             self._restore(self.MULTI_KILL_RESTORE)
-            log.append(f'  [+{self.MULTI_KILL_RESTORE} Patience] MULTI-KILL! "More. Do that again."')
+            multi_quip = random.choice([
+                "More. Do that again.",
+                "Don't stop. I mean it.",
+                "THAT is how you hold my interest.",
+            ])
+            log.append(f'  [+{self.MULTI_KILL_RESTORE} Patience] MULTI-KILL! "{multi_quip}"')
 
         return log
 
@@ -115,14 +131,29 @@ class InterestManager:
     def _time_quip(self) -> str:
         p = self.current_patience
         if p > 80:
-            return "Fine. I'll entertain this."
+            return random.choice([
+                "Fine. I'll entertain this.",
+                "Not terrible. Yet.",
+            ])
         if p > 60:
-            return "You have my attention. Barely."
+            return random.choice([
+                "You have my attention. Barely.",
+                "You have my attention. Don't squander it.",
+            ])
         if p > 40:
-            return "This better get interesting soon."
+            return random.choice([
+                "This better get interesting soon.",
+                "Pick up the pace. I mean it.",
+            ])
         if p > 20:
-            return "I'm running out of reasons to stay."
-        return "One more disappointment and I'm leaving."
+            return random.choice([
+                "I'm running out of reasons to stay.",
+                "My patience is not infinite. Shocking, I know.",
+            ])
+        return random.choice([
+            "One more disappointment and I'm leaving.",
+            "Last warning. Make it count.",
+        ])
 
     @staticmethod
     def _game_over_text() -> str:

@@ -568,6 +568,14 @@ def xp_bar(current: int, maximum: int, width: int = 15) -> str:
 # Composite screens
 # ─────────────────────────────────────────────────────────
 
+TITLE_ART = [
+    "   _____  _____  ____   ___   ",
+    "  / ___/ / ___/ / __ \ /   |  ",
+    "  \__ \  \__ \ / /_/ // /| |  ",
+    " ___/ / ___/ // _, _// ___ |  ",
+    "/____/ /____//_/ |_|/_/  |_|  ",
+]
+
 def render_title_screen() -> str:
     lines = [
         box_top(),
@@ -637,6 +645,12 @@ def render_floor_intro(floor: int, enemies: list[Enemy], interest: InterestManag
         if e.armor > 0:
             lines.append(box_line(f"      Armor: {'▓' * e.armor}  ({e.armor})"))
         lines.append(box_line(f"      Requires: [{tag_req}]"))
+        if e.elemental_weaknesses:
+            weak = ", ".join(tag.name for tag in e.elemental_weaknesses)
+            lines.append(box_line(f"      Weak: {weak}"))
+        if e.elemental_resistances:
+            resist = ", ".join(tag.name for tag in e.elemental_resistances)
+            lines.append(box_line(f"      Resist: {resist}"))
         if e.statuses:
             st = ", ".join(f"{s.effect.name}({s.potency})" for s in e.statuses)
             lines.append(box_line(f"      Debuffs: {st}"))
@@ -753,6 +767,7 @@ def render_kill_report(enemy_name: str, events: list[str]) -> str:
     lines.append(box_divider())
     for ev in events:
         lines.append(box_line(ev.strip()))
+    lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -1090,6 +1105,7 @@ def render_equipment_menu(
     return "\n".join(lines)
 
 
+
 def render_game_over(interest: InterestManager, floor: int = 0) -> str:
     lines = [
         box_top(),
@@ -1289,6 +1305,124 @@ def render_sim_summary(results: list[dict]) -> str:
     lines.append(box_divider_pixel())
     lines.append(box_line('Sera: "Not bad. Not GOOD, but not bad."', "center"))
     lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_sim_summary(results: list[dict]) -> str:
+    """Render a compact summary table for simulation scenarios."""
+    lines = [
+        box_top(),
+        box_blank(),
+        box_line("S I M U L A T I O N   R E S U L T S", "center"),
+        box_blank(),
+        box_divider(),
+    ]
+    for i, r in enumerate(results):
+        status = "GAME OVER" if r["game_over"] else "SURVIVED"
+        lines.append(box_line(f"  [{i+1}] {r['name']}"))
+        lines.append(box_line(
+            f"      {status}  |  Kills: {r['kills']}  "
+            f"|  Patience: {r['patience']}/{r['max_patience']}  "
+            f"|  Turns: {r['turns']}"
+        ))
+        lines.append(box_blank())
+    lines.append(box_divider())
+    lines.append(box_line("[#] View scenario details   [0] Back"))
+    lines.append(box_blank())
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_sim_detail(result: dict) -> str:
+    """Render the full log for a single simulation scenario."""
+    lines = [
+        box_top(),
+        box_line(f"SCENARIO: {result['name']}", "center"),
+        box_divider(),
+    ]
+    for log_line in result["log"]:
+        stripped = log_line.rstrip()
+        if len(stripped) > W - 4:
+            stripped = stripped[:W - 7] + "..."
+        lines.append(box_line(stripped))
+    lines.append(box_divider())
+    lines.append(box_line("[Enter] Back to summary"))
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_run_stats(stats: dict) -> str:
+    """Render end-of-run or mid-run statistics."""
+    lines = [
+        box_top(),
+        box_line("R U N   S T A T S", "center"),
+        box_divider(),
+        box_line(f"  Floors cleared:     {stats.get('floors_cleared', 0)}"),
+        box_line(f"  Total kills:        {stats.get('total_kills', 0)}"),
+        box_line(f"  Total turns:        {stats.get('total_turns', 0)}"),
+        box_line(f"  Total damage dealt: {stats.get('total_damage', 0)}"),
+        box_line(f"  Best overkill:      {stats.get('best_overkill', 0)}"),
+        box_line(f"  Weapons found:      {stats.get('weapons_found', 0)}"),
+        box_line(f"  Materials used:     {stats.get('materials_used', 0)}"),
+        box_divider(),
+        box_line(f"  Patience remaining: {stats.get('patience', 0)}/{stats.get('max_patience', 100)}"),
+    ]
+    if stats.get("weapon_name"):
+        lines.append(box_line(f"  Final weapon:       {stats['weapon_name']}"))
+    lines.append(box_blank())
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_post_game(stats: dict, won: bool) -> str:
+    """Render the post-game screen with play again option."""
+    if won:
+        header = "D U N G E O N  C L E A R E D"
+        sera_line = '"...Acceptable."'
+    else:
+        header = "G A M E   O V E R"
+        sera_line = '"This is a waste of time."'
+
+    lines = [
+        box_top(),
+        box_blank(),
+        box_line(header, "center"),
+        box_blank(),
+        box_divider(),
+        box_line(sera_line, "center"),
+        box_divider(),
+        box_blank(),
+        box_line(f"  Floors cleared:     {stats.get('floors_cleared', 0)}"),
+        box_line(f"  Total kills:        {stats.get('total_kills', 0)}"),
+        box_line(f"  Total turns:        {stats.get('total_turns', 0)}"),
+        box_line(f"  Total damage dealt: {stats.get('total_damage', 0)}"),
+        box_line(f"  Best overkill:      {stats.get('best_overkill', 0)}"),
+        box_blank(),
+        box_divider(),
+        box_line("[1] Play Again"),
+        box_line("[2] Return to Menu"),
+        box_blank(),
+        box_bot(),
+    ]
+    return "\n".join(lines)
+
+
+def render_between_floors(floor: int, interest: InterestManager) -> str:
+    lines = [
+        box_top(),
+        box_line(f"FLOOR {floor} COMPLETE", "center"),
+        box_divider(),
+        box_line(f"Patience: {patience_bar(interest)}"),
+        box_divider(),
+        box_line("[1] Continue to next floor"),
+        box_line("[2] Equip weapon"),
+        box_line("[3] Craft (apply material to weapon)"),
+        box_line("[4] View inventory"),
+        box_line("[5] View run stats"),
+        box_line("[6] Quit"),
+        box_blank(),
+        box_bot(),
+    ]
     return "\n".join(lines)
 
 
