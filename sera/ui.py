@@ -609,11 +609,35 @@ def render_title_screen() -> str:
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
     lines.append(box_line("  ▸ [2] Simulation Mode"))
+    lines.append(box_line("  ▸ [6] Game Statistics"))
     lines.append(box_line("  ▸ [3] Quit"))
     lines.append(box_line("  Revision 1.05a (Audited)", "center"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_pre_run_options(auto_battle_enabled: bool, auto_battle_turns: int) -> str:
+    auto_state = "ON" if auto_battle_enabled else "OFF"
+    lines = [
+        box_top(),
+        box_blank(),
+        box_line("░▒▓█ PRE-RUN OPTIONS █▓▒░", "center"),
+        box_blank(),
+        box_divider(),
+        box_line("  Set defaults before choosing your starting weapon."),
+        box_divider_thin(),
+        box_line(f"  ▸ [T] Auto-battle default: {auto_state}"),
+        box_line(f"  ▸ [B] Burst length: {auto_battle_turns} turns"),
+        box_divider(),
+        box_line("  ▸ [1] Continue"),
+        box_line("  ▸ [2] Skip and keep defaults"),
+        box_line("  ▸ [3] Back to title"),
+        box_line("  Keys: [T][B][1][2][3]", "center"),
+        box_blank(),
+        box_bot(),
+    ]
     return "\n".join(lines)
 
 
@@ -671,6 +695,7 @@ def render_combat_hud(
     interest: InterestManager,
     stats: PlayerStats,
     healing_charges: int,
+    auto_battle_turns: int,
 ) -> str:
     tag_str = ", ".join(t.name for t in weapon.all_tags)
     turn_label = f"╍╍╍ TURN {turn} ╍╍╍"
@@ -715,10 +740,11 @@ def render_combat_hud(
         lines.append(box_line(f"  ▸ [{i+1}] Attack {e.name}"))
     lines.append(box_line("  ▸ [I] Inspect enemy"))
     lines.append(box_line("  ▸ [W] View weapon details"))
-    lines.append(box_line("  ▸ [H] Use healing consumable"))
-    lines.append(box_line("  ▸ [A] Auto-battle (Up to 10 turns)"))
+    lines.append(box_line("  ▸ [E] Equip weapon"))
+    lines.append(box_line("  ▸ [H] Use healing flask"))
+    lines.append(box_line(f"  ▸ [A] Auto-battle (Up to {auto_battle_turns} turns)"))
     lines.append(box_line(f"  ▸ [0] Commands menu (cheat/debug)"))
-    lines.append(box_line("  Keys: [1][I][W][H][A][0]  (Enter repeats last action)", "center"))
+    lines.append(box_line("  Keys: [1][I][W][E][H][A][0]  (Enter repeats last action)", "center"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -1361,6 +1387,45 @@ def render_run_stats(stats: dict) -> str:
         lines.append(box_line(f"  Final weapon:       {stats['weapon_name']}"))
     lines.append(box_blank())
     lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_game_statistics(last_run: dict | None, overall: dict) -> str:
+    """Render persistent game statistics from disk."""
+    lines = [
+        box_top(),
+        box_line("G A M E   S T A T I S T I C S", "center"),
+        box_divider(),
+        box_line(f"  Total runs:         {overall.get('total_runs', 0)}"),
+        box_line(f"  Wins / Losses:      {overall.get('wins', 0)} / {overall.get('losses', 0)}"),
+        box_line(f"  Total kills:        {overall.get('total_kills', 0)}"),
+        box_line(f"  Total turns:        {overall.get('total_turns', 0)}"),
+        box_line(f"  Cumulative damage:  {overall.get('total_damage', 0)}"),
+        box_line(f"  Best floor:         {overall.get('best_floor', 0)}"),
+        box_line(f"  Best wave:          {overall.get('best_wave', 0)}"),
+        box_line(f"  Best overkill:      {overall.get('best_overkill', 0)}"),
+        box_divider(),
+    ]
+
+    if last_run:
+        lines.extend([
+            box_line("  Last run snapshot:"),
+            box_line(f"    Mode:             {last_run.get('mode', 'unknown')}"),
+            box_line(f"    Floors/Wave:      {last_run.get('floors_cleared', 0)} / {last_run.get('wave_reached', 0)}"),
+            box_line(f"    Kills/Turns:      {last_run.get('total_kills', 0)} / {last_run.get('total_turns', 0)}"),
+            box_line(f"    Damage:           {last_run.get('total_damage', 0)}"),
+            box_line(f"    Result:           {'WIN' if last_run.get('won') else 'LOSS'}"),
+        ])
+        if last_run.get("timestamp_utc"):
+            lines.append(box_line(f"    Timestamp:        {last_run.get('timestamp_utc')}"))
+    else:
+        lines.append(box_line("  Last run snapshot: none"))
+
+    lines.extend([
+        box_blank(),
+        box_line('[Enter] Back to title', "center"),
+        box_bot(),
+    ])
     return "\n".join(lines)
 
 

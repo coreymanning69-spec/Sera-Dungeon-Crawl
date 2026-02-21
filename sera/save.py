@@ -32,6 +32,8 @@ def serialize_state(state) -> dict:
         "upgrade_shards": state.upgrade_shards,
         "consumables": [c.key for c in state.consumables],
         "floors_cleared": state.floors_cleared,
+        "auto_battle_enabled": state.auto_battle_enabled,
+        "auto_battle_turns": state.auto_battle_turns,
     }
 
 
@@ -65,6 +67,8 @@ def deserialize_state(data: dict, state) -> None:
         legacy_flasks = data.get("healing_flasks", 2)
         state.add_consumable("healing_flask", legacy_flasks)
     state.floors_cleared = data.get("floors_cleared", 0)
+    state.auto_battle_enabled = data.get("auto_battle_enabled", state.auto_battle_enabled)
+    state.auto_battle_turns = max(1, min(30, data.get("auto_battle_turns", state.auto_battle_turns)))
 
 
 def save_to_file(path: Path | str, state) -> Path:
