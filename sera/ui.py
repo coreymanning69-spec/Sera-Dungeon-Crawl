@@ -16,6 +16,7 @@ from sera.weapon import Weapon
 from sera.enemy import Enemy, ANNOYANCE_COST
 from sera.interest import InterestManager
 from sera.crafting import CraftingMaterial
+from sera.consumables import ConsumableItem
 from sera.equipment import EquipmentItem, EquipmentLoadout, SLOT_ORDER
 from sera.stats import PlayerStats
 from sera import sprites
@@ -714,7 +715,7 @@ def render_combat_hud(
         lines.append(box_line(f"  ▸ [{i+1}] Attack {e.name}"))
     lines.append(box_line("  ▸ [I] Inspect enemy"))
     lines.append(box_line("  ▸ [W] View weapon details"))
-    lines.append(box_line("  ▸ [H] Use healing flask"))
+    lines.append(box_line("  ▸ [H] Use healing consumable"))
     lines.append(box_line("  ▸ [A] Auto-battle (Up to 10 turns)"))
     lines.append(box_line(f"  ▸ [0] Commands menu (cheat/debug)"))
     lines.append(box_line("  Keys: [1][I][W][H][A][0]  (Enter repeats last action)", "center"))
@@ -841,6 +842,7 @@ def render_loot_screen(
 def render_inventory(
     weapons: list[Weapon],
     materials: list[CraftingMaterial],
+    consumables: list[ConsumableItem],
     equipped_idx: int,
     upgrade_shards: int = 0,
     equipment_items: list[EquipmentItem] | None = None,
@@ -869,6 +871,14 @@ def render_inventory(
         for i, m in enumerate(materials):
             tag_name = m.grants_tag.name if m.grants_tag else "???"
             lines.append(box_line(f"  ▸ [{i+1}] {m.name} (grants [{tag_name}])"))
+    else:
+        lines.append(box_line("  (empty)"))
+
+    lines.append(box_divider())
+    lines.append(box_header("CONSUMABLES"))
+    if consumables:
+        for i, c in enumerate(consumables):
+            lines.append(box_line(f"  ▸ [{i+1}] {c.name} (+{c.potency} patience)"))
     else:
         lines.append(box_line("  (empty)"))
 
