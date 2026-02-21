@@ -24,7 +24,7 @@ from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
 from sera.crafting import CRAFTING_MATERIALS
 from sera.consumables import ConsumableItem, CONSUMABLE_REGISTRY
 from sera.loader import load_weapons, load_affixes, load_enemies, load_equipment_items
-from sera.encounters import generate_encounter, generate_loot_material, generate_loot_shards
+from sera.encounters import generate_encounter, generate_endless_encounter, generate_loot_material, generate_loot_shards
 from sera.loot_framework import WeaponPoolManager
 from sera import ui
 from sera.damage_scale import apply_damage_policy, DEFAULT_DAMAGE_POLICY
@@ -300,6 +300,8 @@ def title_screen() -> str:
         return "statistics"
     if choice == "2":
         return "simulation"
+    if choice == "4":
+        return "endless"
     if choice == "c":
         return "continue"
     return "new_game"
@@ -1553,6 +1555,54 @@ def run_new_game(seed: int | None = None) -> str:
     return run_new_game_from_state(state)
 
 
+def run_endless_mode(seed: int | None = None) -> str:
+    state = GameState(seed=seed)
+    state.mode = "endless"
+    state.floor = 1
+    state.endless.wave = 1
+    print(f"  Endless seed: {state.rng_seed}")
+
+    if not choose_starting_weapon(state):
+        return "menu"
+
+    while not state.interest.game_over:
+        wave = state.endless.wave
+        state.floor = wave
+        enemies = generate_endless_encounter(wave, state.all_enemies, rng=state.rng)
+
+        ui.clear()
+        print(ui.render_floor_intro(wave, enemies, state.interest))
+        print(f"  Sera: {sera_quip(FLOOR_INTRO_QUIPS)}")
+        pause()
+
+        kills_before = state.interest.total_kills
+        survived = run_combat(state, enemies)
+        if not survived:
+            break
+
+        kills_this_wave = state.interest.total_kills - kills_before
+        state.floors_cleared = wave
+        state.endless.advance_wave(kills_this_wave)
+
+        loot_phase(state)
+        state.healing_flasks = min(state.healing_flasks + 1, 3)
+        state.next_revision_set = generate_revision_set(state.all_equipment, wave + 1)
+        state.revision_set_claimed = False
+
+        if not between_floors(state):
+            return "menu"
+
+    ui.clear()
+    print(ui.render_endless_summary(
+        waves_cleared=state.endless.total_waves_cleared,
+        kills=state.interest.total_kills,
+        best_wave=max(1, state.endless.wave - 1),
+        interest=state.interest,
+    ))
+    pause()
+    return _show_closing_menu("░▒▓█ ENDLESS OVER █▓▒░", 'Sera: "Enough. For now."')
+
+
 def run_new_game_from_state(state: GameState) -> str:
     floor_num = max(1, state.floor or 1)
     while floor_num <= state.endless_floor_cap:
@@ -1637,6 +1687,14 @@ def main():
                     print('  Sera: "We\'re done here."')
                     return
                 break
+            continue
+        if choice == "endless":
+            result = run_endless_mode(seed=args.seed)
+            while result == "restart":
+                result = run_endless_mode(seed=args.seed)
+            if result == "quit":
+                print('  Sera: "We\'re done here."')
+                return
             continue
 
         if choice == "continue":

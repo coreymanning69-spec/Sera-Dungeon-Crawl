@@ -611,6 +611,7 @@ def render_title_screen() -> str:
     lines.append(box_line("  ▸ [2] Simulation Mode"))
     lines.append(box_line("  ▸ [6] Game Statistics"))
     lines.append(box_line("  ▸ [3] Quit"))
+    lines.append(box_line("  ▸ [4] Endless Mode"))
     lines.append(box_line("  Revision 1.05a (Audited)", "center"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
