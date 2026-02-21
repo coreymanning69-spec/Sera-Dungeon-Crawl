@@ -5,6 +5,8 @@ Old-school 64/128-bit style ASCII/Unicode art.
 Uses block characters: ░▒▓█▀▄▐▌ and box-drawing for the retro feel.
 """
 
+import textwrap
+
 # ─────────────────────────────────────────────────────────
 # Title / Logo
 # ─────────────────────────────────────────────────────────
@@ -105,7 +107,7 @@ ENEMY_NAME_SPRITES = {
       /_/\_\
 """,
     "plague rat swarm": r"""
-    (\__/)(\__/)
+     (\__/)(\__/)
     (='.'=)(='.'=)
     (")_(")(")_(")
 """,
@@ -333,8 +335,8 @@ def get_enemy_sprite(archetype: str, enemy_name: str = "") -> str:
     """Get sprite by enemy name first, then archetype fallback."""
     key = enemy_name.strip().lower()
     if key in ENEMY_NAME_SPRITES:
-        return ENEMY_NAME_SPRITES[key]
-    return ENEMY_SPRITES.get(archetype, ENEMY_SPRITES["trash"])
+        return textwrap.dedent(ENEMY_NAME_SPRITES[key])
+    return textwrap.dedent(ENEMY_SPRITES.get(archetype, ENEMY_SPRITES["trash"]))
 
 
 def get_weapon_sprite(weapon_name: str) -> str:

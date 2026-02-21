@@ -462,7 +462,7 @@ def export_pixel_ui_mockups(output_dir: str = "docs/pixel-ui") -> list[str]:
 # Drawing primitives — retro pixel style
 # ─────────────────────────────────────────────────────────
 
-W = 126  # less wide viewport for cleaner terminal readability
+W = 100  # narrowed viewport for cleaner terminal readability
 
 
 def clear():
@@ -609,6 +609,7 @@ def render_title_screen() -> str:
     lines.append(box_line("  ▸ [1] New Game"))
     lines.append(box_line("  ▸ [2] Simulation Mode"))
     lines.append(box_line("  ▸ [3] Quit"))
+    lines.append(box_line("  Revision 1.05 (2/20/26)", "center"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_bot())
@@ -711,15 +712,12 @@ def render_combat_hud(
     lines.append(box_header("ACTIONS"))
     for i, e in enumerate(alive):
         lines.append(box_line(f"  ▸ [{i+1}] Attack {e.name}"))
-    lines.append(box_line(f"  ▸ [I] Inspect enemy"))
-    lines.append(box_blank())
-    lines.append(box_line(f"  ▸ [W] View weapon details"))
-    lines.append(box_blank())
-    lines.append(box_line(f"  ▸ [H] Use healing flask"))
-    lines.append(box_blank())
-    lines.append(box_line(f"  ▸ [A] Auto-battle ({10} turns)"))
-    lines.append(box_blank())
+    lines.append(box_line("  ▸ [I] Inspect enemy"))
+    lines.append(box_line("  ▸ [W] View weapon details"))
+    lines.append(box_line("  ▸ [H] Use healing flask"))
+    lines.append(box_line("  ▸ [A] Auto-battle (Up to 10 turns)"))
     lines.append(box_line(f"  ▸ [0] Commands menu (cheat/debug)"))
+    lines.append(box_line("  Keys: [1][I][W][H][A][0]  (Enter repeats last action)", "center"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
