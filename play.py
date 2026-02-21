@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import random
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 
 from sera.tags import DamageTag
@@ -109,6 +110,8 @@ ROOM_CLEAR_QUIPS = [
 AUTO_BATTLE_TURNS = 10
 SAVE_PATH = DEFAULT_SAVE_PATH
 AUTO_ADVANCE_ENEMY_PHASE = True
+SIMULATION_WAVES = 4
+SIMULATION_SEED = 1337
 
 
 def sera_quip(pool: list[str]) -> str:
@@ -147,6 +150,39 @@ class RunStats:
             "max_patience": state.interest.max_patience,
             "weapon_name": state.equipped_weapon.display_name if state.weapons else "",
         }
+
+
+@dataclass
+class SimulationConfig:
+    random_mode: bool
+    base_weapon: Weapon
+    prefix: Affix | None = None
+    suffix: Affix | None = None
+
+
+@dataclass
+class SimulationWaveResult:
+    wave: int
+    turns: int
+    kills: int
+    patience: int
+    damage: int
+    game_over: bool
+    weapon_name: str
+
+
+@dataclass
+class SimulationRunResult:
+    mode_label: str
+    waves: list[SimulationWaveResult]
+    total_turns: int
+    total_kills: int
+    total_damage: int
+    patience_remaining: int
+    death_wave: int | None
+
+
+SIMULATION_HISTORY: list[SimulationRunResult] = []
 
 
 # ─────────────────────────────────────────────────────────
@@ -1253,43 +1289,154 @@ def claim_revision_set(state: GameState):
 # Simulation mode — summary UI with drill-down
 # ─────────────────────────────────────────────────────────
 
-def run_simulation():
-    """Run a varied simulation using procedural encounters and loadout rolls."""
+def configure_simulation(state: GameState) -> SimulationConfig | None:
+    """Configure simulator loadout. Returns None when cancelled."""
+    base_weapons = sorted(
+        [copy.deepcopy(w) for w in state.weapon_pool_manager.base_pool],
+        key=lambda weapon: weapon.name,
+    )
+    affixes = load_affixes()
+    state.weapon_pool_manager.affix_pool = affixes
+    prefixes = sorted(
+        [copy.deepcopy(affix) for affix in affixes if affix.affix_type == "prefix"],
+        key=lambda affix: affix.name,
+    )
+    suffixes = sorted(
+        [copy.deepcopy(affix) for affix in affixes if affix.affix_type == "suffix"],
+        key=lambda affix: affix.name,
+    )
+
+    random_mode = True
+    base_weapon = copy.deepcopy(base_weapons[0]) if base_weapons else state.weapon_pool_manager.generate_starting_weapon()
+    prefix: Affix | None = None
+    suffix: Affix | None = None
+
+    while True:
+        ui.clear()
+        print(ui.render_simulation_setup(base_weapon, prefix, suffix, random_mode))
+        choice = get_choice("  > ", ["1", "2", "3", "4", "5", "0"])
+        if choice in ("quit", "0"):
+            return None
+        if choice == "1":
+            random_mode = not random_mode
+            continue
+        if choice == "2":
+            print("  Select base weapon:")
+            for idx, weapon in enumerate(base_weapons, 1):
+                print(f"    [{idx}] {weapon.name} ({weapon.base_damage} dmg)")
+            pick = get_choice("  > ", [str(i) for i in range(1, len(base_weapons) + 1)])
+            if pick != "quit":
+                base_weapon = copy.deepcopy(base_weapons[int(pick) - 1])
+            continue
+        if choice == "3":
+            print("  Select prefix (0 clears):")
+            for idx, affix in enumerate(prefixes, 1):
+                print(f"    [{idx}] {affix.name}")
+            valid = [str(i) for i in range(1, len(prefixes) + 1)] + ["0"]
+            pick = get_choice("  > ", valid)
+            if pick == "0":
+                prefix = None
+            elif pick != "quit":
+                prefix = copy.deepcopy(prefixes[int(pick) - 1])
+            continue
+        if choice == "4":
+            print("  Select suffix (0 clears):")
+            for idx, affix in enumerate(suffixes, 1):
+                print(f"    [{idx}] {affix.name}")
+            valid = [str(i) for i in range(1, len(suffixes) + 1)] + ["0"]
+            pick = get_choice("  > ", valid)
+            if pick == "0":
+                suffix = None
+            elif pick != "quit":
+                suffix = copy.deepcopy(suffixes[int(pick) - 1])
+            continue
+        if choice == "5":
+            return SimulationConfig(
+                random_mode=random_mode,
+                base_weapon=copy.deepcopy(base_weapon),
+                prefix=copy.deepcopy(prefix) if prefix else None,
+                suffix=copy.deepcopy(suffix) if suffix else None,
+            )
+
+
+def execute_simulation(config: SimulationConfig) -> SimulationRunResult:
+    """Execute simulation waves and capture structured results."""
     from sera.combat import resolve_combat
 
-    ui.clear()
-    print(ui.box_top())
-    print(ui.box_line("░▒▓█ SIMULATION MODE █▓▒░", "center"))
-    print(ui.box_line('Sera: "No scripts. Run real waves."', "center"))
-    print(ui.box_bot())
-    print()
+    sim_state = GameState(seed=SIMULATION_SEED)
+    mode_label = "Randomized" if config.random_mode else "Deterministic"
+    wave_results: list[SimulationWaveResult] = []
+    death_wave: int | None = None
 
-    sim_state = GameState()
-    if not sim_state.weapons:
-        sim_state.weapons = [sim_state.weapon_pool_manager.generate_starting_weapon()]
+    for wave in range(1, SIMULATION_WAVES + 1):
+        if config.random_mode:
+            sim_weapon = copy.deepcopy(sim_state.weapon_pool_manager.generate_drop(wave + 1))
+        else:
+            sim_weapon = copy.deepcopy(config.base_weapon)
+            sim_weapon.prefix = copy.deepcopy(config.prefix) if config.prefix else None
+            sim_weapon.suffix = copy.deepcopy(config.suffix) if config.suffix else None
 
-    for wave in range(1, 5):
-        sim_weapon = copy.deepcopy(sim_state.weapon_pool_manager.generate_drop(wave + 1))
         encounter = generate_encounter(wave + 1, sim_state.all_enemies, rng=sim_state.rng)
         interest = InterestManager(current_patience=80)
+        start_hp = sum(enemy.current_hp for enemy in encounter)
         result = resolve_combat(sim_weapon, encounter, interest, max_turns=8)
+        remaining_hp = sum(max(0, enemy.current_hp) for enemy in result.final_enemies)
+        wave_results.append(SimulationWaveResult(
+            wave=wave,
+            turns=result.turns_taken,
+            kills=result.enemies_killed,
+            patience=result.patience_remaining,
+            damage=max(0, start_hp - remaining_hp),
+            game_over=result.game_over,
+            weapon_name=sim_weapon.display_name,
+        ))
+        if result.game_over and death_wave is None:
+            death_wave = wave
+            break
+
+    return SimulationRunResult(
+        mode_label=mode_label,
+        waves=wave_results,
+        total_turns=sum(w.turns for w in wave_results),
+        total_kills=sum(w.kills for w in wave_results),
+        total_damage=sum(w.damage for w in wave_results),
+        patience_remaining=wave_results[-1].patience if wave_results else 0,
+        death_wave=death_wave,
+    )
+
+
+def show_simulation_results(results: list[SimulationRunResult]):
+    """Display simulation summary and per-run wave details."""
+    if not results:
+        ui.clear()
         print(ui.box_top())
-        print(ui.box_line(f"SIM WAVE {wave}", "center"))
-        print(ui.box_divider())
-        print(ui.box_line(f"Weapon: {sim_weapon.display_name}"))
-        print(ui.box_line(f"Kills: {result.enemies_killed} | Turns: {result.turns_taken}"))
-        print(ui.box_line(f"Patience: {result.patience_remaining}/{interest.max_patience}"))
-        print(ui.box_line(f"Outcome: {'GAME OVER' if result.game_over else 'CONTINUES'}"))
+        print(ui.box_line("No simulation results yet.", "center"))
         print(ui.box_bot())
+        pause()
+        return
 
-    print()
-    print(ui.box_top())
-    print(ui.box_line("░▒▓█ SIMULATION COMPLETE █▓▒░", "center"))
-    print(ui.box_line('Sera: "Acceptable variability."', "center"))
-    print(ui.box_bot())
+    while True:
+        ui.clear()
+        print(ui.render_simulation_results(results))
+        valid = [str(i) for i in range(1, len(results) + 1)] + ["0"]
+        pick = get_choice("  View run # (0 to close): ", valid)
+        if pick in ("quit", "0"):
+            return
+        ui.clear()
+        print(ui.render_simulation_results(results, selected_index=int(pick) - 1))
+        pause()
 
 
-def _show_closing_menu(title: str, quote: str) -> str:
+def run_simulation() -> SimulationRunResult | None:
+    """Configure then execute simulator mode."""
+    sim_state = GameState(seed=SIMULATION_SEED)
+    config = configure_simulation(sim_state)
+    if config is None:
+        return None
+    return execute_simulation(config)
+
+
+def _show_closing_menu(title: str, quote: str, *, simulator: bool = False) -> str:
     """Show a restart/title/quit menu after a mode ends."""
     ui.clear()
     print(ui.box_top())
@@ -1300,11 +1447,16 @@ def _show_closing_menu(title: str, quote: str) -> str:
     print(ui.box_line("[1] Restart", "center"))
     print(ui.box_line("[2] Back to title", "center"))
     print(ui.box_line("[3] Quit", "center"))
+    if simulator:
+        print(ui.box_line("[4] Display Results", "center"))
     print(ui.box_bot())
 
-    choice = get_choice("> ", ["1", "2", "3"])
+    valid = ["1", "2", "3"] + (["4"] if simulator else [])
+    choice = get_choice("> ", valid)
     if choice in ("quit", "3"):
         return "quit"
+    if choice == "4":
+        return "results"
     if choice == "1":
         return "restart"
     return "menu"
@@ -1383,8 +1535,18 @@ def main():
             return
         if choice == "simulation":
             while True:
-                run_simulation()
-                next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."')
+                sim_result = run_simulation()
+                if sim_result is None:
+                    break
+                SIMULATION_HISTORY.append(sim_result)
+                next_step = _show_closing_menu(
+                    "░▒▓█ SIMULATION COMPLETE █▓▒░",
+                    'Sera: "Run it again if you need proof."',
+                    simulator=True,
+                )
+                if next_step == "results":
+                    show_simulation_results(SIMULATION_HISTORY)
+                    continue
                 if next_step == "restart":
                     continue
                 if next_step == "quit":
