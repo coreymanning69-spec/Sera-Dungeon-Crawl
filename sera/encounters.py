@@ -93,6 +93,73 @@ def generate_encounter(floor: int, all_enemies: list[Enemy], rng: RunRNG | None 
     return picks
 
 
+def _scale_endless_enemy(enemy: Enemy, wave: int, pressure: int) -> None:
+    """Apply endless-mode scaling pressure to a copied enemy."""
+    _scale_enemy(enemy, wave)
+
+    hp_mult = 1.0 + (0.10 * max(0, wave - 1)) + (0.02 * max(0, wave - 10))
+    enemy.max_hp = max(enemy.max_hp, int(round(enemy.max_hp * hp_mult)))
+    enemy.current_hp = enemy.max_hp
+
+    armor_bonus = wave // 4
+    if enemy.archetype == "elite":
+        armor_bonus += wave // 8
+    if enemy.archetype == "boss":
+        armor_bonus += wave // 6
+    enemy.armor += armor_bonus
+
+    enemy.dodge_chance = min(0.35, enemy.dodge_chance + (0.01 * max(0, wave - 1)))
+    if wave >= 8 and enemy.archetype in {"elite", "boss"}:
+        enemy.regen_per_turn += max(1, wave // 10)
+
+    for ability in enemy.abilities:
+        ability.cooldown = max(0, ability.cooldown - pressure)
+        if ability.charge_time > 1:
+            ability.charge_time = max(1, ability.charge_time - (pressure // 2))
+
+
+def generate_endless_encounter(wave: int, all_enemies: list[Enemy], rng: RunRNG | None = None) -> list[Enemy]:
+    """Build endless-mode encounters with wave-based HP/armor/ability pressure."""
+    trash = [e for e in all_enemies if e.archetype == "trash"]
+    elites = [e for e in all_enemies if e.archetype == "elite"]
+    bosses = [e for e in all_enemies if e.archetype == "boss"]
+    rand = rng._rng if rng else random
+
+    pressure = max(0, (wave - 1) // 6)
+    picks: list[Enemy] = []
+
+    if wave <= 2:
+        count = 1 if wave == 1 else 2
+        pool = trash if trash else all_enemies
+        picks = [copy.deepcopy(rand.choice(pool)) for _ in range(count)]
+    elif wave <= 5:
+        pool = trash if trash else all_enemies
+        picks = [copy.deepcopy(rand.choice(pool)) for _ in range(rand.randint(2, 3))]
+        if elites and rand.random() < 0.65:
+            picks.append(copy.deepcopy(rand.choice(elites)))
+    elif wave <= 9:
+        if elites:
+            picks.append(copy.deepcopy(rand.choice(elites)))
+        pool = trash if trash else all_enemies
+        picks.extend(copy.deepcopy(rand.choice(pool)) for _ in range(rand.randint(1, 2)))
+    else:
+        if bosses and wave % 3 == 0:
+            picks.append(copy.deepcopy(rand.choice(bosses)))
+        elif elites:
+            picks.append(copy.deepcopy(rand.choice(elites)))
+
+        if elites and wave >= 12:
+            picks.append(copy.deepcopy(rand.choice(elites)))
+        pool = trash if trash else all_enemies
+        extras = 1 + min(2, wave // 10)
+        picks.extend(copy.deepcopy(rand.choice(pool)) for _ in range(extras))
+
+    for enemy in picks:
+        _scale_endless_enemy(enemy, wave, pressure)
+    _disambiguate_names(picks)
+    return picks
+
+
 def generate_loot_weapon(floor: int, all_weapons: list[Weapon], all_affixes: list[Affix]) -> Weapon:
     """Generate a weapon drop with random affixes based on floor."""
     base = copy.deepcopy(random.choice(all_weapons))
