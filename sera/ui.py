@@ -609,6 +609,7 @@ def render_title_screen() -> str:
     lines.append(box_line("  ▸ [1] New Game"))
     lines.append(box_line("  ▸ [2] Simulation Mode"))
     lines.append(box_line("  ▸ [3] Quit"))
+    lines.append(box_line("  ▸ [4] Endless Mode"))
     lines.append(box_line("  Revision 1.05a (Audited)", "center"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
@@ -1330,6 +1331,29 @@ def render_sim_detail(result: dict) -> str:
     lines.append(box_bot())
     return "\n".join(lines)
 
+
+
+def render_endless_summary(waves_cleared: int, kills: int, best_wave: int, interest: InterestManager) -> str:
+    """Render endless-mode summary stats after game over."""
+    lines = [
+        box_top(),
+        box_blank(),
+        box_line("░▒▓█ ENDLESS MODE SUMMARY █▓▒░", "center"),
+        box_blank(),
+        box_divider_pixel(),
+        box_blank(),
+        box_line('"You lasted this long. ...Acceptable."', "center"),
+        box_blank(),
+        box_divider(),
+        box_line(f"  ▓ Waves cleared:      {waves_cleared}"),
+        box_line(f"  ▓ Total kills:        {kills}"),
+        box_line(f"  ▓ Best wave reached:  {best_wave}"),
+        box_line(f"  ▓ Turns survived:     {interest.turn_number}"),
+        box_line(f"  ▓ Patience remaining: {interest.current_patience}/{interest.max_patience}"),
+        box_blank(),
+        box_bot(),
+    ]
+    return "\n".join(lines)
 
 def render_run_stats(stats: dict) -> str:
     """Render end-of-run or mid-run statistics."""
