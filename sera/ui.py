@@ -130,7 +130,7 @@ def xp_bar(current: int, maximum: int, width: int = 15) -> str:
 # Composite screens
 # ─────────────────────────────────────────────────────────
 
-def render_title_screen(revision: str | None = None) -> str:
+def render_title_screen(revision: str | None = None, can_continue: bool = False) -> str:
     lines = [
         box_top(),
         box_blank(),
@@ -155,8 +155,13 @@ def render_title_screen(revision: str | None = None) -> str:
     lines.append(box_divider())
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
-    lines.append(box_line("  ▸ [2] Simulation Mode"))
-    lines.append(box_line("  ▸ [3] Stay on title"))
+    if can_continue:
+        lines.append(box_line("  ▸ [2] Continue Game"))
+        lines.append(box_line("  ▸ [3] Simulation Mode"))
+        lines.append(box_line("  ▸ [4] Stay on title"))
+    else:
+        lines.append(box_line("  ▸ [2] Simulation Mode"))
+        lines.append(box_line("  ▸ [3] Stay on title"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_bot())
@@ -257,6 +262,7 @@ def render_combat_hud(
     lines.append(box_line(f"  ▸ [W] View weapon details"))
     lines.append(box_line(f"  ▸ [H] Use healing flask"))
     lines.append(box_line(f"  ▸ [A] Auto-battle ({10} turns)"))
+    lines.append(box_line(f"  ▸ [M] Run menu (save/load)"))
     lines.append(box_line(f"  ▸ [0] Commands menu (cheat/debug)"))
     lines.append(box_blank())
     lines.append(box_bot())
@@ -609,7 +615,9 @@ def render_between_floors(
     lines.append(box_line("  ▸ [6] Equipment menu"))
     lines.append(box_line("  ▸ [7] Claim next-revision gear set"))
     lines.append(box_line("  ▸ [8] View Run Stats"))
-    lines.append(box_line("  ▸ [9] Back to title"))
+    lines.append(box_line("  ▸ [9] Save game"))
+    lines.append(box_line("  ▸ [10] Load game"))
+    lines.append(box_line("  ▸ [11] Back to title"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)

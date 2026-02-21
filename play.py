@@ -10,7 +10,9 @@ Survive 5 floors. Keep Sera interested. Don't be boring.
 
 from __future__ import annotations
 import copy
+import pickle
 import random
+from pathlib import Path
 
 from sera.tags import DamageTag
 from sera.weapon import Weapon, Affix
@@ -101,6 +103,7 @@ ROOM_CLEAR_QUIPS = [
 
 AUTO_BATTLE_TURNS = 10
 AUTO_ADVANCE_ENEMY_PHASE = True
+SAVE_FILE = Path("savegame.pkl")
 
 
 def sera_quip(pool: list[str]) -> str:
@@ -186,14 +189,45 @@ def pause(msg: str = "  [Press Enter]"):
     ui.get_input(msg)
 
 
+def has_saved_game() -> bool:
+    return SAVE_FILE.exists()
+
+
+def save_game(state: GameState):
+    with SAVE_FILE.open("wb") as handle:
+        pickle.dump(state, handle)
+
+
+def load_game() -> GameState | None:
+    if not has_saved_game():
+        return None
+    try:
+        with SAVE_FILE.open("rb") as handle:
+            loaded = pickle.load(handle)
+    except (pickle.UnpicklingError, EOFError, OSError):
+        return None
+    return loaded if isinstance(loaded, GameState) else None
+
+
 # ─────────────────────────────────────────────────────────
 # Title screen
 # ─────────────────────────────────────────────────────────
 
 def title_screen() -> str:
-    """Returns 'new_game', 'simulation', or 'quit'."""
+    """Returns 'new_game', 'continue_game', 'simulation', or 'quit'."""
     ui.clear()
-    print(ui.render_title_screen(revision=GAME_REVISION))
+    can_continue = has_saved_game()
+    print(ui.render_title_screen(revision=GAME_REVISION, can_continue=can_continue))
+    if can_continue:
+        choice = get_choice("> ", ["1", "2", "3", "4"])
+        if choice in ("quit", "4"):
+            return "quit"
+        if choice == "2":
+            return "continue_game"
+        if choice == "3":
+            return "simulation"
+        return "new_game"
+
     choice = get_choice("> ", ["1", "2", "3"])
     if choice in ("quit", "3"):
         return "quit"
@@ -383,14 +417,15 @@ def _cmd_set_ap(state: GameState):
 # Interactive combat
 # ─────────────────────────────────────────────────────────
 
-def run_combat(state: GameState, enemies: list[Enemy]) -> bool | None:
+def run_combat(state: GameState, enemies: list[Enemy]) -> bool | None | str:
     """
     Interactive combat loop.
-    Returns True if the room is cleared, False on game over, None if player exits to title.
+    Returns True if room is cleared, False on game over, 'loaded' after loading a save, None on exit to title.
     """
     interest = state.interest
     weapon = state.equipped_weapon
     combat_turn = 0
+    ineffective_rounds = 0
 
     while True:
         alive = [e for e in enemies if e.current_hp > 0]
@@ -411,6 +446,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool | None:
             return False
 
         # --- PLAYER TURN ---
+        weapon = state.equipped_weapon
         alive = [e for e in enemies if e.current_hp > 0]
         ui.clear()
         print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
@@ -424,7 +460,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool | None:
         print()
 
         # Get player action
-        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h", "a", "0"]
+        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h", "a", "m", "0"]
         action = None
         while action is None:
             choice = get_choice("  Your move > ", valid_actions)
@@ -432,6 +468,15 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool | None:
                 return None
             if choice == "0":
                 _show_commands_menu(state, enemies)
+                ui.clear()
+                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                continue
+            if choice == "m":
+                menu_result = _show_in_run_menu(state)
+                if menu_result == "loaded":
+                    return "loaded"
+                if menu_result == "title":
+                    return None
                 ui.clear()
                 print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
                 continue
@@ -470,8 +515,17 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool | None:
 
         # --- RESOLVE ATTACK ---
         print()
+        permission_ok = target.check_permission(weapon.all_tags)
         _resolve_player_attack(weapon, target, interest, state.final_stats, state.run_stats)
         pause()
+
+        if permission_ok:
+            ineffective_rounds = 0
+        else:
+            ineffective_rounds += 1
+            if ineffective_rounds >= 3:
+                if _offer_leave_after_stall(state):
+                    return None
 
         if interest.game_over:
             return False
@@ -568,6 +622,54 @@ def _show_room_clear(interest: InterestManager):
     print(ui.box_bot())
     pause()
 
+
+
+
+def _show_in_run_menu(state: GameState) -> str:
+    """In-combat run menu for save/load/title actions."""
+    ui.clear()
+    print(ui.box_top())
+    print(ui.box_line("░▒▓█ RUN MENU █▓▒░", "center"))
+    print(ui.box_divider())
+    print(ui.box_line("  ▸ [1] Save game"))
+    print(ui.box_line("  ▸ [2] Load game"))
+    print(ui.box_line("  ▸ [3] Back to title"))
+    print(ui.box_line("  ▸ [0] Return to combat"))
+    print(ui.box_bot())
+
+    choice = get_choice("> ", ["1", "2", "3", "0"])
+    if choice in ("0", "quit"):
+        return "continue"
+    if choice == "1":
+        save_game(state)
+        print('  Saved. "Try not to waste it."')
+        pause()
+        return "continue"
+    if choice == "2":
+        loaded = load_game()
+        if loaded is None:
+            print('  Save unavailable. "Then we improvise."')
+            pause()
+            return "continue"
+        state.__dict__.update(loaded.__dict__)
+        print('  Loaded run. "That is better."')
+        pause()
+        return "loaded"
+    return "title"
+
+
+def _offer_leave_after_stall(state: GameState) -> bool:
+    """Offer to leave the run after repeated immunity rounds."""
+    ui.clear()
+    print(ui.box_top())
+    print(ui.box_line("░░ THREE WASTED ROUNDS ░░", "center"))
+    print(ui.box_divider())
+    print(ui.box_line('Sera: "Three rounds and still immune. Fix this or we leave."'))
+    print(ui.box_line("  ▸ [1] Keep fighting"))
+    print(ui.box_line("  ▸ [2] Leave run"))
+    print(ui.box_bot())
+    choice = get_choice("> ", ["1", "2"])
+    return choice == "2"
 
 def _do_inspect(alive, combat_turn, weapon, enemies, interest, state):
     if len(alive) == 1:
@@ -882,6 +984,28 @@ def _use_healing_flask(state: GameState):
     print('  Sera: "Better. Keep the momentum."')
 
 
+
+
+def post_round_regear(state: GameState):
+    """Allow gear adjustments after each cleared round."""
+    while True:
+        ui.clear()
+        print(ui.box_top())
+        print(ui.box_line("░▒▓█ ROUND COMPLETE █▓▒░", "center"))
+        print(ui.box_divider())
+        print(ui.box_line('Sera: "Swap gear now if you want this run to survive."'))
+        print(ui.box_line("  ▸ [1] Continue"))
+        print(ui.box_line("  ▸ [2] Change weapon"))
+        print(ui.box_line("  ▸ [3] Equipment menu"))
+        print(ui.box_bot())
+        choice = get_choice("> ", ["1", "2", "3"])
+        if choice == "1":
+            return
+        if choice == "2":
+            equip_screen(state)
+        if choice == "3":
+            equipment_screen(state)
+
 # ─────────────────────────────────────────────────────────
 # Loot phase
 # ─────────────────────────────────────────────────────────
@@ -961,8 +1085,8 @@ def between_floors(state: GameState) -> bool:
             state.floor, state.interest, state.upgrade_shards, state.healing_flasks,
             state.next_revision_set, state.revision_set_claimed))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
-        if choice in ("quit", "9"):
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"])
+        if choice in ("quit", "11"):
             return False
 
         if choice == "1":
@@ -993,6 +1117,20 @@ def between_floors(state: GameState) -> bool:
         if choice == "8":
             ui.clear()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
+            pause()
+
+        if choice == "9":
+            save_game(state)
+            print('  Game saved. "Good. We continue later."')
+            pause()
+
+        if choice == "10":
+            loaded = load_game()
+            if loaded is None:
+                print('  No valid save found. "Then stop asking."')
+            else:
+                state.__dict__.update(loaded.__dict__)
+                print('  Loaded saved run. "Back to work."')
             pause()
 
 
@@ -1143,22 +1281,29 @@ def claim_revision_set(state: GameState):
 # ─────────────────────────────────────────────────────────
 
 def run_simulation():
-    """Run all scripted scenarios from main.py and show summary."""
-    from main import run_scenario_1, run_scenario_2, run_scenario_3, run_scenario_4
+    """Run randomized simulations (with optional legacy scripted set)."""
+    from main import run_randomized_simulation
+    from legacy_simulation import run_scenario_1, run_scenario_2, run_scenario_3, run_scenario_4
+
     ui.clear()
     print(ui.box_top())
     print(ui.box_line("░▒▓█ SIMULATION MODE █▓▒░", "center"))
     print(ui.box_line('Sera: "Show me the math."', "center"))
+    print(ui.box_line("  ▸ [1] Randomized simulation"))
+    print(ui.box_line("  ▸ [2] Legacy scripted simulation"))
     print(ui.box_bot())
-    print()
+    choice = get_choice("> ", ["1", "2"])
 
-    run_scenario_1()
-    print("\n" + "─" * 60)
-    run_scenario_2()
-    print("\n" + "─" * 60)
-    run_scenario_3()
-    print("\n" + "─" * 60)
-    run_scenario_4()
+    if choice == "2":
+        run_scenario_1()
+        print("\n" + "─" * 60)
+        run_scenario_2()
+        print("\n" + "─" * 60)
+        run_scenario_3()
+        print("\n" + "─" * 60)
+        run_scenario_4()
+    else:
+        run_randomized_simulation(scenarios=5, verbose=True)
 
     print()
     print(ui.box_top())
@@ -1186,26 +1331,29 @@ def _show_closing_menu(title: str, quote: str) -> str:
     return "title"
 
 
-def run_new_game_session() -> str:
+def run_new_game_session(state: GameState | None = None) -> str:
     """Run one full interactive game session."""
-    state = GameState()
+    state = state or GameState()
 
-    if not choose_starting_weapon(state):
-        return "title"
+    if not state.weapons:
+        if not choose_starting_weapon(state):
+            return "title"
+        state.floor = 1
+    elif state.floor <= 0:
+        state.floor = 1
 
-    for floor_num in range(1, state.max_floors + 1):
-        state.floor = floor_num
-
+    while state.floor <= state.max_floors:
+        floor_num = state.floor
         enemies = generate_encounter(floor_num, state.all_enemies)
 
-        # Floor intro
         ui.clear()
         print(ui.render_floor_intro(floor_num, enemies, state.interest))
         print(f"  Sera: {sera_quip(FLOOR_INTRO_QUIPS)}")
         pause()
 
-        # Combat
         survived = run_combat(state, enemies)
+        if survived == "loaded":
+            continue
         if survived is None:
             return "title"
         if not survived:
@@ -1218,20 +1366,19 @@ def run_new_game_session() -> str:
             return _show_closing_menu("░▒▓█ RUN OVER █▓▒░", 'Sera: "You can do better. Try again."')
 
         state.floors_cleared = floor_num
-
-        # Loot
+        post_round_regear(state)
         loot_phase(state)
         state.healing_flasks = min(state.healing_flasks + 1, 3)
         state.next_revision_set = generate_revision_set(state.all_equipment, floor_num + 1)
         state.revision_set_claimed = False
 
-        # Between floors (except after final)
         if floor_num < state.max_floors:
             if not between_floors(state):
                 print('  Sera: "Fine. I was getting bored anyway."')
                 return "title"
 
-    # Victory
+        state.floor += 1
+
     ui.clear()
     print(ui.render_victory(state.max_floors, state.interest))
     pause()
@@ -1259,6 +1406,17 @@ def main():
                 if next_step == "restart":
                     continue
                 break
+            continue
+
+        if choice == "continue_game":
+            loaded = load_game()
+            if loaded is None:
+                print('  Save missing or invalid. "Then we start over."')
+                pause()
+                continue
+            next_step = run_new_game_session(loaded)
+            if next_step == "restart":
+                continue
             continue
 
         next_step = run_new_game_session()
