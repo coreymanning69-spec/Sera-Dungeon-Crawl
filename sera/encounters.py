@@ -28,11 +28,11 @@ def _disambiguate_names(enemies: list[Enemy]) -> None:
             e.name = f"{e.name} {suffix}"
 
 
-def _scale_enemy(enemy: Enemy, floor: int) -> None:
+def _scale_enemy(enemy: Enemy, floor: int, rand=random) -> None:
     """Scale enemy stats based on floor. Keeps small-number feel."""
     # Add a random dodge chance (0-15%) if enemy doesn't already have one
-    if enemy.dodge_chance == 0.0 and random.random() < 0.4:
-        enemy.dodge_chance = random.uniform(0.05, 0.15)
+    if enemy.dodge_chance == 0.0 and rand.random() < 0.4:
+        enemy.dodge_chance = rand.uniform(0.05, 0.15)
 
     if floor <= 1:
         return
@@ -87,15 +87,15 @@ def generate_encounter(floor: int, all_enemies: list[Enemy], rng: RunRNG | None 
 
     # Scale and disambiguate
     for e in picks:
-        _scale_enemy(e, floor)
+        _scale_enemy(e, floor, rand)
     _disambiguate_names(picks)
 
     return picks
 
 
-def _scale_endless_enemy(enemy: Enemy, wave: int, pressure: int) -> None:
+def _scale_endless_enemy(enemy: Enemy, wave: int, pressure: int, rand=random) -> None:
     """Apply endless-mode scaling pressure to a copied enemy."""
-    _scale_enemy(enemy, wave)
+    _scale_enemy(enemy, wave, rand)
 
     hp_mult = 1.0 + (0.10 * max(0, wave - 1)) + (0.02 * max(0, wave - 10))
     enemy.max_hp = max(enemy.max_hp, int(round(enemy.max_hp * hp_mult)))
@@ -155,7 +155,7 @@ def generate_endless_encounter(wave: int, all_enemies: list[Enemy], rng: RunRNG 
         picks.extend(copy.deepcopy(rand.choice(pool)) for _ in range(extras))
 
     for enemy in picks:
-        _scale_endless_enemy(enemy, wave, pressure)
+        _scale_endless_enemy(enemy, wave, pressure, rand)
     _disambiguate_names(picks)
     return picks
 

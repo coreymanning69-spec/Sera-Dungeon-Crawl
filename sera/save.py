@@ -8,6 +8,8 @@ from sera.weapon import Weapon
 from sera.crafting import CraftingMaterial, CRAFTING_MATERIALS
 from sera.equipment import EquipmentItem
 from sera.consumables import CONSUMABLE_REGISTRY
+from sera.randomization import RunRNG
+from sera.modes.endless import EndlessProgress
 
 SAVE_VERSION = "1.11"
 DEFAULT_SAVE_PATH = Path("savegame.json")
@@ -46,6 +48,8 @@ def deserialize_state(data: dict, state) -> None:
     state.mode = data.get("mode", "campaign")
     state.rng_seed = data.get("rng_seed", state.rng_seed)
 
+    state.rng = RunRNG(state.rng_seed)
+    state.endless = EndlessProgress(seed=state.rng_seed)
     interest = data.get("interest", {})
     state.interest.current_patience = interest.get("current_patience", state.interest.current_patience)
     state.interest.max_patience = interest.get("max_patience", state.interest.max_patience)
