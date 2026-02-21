@@ -16,8 +16,6 @@ import copy
 import random
 from dataclasses import dataclass
 
-import random
-
 from sera.weapon import Weapon
 from sera.enemy import (
     Enemy,

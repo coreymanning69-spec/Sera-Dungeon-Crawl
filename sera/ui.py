@@ -1290,27 +1290,6 @@ def render_interrupt(enemy_name: str, ability_name: str) -> str:
     return "\n".join(lines)
 
 
-def render_run_stats(stats_dict: dict) -> str:
-    """Render cumulative run statistics."""
-    lines = [
-        box_top(),
-        box_blank(),
-        box_line("░▒▓█ RUN STATISTICS █▓▒░", "center"),
-        box_blank(),
-        box_divider(),
-    ]
-    lines.append(box_line(f"  Total Damage Dealt:    {stats_dict.get('total_damage', 0)}"))
-    lines.append(box_line(f"  Best Overkill:         {stats_dict.get('best_overkill', 0)}"))
-    lines.append(box_line(f"  Weapons Found:         {stats_dict.get('weapons_found', 0)}"))
-    lines.append(box_line(f"  Materials Used:         {stats_dict.get('materials_used', 0)}"))
-    lines.append(box_line(f"  Floors Cleared:        {stats_dict.get('floors_cleared', 0)}"))
-    lines.append(box_line(f"  Current Patience:      {stats_dict.get('patience', '?')}"))
-    lines.append(box_blank())
-    lines.append(box_divider_pixel())
-    lines.append(box_bot())
-    return "\n".join(lines)
-
-
 def render_sim_summary(results: list[dict]) -> str:
     """Render a simulation summary table for all scenarios."""
     lines = [
@@ -1332,31 +1311,6 @@ def render_sim_summary(results: list[dict]) -> str:
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_line('Sera: "Not bad. Not GOOD, but not bad."', "center"))
-    lines.append(box_bot())
-    return "\n".join(lines)
-
-
-def render_sim_summary(results: list[dict]) -> str:
-    """Render a compact summary table for simulation scenarios."""
-    lines = [
-        box_top(),
-        box_blank(),
-        box_line("S I M U L A T I O N   R E S U L T S", "center"),
-        box_blank(),
-        box_divider(),
-    ]
-    for i, r in enumerate(results):
-        status = "GAME OVER" if r["game_over"] else "SURVIVED"
-        lines.append(box_line(f"  [{i+1}] {r['name']}"))
-        lines.append(box_line(
-            f"      {status}  |  Kills: {r['kills']}  "
-            f"|  Patience: {r['patience']}/{r['max_patience']}  "
-            f"|  Turns: {r['turns']}"
-        ))
-        lines.append(box_blank())
-    lines.append(box_divider())
-    lines.append(box_line("[#] View scenario details   [0] Back"))
-    lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -1429,25 +1383,6 @@ def render_post_game(stats: dict, won: bool) -> str:
         box_divider(),
         box_line("[1] Play Again"),
         box_line("[2] Return to Menu"),
-        box_blank(),
-        box_bot(),
-    ]
-    return "\n".join(lines)
-
-
-def render_between_floors(floor: int, interest: InterestManager) -> str:
-    lines = [
-        box_top(),
-        box_line(f"FLOOR {floor} COMPLETE", "center"),
-        box_divider(),
-        box_line(f"Patience: {patience_bar(interest)}"),
-        box_divider(),
-        box_line("[1] Continue to next floor"),
-        box_line("[2] Equip weapon"),
-        box_line("[3] Craft (apply material to weapon)"),
-        box_line("[4] View inventory"),
-        box_line("[5] View run stats"),
-        box_line("[6] Quit"),
         box_blank(),
         box_bot(),
     ]

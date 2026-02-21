@@ -48,13 +48,13 @@ ATTACK_QUIPS = [
     '"Die faster."',
     '"Next."',
     '"Try not to bore me."',
-    '"Nice try!"',
+    '"Nice try. It wasn\'t."',
     '"You get one mercy. Did you think you\'d get two?"',
 ]
 
 KILL_QUIPS = [
     '"Fixed."',
-    '"See? Told you!"',
+    '"Obviously."',
     '"One down."',
     '"Well. That\'s done."',
     '"Acceptable."',
@@ -69,7 +69,7 @@ OVERKILL_QUIPS = [
 
 DODGE_QUIPS = [
     '"Stand still."',
-    '"Hey. Don\'t ignore me. You\'re both being rude!"',
+    '"Stop moving. It is unbecoming."',
     '"Do that again and I\'m leaving."',
 ]
 
@@ -150,32 +150,6 @@ class RunStats:
 # ─────────────────────────────────────────────────────────
 # Game State
 # ─────────────────────────────────────────────────────────
-
-class RunStats:
-    """Tracks cumulative run metrics for display."""
-    def __init__(self):
-        self.total_damage: int = 0
-        self.best_overkill: int = 0
-        self.weapons_found: int = 0
-        self.materials_used: int = 0
-
-    def record_damage(self, amount: int):
-        self.total_damage += amount
-
-    def record_overkill(self, excess: int):
-        if excess > self.best_overkill:
-            self.best_overkill = excess
-
-    def to_dict(self, state: "GameState") -> dict:
-        return {
-            "total_damage": self.total_damage,
-            "best_overkill": self.best_overkill,
-            "weapons_found": self.weapons_found,
-            "materials_used": self.materials_used,
-            "floors_cleared": state.floors_cleared,
-            "patience": f"{state.interest.current_patience}/{state.interest.max_patience}",
-        }
-
 
 class GameState:
     def __init__(self):
@@ -758,7 +732,6 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
             if run_stats:
                 run_stats.record_overkill(excess)
             print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
-            run_stats.record_overkill(excess)
         print(ui.render_kill_report(target.name, kill_log))
 
 
@@ -1100,10 +1073,6 @@ def between_floors(state: GameState) -> bool:
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
 
-        if choice == "5":
-            ui.clear()
-            print(ui.render_run_stats(state.run_stats.to_dict(state)))
-            pause()
 
 
 def equip_screen(state: GameState):
