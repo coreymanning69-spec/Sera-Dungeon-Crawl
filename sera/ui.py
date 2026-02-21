@@ -609,7 +609,7 @@ def render_title_screen() -> str:
     lines.append(box_line("  ▸ [1] New Game"))
     lines.append(box_line("  ▸ [2] Simulation Mode"))
     lines.append(box_line("  ▸ [3] Quit"))
-    lines.append(box_line("  Revision 1.05 (2/20/26)", "center"))
+    lines.append(box_line("  Revision 1.05a (Audited)", "center"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_bot())

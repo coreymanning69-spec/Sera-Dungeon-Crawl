@@ -11,7 +11,7 @@ Scenario 4: "Elemental Counterplay" — Fire and Ice matchup tuning
 
 Each scenario function returns a dict with structured results for the UI,
 and can also be run standalone for verbose output.
-Revision 1.05 (2/20/26).
+Revision 1.05a (audited baseline for 1.150 planning).
 """
 
 from __future__ import annotations
