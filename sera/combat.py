@@ -26,6 +26,7 @@ from sera.enemy import (
 from sera.interest import InterestManager
 from sera.status import StatusEffect
 from sera.tags import DamageTag
+from sera.elements import ELEMENTS, resistance_modifier
 
 
 BASE_STAT_DAMAGE = 1
@@ -507,8 +508,15 @@ def _apply_enemy_defenses(weapon: Weapon, target: Enemy, damage: int) -> tuple[i
         steps.append("Defense C) Elemental resistance ignored by ETHEREAL")
         return after_armor, steps, False
 
-    resist_hits = [tag for tag in weapon.all_tags if tag in target.elemental_resistances]
-    resist_pct = min(0.90, 0.10 * len(resist_hits))
+    weapon_elements = [tag for tag in weapon.all_tags if tag in ELEMENTS]
+    defender_elements = list(target.elemental_resistances)
+
+    resist_pct = 0.0
+    for atk in weapon_elements:
+        for defense in defender_elements:
+            resist_pct += resistance_modifier(atk, defense)
+
+    resist_pct = min(0.90, resist_pct)
     reduced = int(round(after_armor * (1.0 - resist_pct)))
     steps.append(f"Defense C) Elemental resistance: -{int(resist_pct * 100)}% = {reduced}")
     return reduced, steps, False
