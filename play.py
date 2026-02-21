@@ -496,10 +496,15 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         while action is None:
             raw_choice = ui.get_input("  Your move > ").lower().strip()
             choice = last_action if raw_choice == "" else raw_choice
+
+            # Fallback if the last action is no longer valid (e.g. target died)
             if choice not in valid_actions and choice not in ("quit", "q"):
-                print(f'  Invalid. Options: {", ".join(valid_actions)}')
-                continue
-            if choice == "quit":
+                if raw_choice == "" and "1" in valid_actions:
+                    choice = "1"
+                else:
+                    print(f'  Invalid. Options: {", ".join(valid_actions)}')
+                    continue
+            if choice in ("quit", "q"):
                 return False
             if choice == "0":
                 state.last_player_action = choice
