@@ -82,7 +82,13 @@ def resolve_combat(
         if interest.game_over:
             break
         if not any(e.current_hp > 0 for e in enemies):
-            log.append('\n  All enemies defeated. "That was almost interesting."')
+            clear_quip = random.choice([
+                "That was almost interesting.",
+                "Adequate. Next room.",
+                "Gone. All of them. Good.",
+                "That's how you end a scene.",
+            ])
+            log.append(f'\n  All enemies defeated. "{clear_quip}"')
             break
 
         # --- Turn Start ---
@@ -110,8 +116,13 @@ def resolve_combat(
             if interest.game_over:
                 break
             if enemy.is_frozen():
+                frozen_quip = random.choice([
+                    "Stay still. I like you better this way.",
+                    "Ice cold. Like my expectations.",
+                    "Don't move. Actually, I prefer it.",
+                ])
                 log.append(f'\n  {enemy.name} is FROZEN solid! Skipping turn.')
-                log.append(f'  Sera: "Stay still. I like you better this way."')
+                log.append(f'  Sera: "{frozen_quip}"')
                 continue
             log.extend(_resolve_enemy_turn(enemy, interest))
 
@@ -135,8 +146,9 @@ def resolve_combat(
             if enemy.current_hp > 0:
                 healed = enemy.tick_regen()
                 if healed > 0:
+                    regen_quip = interest.comment_on_regen(enemy.name)
                     log.append(f"  {enemy.name} regenerates {healed} HP. "
-                               f'({enemy.current_hp}/{enemy.max_hp}) "Annoying."')
+                               f'({enemy.current_hp}/{enemy.max_hp}) "{regen_quip}"')
 
         # --- End of Turn ---
         log.extend(interest.end_turn())
@@ -166,6 +178,9 @@ def _resolve_sera_attack(
             "Boring. I can't even touch it.",
             "I can't touch it. YOUR fault.",
             "The wrong weapon. Again. Think.",
+            "It's immune. Wonderful. I love wasting my time.",
+            "You brought the wrong toy. Fix it.",
+            "Wrong weapon. Think harder.",
         ])
         log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}...")
         log.append(f'  IMMUNE. Weapon lacks required tag. "{immune_quip}"')
@@ -176,8 +191,13 @@ def _resolve_sera_attack(
     patience_ratio = interest.current_patience / interest.max_patience
     miss_chance = max(0.0, (1.0 - patience_ratio) * MISS_PATIENCE_SCALE)
     if random.random() < miss_chance:
+        miss_quip = random.choice([
+            "I am losing interest.",
+            "I'm going through the motions. This is your fault.",
+            "That was half-hearted. Even for me.",
+        ])
         log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}...")
-        log.append('  MISS. "I am losing interest."')
+        log.append(f'  MISS. "{miss_quip}"')
         log.extend(interest.take_annoyance(MISS_PATIENCE_COST, 'A lazy swing misses.'))
         return log
 
@@ -197,8 +217,14 @@ def _resolve_sera_attack(
     # --- Interrupt Check (hitting a charging enemy cancels the charge) ---
     interrupted = target.interrupt_cast()
     if interrupted:
+        interrupt_quip = random.choice([
+            "I said shut up.",
+            "Nobody asked for your monologue.",
+            "Don't point that at her.",
+            "That thought? That's where you messed up.",
+        ])
         log.append(f'  {target.name}\'s {interrupted} was INTERRUPTED!')
-        log.append('  Sera: "I said shut up." [+3 Patience]')
+        log.append(f'  Sera: "{interrupt_quip}" [+3 Patience]')
         interest._restore(3)
 
     log.append("  --- DAMAGE MATH ---")
@@ -257,6 +283,9 @@ def _resolve_enemy_turn(
                 "Hurry up or I'm leaving.",
                 "Three turns? I don't have three turns.",
                 "Charging something. Cute. Hurry.",
+                "You had a chance. You used it wrong.",
+                "Stand still, insect. I need a clear shot.",
+                "Nobody asked for a warmup.",
             ])
             log.append(f"\n  {enemy.name} is charging {enemy.pending_ability.name}... "
                        f"({remaining} turn{'s' if remaining != 1 else ''} left)")
@@ -282,7 +311,13 @@ def _resolve_enemy_turn(
             enemy.current_hp += heal_amount
             log.append(f"  {enemy.name} heals {heal_amount} HP. "
                        f"({enemy.current_hp}/{enemy.max_hp})")
-            log.append('  Sera: "Stop healing. It\'s dragging on."')
+            heal_quip = random.choice([
+                "Stop healing. It's dragging on.",
+                "Nobody asked for a second act.",
+                "You're not broken. You're just stalling.",
+                "I will end this personally.",
+            ])
+            log.append(f'  Sera: "{heal_quip}"')
 
     return log
 
@@ -290,19 +325,71 @@ def _resolve_enemy_turn(
 def _status_quip(effect: StatusEffect) -> str:
     """Sera's commentary on inflicting status effects."""
     quips = {
-        StatusEffect.BURNING: "Burn brighter. Entertain me.",
-        StatusEffect.BLEEDING: "Bleed faster.",
-        StatusEffect.SILENCED: "Finally. Quiet.",
-        StatusEffect.CORRODED: "Your armor was ugly anyway.",
-        StatusEffect.CURSED: "Consider this a divine opinion.",
-        StatusEffect.STUNNED: "Freeze. I wasn't done with you.",
-        StatusEffect.MARKED: "I see you. You can't hide.",
-        StatusEffect.HUMILIATED: "That's the face of someone who knows they've lost.",
-        StatusEffect.TERRIFIED: "Good instinct.",
-        StatusEffect.SLOWED: "Take your time. Actually, don't.",
-        StatusEffect.WEAKENED: "Feel that? That's your relevance fading.",
-        StatusEffect.FROZEN: "Ice cold. Like my expectations.",
-        StatusEffect.DOOMED: "Tick tock. Enjoy the countdown.",
+        StatusEffect.BURNING: random.choice([
+            "Burn brighter. Entertain me.",
+            "Everything is better on fire.",
+            "That's the temperature of my contempt.",
+        ]),
+        StatusEffect.BLEEDING: random.choice([
+            "Bleed faster.",
+            "Every cut is a promise of something worse.",
+            "That's going to leave a mark. Several, actually.",
+        ]),
+        StatusEffect.SILENCED: random.choice([
+            "Finally. Quiet.",
+            "Nobody asked for your monologue.",
+            "Shut up. I said it once.",
+        ]),
+        StatusEffect.CORRODED: random.choice([
+            "Your armor was ugly anyway.",
+            "Everything corrodes. Some things faster than others.",
+            "Science was a mistake. A beautiful mistake.",
+        ]),
+        StatusEffect.CURSED: random.choice([
+            "Consider this a divine opinion.",
+            "You don't touch what belongs to God.",
+            "That's not a hex. That's a fact.",
+        ]),
+        StatusEffect.STUNNED: random.choice([
+            "Freeze. I wasn't done with you.",
+            "Don't move. I need to think.",
+            "Stay. I'm not finished.",
+        ]),
+        StatusEffect.MARKED: random.choice([
+            "I see you. You can't hide.",
+            "You're mine now. Congratulations.",
+            "Marked. That means you're next.",
+        ]),
+        StatusEffect.HUMILIATED: random.choice([
+            "That's the face of someone who knows they've lost.",
+            "You felt brave for a second. That's adorable.",
+            "You're confusing proximity with permission.",
+        ]),
+        StatusEffect.TERRIFIED: random.choice([
+            "Good instinct.",
+            "Run if you want. It won't help.",
+            "Fear is the only correct response.",
+        ]),
+        StatusEffect.SLOWED: random.choice([
+            "Take your time. Actually, don't.",
+            "You're slow. Slower now. Good.",
+            "Walk or not at all.",
+        ]),
+        StatusEffect.WEAKENED: random.choice([
+            "Feel that? That's your relevance fading.",
+            "Saps their will. Their attacks barely register.",
+            "You're not broken. You're just awake.",
+        ]),
+        StatusEffect.FROZEN: random.choice([
+            "Ice cold. Like my expectations.",
+            "One turn of blessed silence.",
+            "Stay still. I like you better this way.",
+        ]),
+        StatusEffect.DOOMED: random.choice([
+            "Tick tock. Enjoy the countdown.",
+            "When it fades, you pay.",
+            "That thought? That's where you messed up.",
+        ]),
     }
     return quips.get(effect, "Noted.")
 

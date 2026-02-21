@@ -53,6 +53,15 @@ class InterestManager:
         log.append(f"  [-{self.TICK_DRAIN} Patience] Time ticks. \"{self._time_quip()}\"")
         return log
 
+    def comment_on_regen(self, enemy_name: str) -> str:
+        """Sera's opinion on an enemy healing itself."""
+        return random.choice([
+            "Stop healing. It's dragging on.",
+            "Nobody asked for a second act.",
+            "I will end this personally.",
+            "You're not broken. You're just stalling.",
+        ])
+
     def take_annoyance(self, cost: int, source: str) -> list[str]:
         """Enemy did something annoying."""
         log = []
@@ -79,6 +88,11 @@ class InterestManager:
             "Adequate.",
             "Gone. Next.",
             "It won't be missed.",
+            "Shh.",
+            "No. That doesn't get to continue.",
+            "I told you once.",
+            "I don't need a second hit.",
+            "You're done.",
         ])
         log.append(f'  [+{self.KILL_RESTORE} Patience] Killed {enemy_name}. "{kill_quip}"')
 
@@ -90,6 +104,10 @@ class InterestManager:
                 "Now THAT was satisfying.",
                 "Efficient. Almost artistic.",
                 "NOW that had commitment.",
+                "NOW we're talking.",
+                "THAT is how you kill something.",
+                "That's the good part. Do it again.",
+                "Oh. You meant that.",
             ])
             log.append(f'  [+{excess} Patience] OVERKILL! "{overkill_quip}"')
 
@@ -100,6 +118,9 @@ class InterestManager:
                 "More. Do that again.",
                 "Don't stop. I mean it.",
                 "THAT is how you hold my interest.",
+                "We're not even gonna die.",
+                "Somebody duck. There are more coming.",
+                "NOW we're talking.",
             ])
             log.append(f'  [+{self.MULTI_KILL_RESTORE} Patience] MULTI-KILL! "{multi_quip}"')
 
@@ -134,32 +155,53 @@ class InterestManager:
             return random.choice([
                 "Fine. I'll entertain this.",
                 "Not terrible. Yet.",
+                "Relax. I'm in a good mood.",
+                "We're just looking.",
+                "This place is kinda cute.",
             ])
         if p > 60:
             return random.choice([
                 "You have my attention. Barely.",
                 "You have my attention. Don't squander it.",
+                "That's new.",
+                "You're cute. Don't ruin it.",
+                "Duh.",
             ])
         if p > 40:
             return random.choice([
                 "This better get interesting soon.",
                 "Pick up the pace. I mean it.",
+                "What are you worried about?",
+                "Clear the air.",
+                "That's it? That's your miracle?",
             ])
         if p > 20:
             return random.choice([
                 "I'm running out of reasons to stay.",
                 "My patience is not infinite. Shocking, I know.",
+                "You're not a law. You're a problem.",
+                "You don't get a turn.",
+                "I don't need magic. I just need you to decide.",
             ])
         return random.choice([
             "One more disappointment and I'm leaving.",
             "Last warning. Make it count.",
+            "You're loud.",
+            "You picked the wrong axis.",
+            "I'm going to fix this.",
         ])
 
     @staticmethod
     def _game_over_text() -> str:
+        outro = random.choice([
+            '"This is a waste of time."',
+            '"I gave you every chance."',
+            '"You had a chance. You used it wrong."',
+            '"Soliera\'s still looking. That\'s your last warning. Too late."',
+        ])
         return ('\n  *** GAME OVER ***\n'
-                '  Sera rolls her eyes.\n'
-                '  "This is a waste of time."\n'
+                f'  Sera rolls her eyes.\n'
+                f'  {outro}\n'
                 '  She teleports away. The dungeon collapses.\n'
                 '  You have failed to be interesting.\n')
 
