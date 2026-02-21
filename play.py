@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import random
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 
 from sera.tags import DamageTag
@@ -20,6 +21,8 @@ from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR, d
 from sera.interest import InterestManager
 from sera.status import StatusEffect
 from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
+from sera.crafting import CRAFTING_MATERIALS
+from sera.consumables import ConsumableItem, CONSUMABLE_REGISTRY
 from sera.loader import load_weapons, load_affixes, load_enemies, load_equipment_items
 from sera.encounters import generate_encounter, generate_endless_encounter, generate_loot_material, generate_loot_shards
 from sera.loot_framework import WeaponPoolManager
@@ -30,6 +33,11 @@ from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_
 from sera.randomization import RunRNG, select_weapon_choices
 from sera.modes.endless import EndlessProgress
 from sera.save import save_to_file, load_from_file, DEFAULT_SAVE_PATH
+from sera.game_stats import (
+    load_game_stats,
+    merge_run_stats,
+    stamp_run_summary,
+)
 
 
 def _build_defense_profile(state: "GameState", stats: PlayerStats | None = None) -> tuple[int, int, dict[str, int]]:
@@ -106,9 +114,23 @@ ROOM_CLEAR_QUIPS = [
     '"Is that all?"',
 ]
 
-AUTO_BATTLE_TURNS = 10
+DEFAULT_AUTO_BATTLE_TURNS = 10
 SAVE_PATH = DEFAULT_SAVE_PATH
 AUTO_ADVANCE_ENEMY_PHASE = True
+SIMULATION_WAVES = 4
+SIMULATION_SEED = 1337
+
+
+def _record_persistent_run(state: "GameState", *, won: bool, wave_reached: int | None = None):
+    """Persist this run into game_stats.json."""
+    base_summary = state.run_stats.to_dict(state)
+    if wave_reached is not None:
+        base_summary["wave_reached"] = wave_reached
+    else:
+        base_summary["wave_reached"] = state.floor
+    run_summary = stamp_run_summary(base_summary, won=won, mode=state.mode, seed=state.rng_seed)
+    payload = load_game_stats()
+    merge_run_stats(payload, run_summary)
 
 
 def sera_quip(pool: list[str]) -> str:
@@ -149,6 +171,39 @@ class RunStats:
         }
 
 
+@dataclass
+class SimulationConfig:
+    random_mode: bool
+    base_weapon: Weapon
+    prefix: Affix | None = None
+    suffix: Affix | None = None
+
+
+@dataclass
+class SimulationWaveResult:
+    wave: int
+    turns: int
+    kills: int
+    patience: int
+    damage: int
+    game_over: bool
+    weapon_name: str
+
+
+@dataclass
+class SimulationRunResult:
+    mode_label: str
+    waves: list[SimulationWaveResult]
+    total_turns: int
+    total_kills: int
+    total_damage: int
+    patience_remaining: int
+    death_wave: int | None
+
+
+SIMULATION_HISTORY: list[SimulationRunResult] = []
+
+
 # ─────────────────────────────────────────────────────────
 # Game State
 # ─────────────────────────────────────────────────────────
@@ -161,6 +216,7 @@ class GameState:
         self.endless_floor_cap = 1000
         self.weapons: list[Weapon] = []
         self.materials: list[CraftingMaterial] = []
+        self.consumables: list[ConsumableItem] = []
         self.upgrade_shards: int = 0
         self.equipped_idx: int = 0
         self.all_enemies = load_enemies()
@@ -171,7 +227,6 @@ class GameState:
         self.equipment_loadout = EquipmentLoadout()
         self.equipment_stash: list[EquipmentItem] = []
         self.all_equipment = load_equipment_items()
-        self.healing_flasks: int = 2
         self.next_revision_set: list[EquipmentItem] = generate_revision_set(self.all_equipment, floor=1)
         self.revision_set_claimed: bool = False
         self.run_stats: RunStats = RunStats()
@@ -183,10 +238,21 @@ class GameState:
         self.material_pool: list[CraftingMaterial] = []
         self.weapon_pool_manager = WeaponPoolManager(self.all_weapons, self.all_affixes, self.rng)
         self.last_player_action: str = "1"
+        self.auto_battle_enabled: bool = False
+        self.auto_battle_turns: int = DEFAULT_AUTO_BATTLE_TURNS
 
     @property
     def equipped_weapon(self) -> Weapon:
         return self.weapons[self.equipped_idx]
+
+    def consumable_count(self, key: str) -> int:
+        return sum(1 for item in self.consumables if item.key == key)
+
+    def add_consumable(self, key: str, count: int = 1):
+        if key not in CONSUMABLE_REGISTRY:
+            return
+        for _ in range(max(0, count)):
+            self.consumables.append(CONSUMABLE_REGISTRY[key])
 
     @property
     def final_stats(self) -> PlayerStats:
@@ -199,12 +265,16 @@ class GameState:
 
 def get_choice(prompt: str = "> ", valid: list[str] | None = None) -> str:
     while True:
-        choice = ui.get_input(prompt).lower()
-        if choice in ("quit", "q"):
+        choice = ui.get_input(prompt).lower().strip()
+        if is_quit_token(choice):
             return "quit"
         if valid is None or choice in valid:
             return choice
         print(f'  Invalid. Options: {", ".join(valid)}')
+
+
+def is_quit_token(text: str) -> bool:
+    return text in {"q", "quit", "exit", "escape"}
 
 
 def pause(msg: str = "  [Press Enter]"):
@@ -216,16 +286,18 @@ def pause(msg: str = "  [Press Enter]"):
 # ─────────────────────────────────────────────────────────
 
 def title_screen() -> str:
-    """Returns 'new_game', 'continue', 'simulation', 'endless', or 'quit'."""
+    """Returns 'new_game', 'continue', 'simulation', 'statistics', or 'quit'."""
     ui.clear()
     print(ui.render_title_screen())
-    valid = ["1", "2", "3", "4"]
+    valid = ["1", "2", "3", "7"]
     if SAVE_PATH.exists():
         print("  ▸ [C] Continue from save")
         valid.append("c")
     choice = get_choice("> ", valid)
-    if choice in ("quit", "3"):
+    if choice in ("quit", "3", "7"):
         return "quit"
+    if choice == "6":
+        return "statistics"
     if choice == "2":
         return "simulation"
     if choice == "4":
@@ -233,6 +305,37 @@ def title_screen() -> str:
     if choice == "c":
         return "continue"
     return "new_game"
+
+
+# ─────────────────────────────────────────────────────────
+# Pre-run options
+# ─────────────────────────────────────────────────────────
+
+def pre_run_options_screen(state: GameState) -> str:
+    """Returns 'continue', 'skip', or 'menu'."""
+    while True:
+        ui.clear()
+        print(ui.render_pre_run_options(state.auto_battle_enabled, state.auto_battle_turns))
+        choice = get_choice("> ", ["1", "2", "3", "t", "b"])
+
+        if choice in ("quit", "3"):
+            return "menu"
+        if choice == "1":
+            return "continue"
+        if choice == "2":
+            return "skip"
+        if choice == "t":
+            state.auto_battle_enabled = not state.auto_battle_enabled
+            continue
+        if choice == "b":
+            value = ui.get_input("  Burst length [1-30] > ").strip()
+            try:
+                turns = int(value)
+            except ValueError:
+                print("  Invalid burst length.")
+                pause()
+                continue
+            state.auto_battle_turns = max(1, min(30, turns))
 
 
 # ─────────────────────────────────────────────────────────
@@ -327,78 +430,98 @@ def _show_commands_menu(state: GameState, enemies: list[Enemy]):
     print(ui.box_line("░▒▓█ COMMANDS MENU █▓▒░", "center"))
     print(ui.box_line('Sera: "Cheating? How refreshingly honest."', "center"))
     print(ui.box_divider())
-    print(ui.box_line("  ▸ [1] GetItem - Add weapon to inventory"))
-    print(ui.box_line("  ▸ [2] FightMonster - Spawn enemy"))
-    print(ui.box_line("  ▸ [3] SetHP - Set Patience"))
-    print(ui.box_line("  ▸ [4] SetDMG - Set weapon damage"))
-    print(ui.box_line("  ▸ [5] SetSTR - Set STR stat"))
-    print(ui.box_line("  ▸ [6] SetAP - Set AP stat"))
+    print(ui.box_line("  ▸ [1] SpawnWeapon - Add weapon"))
+    print(ui.box_line("  ▸ [2] SpawnEnemy - Add enemy"))
+    print(ui.box_line("  ▸ [3] SpawnMaterial - Add material"))
+    print(ui.box_line("  ▸ [4] SpawnConsumable - Add consumable"))
+    print(ui.box_line("  ▸ [5] SetHP - Set Patience"))
+    print(ui.box_line("  ▸ [6] SetDMG - Set weapon damage"))
+    print(ui.box_line("  ▸ [7] SetSTR - Set STR stat"))
+    print(ui.box_line("  ▸ [8] SetAP - Set AP stat"))
     print(ui.box_line("  ▸ [0] Back"))
     print(ui.box_blank())
     print(ui.box_bot())
 
-    choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "0"])
+    choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "0"])
     if choice in ("0", "quit"):
         return
 
     if choice == "1":
-        _cmd_get_item(state)
+        _cmd_spawn_weapon(state)
     elif choice == "2":
-        _cmd_fight_monster(state, enemies)
+        _cmd_spawn_enemy(state, enemies)
     elif choice == "3":
-        _cmd_set_hp(state)
+        _cmd_spawn_material(state)
     elif choice == "4":
-        _cmd_set_dmg(state)
+        _cmd_spawn_consumable(state)
     elif choice == "5":
-        _cmd_set_str(state)
+        _cmd_set_hp(state)
     elif choice == "6":
+        _cmd_set_dmg(state)
+    elif choice == "7":
+        _cmd_set_str(state)
+    elif choice == "8":
         _cmd_set_ap(state)
 
     pause()
 
 
-def _cmd_get_item(state: GameState):
-    """Cheat command: Get a weapon or material by name."""
-    print("  Available weapons:")
-    for i, w in enumerate(state.all_weapons[:5]):
-        print(f"    {w.name}")
-
-    item_name = ui.get_input("  Item name > ")
-    if not item_name:
+def _cmd_spawn_weapon(state: GameState):
+    """Cheat command: Add a weapon by index."""
+    print("  Spawn weapon:")
+    for idx, weapon in enumerate(state.all_weapons, start=1):
+        tag_str = ", ".join(t.name for t in weapon.all_tags)
+        print(f"    [{idx}] {weapon.display_name} ({weapon.base_damage} dmg) [{tag_str}]")
+    valid = [str(i) for i in range(1, len(state.all_weapons) + 1)] + ["0"]
+    choice = get_choice("  Weapon # (0 cancel) > ", valid)
+    if choice in ("0", "quit"):
         return
-
-    # Try to find weapon
-    for w in state.all_weapons:
-        if w.name.lower() == item_name.lower():
-            new_weapon = copy.deepcopy(w)
-            state.weapons.append(new_weapon)
-            print(f'  Added {new_weapon.name}. Sera: "Nice."')
-            return
-
-    print(f'  Not found. Sera: "Try again."')
+    new_weapon = copy.deepcopy(state.all_weapons[int(choice) - 1])
+    state.weapons.append(new_weapon)
+    print(f'  Added {new_weapon.display_name}. Sera: "Nice."')
 
 
-def _cmd_fight_monster(state: GameState, enemies: list[Enemy]):
-    """Cheat command: Spawn a specific enemy."""
-    print("  Available enemies:")
-    seen_names = set()
-    for e in state.all_enemies:
-        if e.name not in seen_names:
-            print(f"    {e.name}")
-            seen_names.add(e.name)
-
-    monster_name = ui.get_input("  Enemy name > ")
-    if not monster_name:
+def _cmd_spawn_enemy(state: GameState, enemies: list[Enemy]):
+    """Cheat command: Spawn an enemy by index."""
+    print("  Spawn enemy:")
+    for idx, enemy in enumerate(state.all_enemies, start=1):
+        print(f"    [{idx}] {enemy.name} ({enemy.archetype}, HP {enemy.max_hp})")
+    valid = [str(i) for i in range(1, len(state.all_enemies) + 1)] + ["0"]
+    choice = get_choice("  Enemy # (0 cancel) > ", valid)
+    if choice in ("0", "quit"):
         return
+    new_enemy = copy.deepcopy(state.all_enemies[int(choice) - 1])
+    enemies.append(new_enemy)
+    print(f'  Spawned {new_enemy.name}. Sera: "More toys."')
 
-    for e in state.all_enemies:
-        if e.name.lower() == monster_name.lower():
-            new_enemy = copy.deepcopy(e)
-            enemies.append(new_enemy)
-            print(f'  Spawned {new_enemy.name}. Sera: "More toys."')
-            return
 
-    print(f'  Not found.')
+def _cmd_spawn_material(state: GameState):
+    """Cheat command: Add a crafting material by index."""
+    material_options = list(CRAFTING_MATERIALS.values())
+    print("  Spawn material:")
+    for idx, material in enumerate(material_options, start=1):
+        tag_name = material.grants_tag.name if material.grants_tag else "NONE"
+        print(f"    [{idx}] {material.name} [{tag_name}]")
+    valid = [str(i) for i in range(1, len(material_options) + 1)] + ["0"]
+    choice = get_choice("  Material # (0 cancel) > ", valid)
+    if choice in ("0", "quit"):
+        return
+    state.materials.append(copy.deepcopy(material_options[int(choice) - 1]))
+    print('  Material added. Sera: "Useful."')
+
+
+def _cmd_spawn_consumable(state: GameState):
+    """Cheat command: Add a consumable by index."""
+    consumable_options = list(CONSUMABLE_REGISTRY.values())
+    print("  Spawn consumable:")
+    for idx, item in enumerate(consumable_options, start=1):
+        print(f"    [{idx}] {item.name} (+{item.potency} patience)")
+    valid = [str(i) for i in range(1, len(consumable_options) + 1)] + ["0"]
+    choice = get_choice("  Consumable # (0 cancel) > ", valid)
+    if choice in ("0", "quit"):
+        return
+    state.consumables.append(consumable_options[int(choice) - 1])
+    print('  Consumable added. Sera: "Keep moving."')
 
 
 def _cmd_set_hp(state: GameState):
@@ -455,7 +578,6 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
     Returns True if Sera survived, False if game over.
     """
     interest = state.interest
-    weapon = state.equipped_weapon
     combat_turn = 0
 
     while True:
@@ -479,8 +601,9 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- PLAYER TURN ---
         alive = [e for e in enemies if e.current_hp > 0]
+        weapon = state.equipped_weapon
         ui.clear()
-        print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+        print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
 
         # Patience-based commentary
         if interest.current_patience <= 20:
@@ -492,52 +615,61 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         print()
 
         # Get player action
-        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h", "a", "0"]
+        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "e", "h", "a", "0"]
         action = None
         last_action = getattr(state, "last_player_action", "1")
         while action is None:
             raw_choice = ui.get_input("  Your move > ").lower().strip()
-            choice = last_action if raw_choice == "" else raw_choice
+            if raw_choice == "" and state.auto_battle_enabled:
+                choice = "a"
+            else:
+                choice = last_action if raw_choice == "" else raw_choice
 
             # Fallback if the last action is no longer valid (e.g. target died)
-            if choice not in valid_actions and choice not in ("quit", "q"):
+            if choice not in valid_actions and not is_quit_token(choice):
                 if raw_choice == "" and "1" in valid_actions:
                     choice = "1"
                 else:
                     print(f'  Invalid. Options: {", ".join(valid_actions)}')
                     continue
-            if choice in ("quit", "q"):
+            if is_quit_token(choice):
                 return False
             if choice == "0":
                 state.last_player_action = choice
                 _show_commands_menu(state, enemies)
                 ui.clear()
-                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                 continue
             if choice == "i":
                 state.last_player_action = choice
-                _do_inspect(alive, combat_turn, weapon, enemies, interest, state)
+                _do_inspect(alive, combat_turn, enemies, interest, state)
                 continue
             if choice == "w":
                 state.last_player_action = choice
                 ui.clear()
-                print(ui.render_weapon_detail(weapon))
+                print(ui.render_weapon_detail(state.equipped_weapon))
                 pause()
                 ui.clear()
-                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                continue
+            if choice == "e":
+                state.last_player_action = choice
+                equip_screen(state)
+                ui.clear()
+                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                 continue
             if choice == "h":
                 state.last_player_action = choice
-                _use_healing_flask(state)
+                _use_consumable(state)
                 if interest.game_over:
                     return False
                 pause()
                 ui.clear()
-                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                 continue
             if choice == "a":
                 state.last_player_action = choice
-                turns_run = _run_auto_battle_burst(state, enemies, AUTO_BATTLE_TURNS)
+                turns_run = _run_auto_battle_burst(state, enemies, state.auto_battle_turns)
                 combat_turn += max(0, turns_run - 1)
                 if interest.game_over:
                     return False
@@ -554,7 +686,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- RESOLVE ATTACK ---
         print()
-        _resolve_player_attack(state, weapon, target, interest, state.final_stats, state.run_stats)
+        _resolve_player_attack(state, state.equipped_weapon, target, interest, state.final_stats, state.run_stats)
         pause()
 
         if interest.game_over:
@@ -654,7 +786,7 @@ def _show_room_clear(interest: InterestManager):
     pause()
 
 
-def _do_inspect(alive, combat_turn, weapon, enemies, interest, state):
+def _do_inspect(alive, combat_turn, enemies, interest, state):
     if len(alive) == 1:
         inspect_idx = 0
     else:
@@ -667,7 +799,7 @@ def _do_inspect(alive, combat_turn, weapon, enemies, interest, state):
     print(ui.render_inspect(alive[inspect_idx]))
     pause()
     ui.clear()
-    print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
 
 
 def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats, run_stats: RunStats | None = None):
@@ -764,7 +896,6 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
 def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: int) -> int:
     """Run a quick auto-battle burst and print a compact turn-by-turn summary."""
     interest = state.interest
-    weapon = state.equipped_weapon
     stats = state.final_stats
     turns_run = 0
 
@@ -797,6 +928,7 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
         turn_damage = 0
         turn_kills = 0
 
+        weapon = state.equipped_weapon
         target = alive[0]
         damage, _steps = weapon.calculate_damage(target)
         damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
@@ -958,26 +1090,27 @@ def _resolve_enemy_action(
 
 
 
-def _use_healing_flask(state: GameState):
+def _use_consumable(state: GameState):
     interest = state.interest
-    if state.healing_flasks <= 0:
+    flask_index = next((idx for idx, item in enumerate(state.consumables) if item.key == "healing_flask"), None)
+    if flask_index is None:
         print('  No healing flasks left. "Try not to disappoint me instead."')
         return
     if interest.current_patience >= interest.max_patience:
         print('  Patience already full. "I am already perfectly entertained."')
         return
 
-    heal = state.final_stats.healing_power()
+    flask = state.consumables.pop(flask_index)
+    heal = flask.potency + state.final_stats.healing_power()
     for item in state.equipment_loadout.equipped.values():
         if item and "Second Wind" in (item.ability or ""):
             heal += 2
 
     before = interest.current_patience
     interest._restore(heal)
-    state.healing_flasks -= 1
     gained = interest.current_patience - before
-    print(f"  Used Healing Flask: +{gained} Patience ({interest.current_patience}/{interest.max_patience})")
-    print('  Sera: "Better. Keep the momentum."')
+    print(f"  Used {flask.name}: +{gained} Patience ({interest.current_patience}/{interest.max_patience})")
+    print(f"  Sera: {flask.flavor}")
 
 
 # ─────────────────────────────────────────────────────────
@@ -1062,7 +1195,7 @@ def between_floors(state: GameState) -> bool:
     while True:
         ui.clear()
         print(ui.render_between_floors(
-            state.floor, state.interest, state.upgrade_shards, state.healing_flasks,
+            state.floor, state.interest, state.upgrade_shards, state.consumable_count("healing_flask"),
             state.next_revision_set, state.revision_set_claimed))
 
         choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
@@ -1084,7 +1217,7 @@ def between_floors(state: GameState) -> bool:
         if choice == "5":
             ui.clear()
             print(ui.render_inventory(
-                state.weapons, state.materials, state.equipped_idx,
+                state.weapons, state.materials, state.consumables, state.equipped_idx,
                 state.upgrade_shards, state.equipment_stash, state.final_stats))
             pause()
 
@@ -1255,43 +1388,136 @@ def claim_revision_set(state: GameState):
 # Simulation mode — summary UI with drill-down
 # ─────────────────────────────────────────────────────────
 
-def run_simulation():
-    """Run a varied simulation using procedural encounters and loadout rolls."""
+def configure_simulation(state: GameState) -> SimulationConfig | None:
+    """Configure simulator loadout. Returns None when cancelled."""
+    base_weapons = sorted(
+        [copy.deepcopy(w) for w in state.weapon_pool_manager.base_pool],
+        key=lambda weapon: weapon.name,
+    )
+    affixes = load_affixes()
+    state.weapon_pool_manager.affix_pool = affixes
+    prefixes = sorted(
+        [copy.deepcopy(affix) for affix in affixes if affix.affix_type == "prefix"],
+        key=lambda affix: affix.name,
+    )
+    suffixes = sorted(
+        [copy.deepcopy(affix) for affix in affixes if affix.affix_type == "suffix"],
+        key=lambda affix: affix.name,
+    )
+
+    random_mode = True
+    base_weapon = copy.deepcopy(base_weapons[0]) if base_weapons else state.weapon_pool_manager.generate_starting_weapon()
+    prefix: Affix | None = None
+    suffix: Affix | None = None
+
+    while True:
+        ui.clear()
+        print(ui.render_simulation_setup(base_weapon, prefix, suffix, random_mode))
+        choice = get_choice("  > ", ["1", "2", "3", "4", "5", "0"])
+        if choice in ("quit", "0"):
+            return None
+        if choice == "1":
+            random_mode = not random_mode
+            continue
+        if choice == "2":
+            print("  Select base weapon:")
+            for idx, weapon in enumerate(base_weapons, 1):
+                print(f"    [{idx}] {weapon.name} ({weapon.base_damage} dmg)")
+            pick = get_choice("  > ", [str(i) for i in range(1, len(base_weapons) + 1)])
+            if pick != "quit":
+                base_weapon = copy.deepcopy(base_weapons[int(pick) - 1])
+            continue
+        if choice == "3":
+            print("  Select prefix (0 clears):")
+            for idx, affix in enumerate(prefixes, 1):
+                print(f"    [{idx}] {affix.name}")
+            valid = [str(i) for i in range(1, len(prefixes) + 1)] + ["0"]
+            pick = get_choice("  > ", valid)
+            if pick == "0":
+                prefix = None
+            elif pick != "quit":
+                prefix = copy.deepcopy(prefixes[int(pick) - 1])
+            continue
+        if choice == "4":
+            print("  Select suffix (0 clears):")
+            for idx, affix in enumerate(suffixes, 1):
+                print(f"    [{idx}] {affix.name}")
+            valid = [str(i) for i in range(1, len(suffixes) + 1)] + ["0"]
+            pick = get_choice("  > ", valid)
+            if pick == "0":
+                suffix = None
+            elif pick != "quit":
+                suffix = copy.deepcopy(suffixes[int(pick) - 1])
+            continue
+        if choice == "5":
+            return SimulationConfig(
+                random_mode=random_mode,
+                base_weapon=copy.deepcopy(base_weapon),
+                prefix=copy.deepcopy(prefix) if prefix else None,
+                suffix=copy.deepcopy(suffix) if suffix else None,
+            )
+
+
+def execute_simulation(config: SimulationConfig) -> SimulationRunResult:
+    """Execute simulation waves and capture structured results."""
     from sera.combat import resolve_combat
 
-    ui.clear()
-    print(ui.box_top())
-    print(ui.box_line("░▒▓█ SIMULATION MODE █▓▒░", "center"))
-    print(ui.box_line('Sera: "No scripts. Run real waves."', "center"))
-    print(ui.box_bot())
-    print()
+    sim_state = GameState(seed=SIMULATION_SEED)
+    mode_label = "Randomized" if config.random_mode else "Deterministic"
+    wave_results: list[SimulationWaveResult] = []
+    death_wave: int | None = None
 
-    sim_state = GameState()
-    if not sim_state.weapons:
-        sim_state.weapons = [sim_state.weapon_pool_manager.generate_starting_weapon()]
+    for wave in range(1, SIMULATION_WAVES + 1):
+        if config.random_mode:
+            sim_weapon = copy.deepcopy(sim_state.weapon_pool_manager.generate_drop(wave + 1))
+        else:
+            sim_weapon = copy.deepcopy(config.base_weapon)
+            sim_weapon.prefix = copy.deepcopy(config.prefix) if config.prefix else None
+            sim_weapon.suffix = copy.deepcopy(config.suffix) if config.suffix else None
+
+    total_kills = 0
+    total_turns = 0
+    wave_reached = 0
+    survived_all = True
 
     for wave in range(1, 5):
         sim_weapon = copy.deepcopy(sim_state.weapon_pool_manager.generate_drop(wave + 1))
         encounter = generate_encounter(wave + 1, sim_state.all_enemies, rng=sim_state.rng)
         interest = InterestManager(current_patience=80)
+        start_hp = sum(enemy.current_hp for enemy in encounter)
         result = resolve_combat(sim_weapon, encounter, interest, max_turns=8)
+        total_kills += result.enemies_killed
+        total_turns += result.turns_taken
+        wave_reached = wave
+        if result.game_over:
+            survived_all = False
         print(ui.box_top())
-        print(ui.box_line(f"SIM WAVE {wave}", "center"))
-        print(ui.box_divider())
-        print(ui.box_line(f"Weapon: {sim_weapon.display_name}"))
-        print(ui.box_line(f"Kills: {result.enemies_killed} | Turns: {result.turns_taken}"))
-        print(ui.box_line(f"Patience: {result.patience_remaining}/{interest.max_patience}"))
-        print(ui.box_line(f"Outcome: {'GAME OVER' if result.game_over else 'CONTINUES'}"))
+        print(ui.box_line("No simulation results yet.", "center"))
         print(ui.box_bot())
-
-    print()
-    print(ui.box_top())
-    print(ui.box_line("░▒▓█ SIMULATION COMPLETE █▓▒░", "center"))
-    print(ui.box_line('Sera: "Acceptable variability."', "center"))
-    print(ui.box_bot())
+        if result.game_over:
+            break
 
 
-def _show_closing_menu(title: str, quote: str) -> str:
+    return {
+        "floors_cleared": wave_reached,
+        "wave_reached": wave_reached,
+        "total_kills": total_kills,
+        "total_turns": total_turns,
+        "total_damage": 0,
+        "best_overkill": 0,
+        "weapons_found": 0,
+        "materials_used": 0,
+        "patience": 80,
+        "max_patience": 80,
+        "weapon_name": "Simulation Loadout",
+        "won": survived_all,
+        "mode": "simulation",
+        "seed": sim_state.rng_seed,
+    }
+
+
+
+def _show_closing_menu(title: str, quote: str, *, simulator: bool = False) -> str:
     """Show a restart/title/quit menu after a mode ends."""
     ui.clear()
     print(ui.box_top())
@@ -1302,11 +1528,15 @@ def _show_closing_menu(title: str, quote: str) -> str:
     print(ui.box_line("[1] Restart", "center"))
     print(ui.box_line("[2] Back to title", "center"))
     print(ui.box_line("[3] Quit", "center"))
+    if simulator:
+        print(ui.box_line("[4] Display Results", "center"))
     print(ui.box_bot())
 
-    choice = get_choice("> ", ["1", "2", "3"])
-    if choice in ("quit", "3"):
+    choice = get_choice("> ", ["1", "2", "3", "7"])
+    if choice in ("quit", "3", "7"):
         return "quit"
+    if choice == "4":
+        return "results"
     if choice == "1":
         return "restart"
     return "menu"
@@ -1315,6 +1545,10 @@ def _show_closing_menu(title: str, quote: str) -> str:
 def run_new_game(seed: int | None = None) -> str:
     state = GameState(seed=seed)
     print(f"  Run seed: {state.rng_seed}")
+
+    options_result = pre_run_options_screen(state)
+    if options_result == "menu":
+        return "menu"
 
     if not choose_starting_weapon(state):
         return "menu"
@@ -1389,13 +1623,15 @@ def run_new_game_from_state(state: GameState) -> str:
             ui.clear()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
+            _record_persistent_run(state, won=False)
             return _show_closing_menu("░▒▓█ RUN OVER █▓▒░", 'Sera: "You can do better. Try again."')
 
         state.floors_cleared = floor_num
         save_to_file(SAVE_PATH, state)
 
         loot_phase(state)
-        state.healing_flasks = min(state.healing_flasks + 1, 3)
+        if state.consumable_count("healing_flask") < 3:
+            state.add_consumable("healing_flask", 1)
         state.next_revision_set = generate_revision_set(state.all_equipment, floor_num + 1)
         state.revision_set_claimed = False
         save_to_file(SAVE_PATH, state)
@@ -1405,15 +1641,17 @@ def run_new_game_from_state(state: GameState) -> str:
             print(ui.render_victory(state.max_floors, state.interest))
             print(ui.box_line("Run complete. [1] Continue Endless  [2] Title  [3] Quit", "center"))
             print(ui.box_bot())
-            next_step = get_choice("> ", ["1", "2", "3"])
-            if next_step == "3":
+            next_step = get_choice("> ", ["1", "2", "3", "7"])
+            if next_step in ("3", "7", "quit"):
                 return "quit"
             if next_step == "2":
+                _record_persistent_run(state, won=True)
                 return "menu"
             state.max_floors += 50
 
         if not between_floors(state):
             print('  Sera: "Fine. I was getting bored anyway."')
+            _record_persistent_run(state, won=False)
             return "menu"
 
         floor_num += 1
@@ -1431,9 +1669,17 @@ def main():
         if choice == "quit":
             print("  Sera didn't even show up.")
             return
+        if choice == "statistics":
+            payload = load_game_stats()
+            ui.clear()
+            print(ui.render_game_statistics(payload.get("last_run"), payload.get("overall", {})))
+            pause()
+            continue
         if choice == "simulation":
             while True:
-                run_simulation()
+                sim_summary = run_simulation()
+                sim_summary = stamp_run_summary(sim_summary, won=sim_summary.get("won", False), mode="simulation", seed=sim_summary.get("seed", 0))
+                merge_run_stats(load_game_stats(), sim_summary)
                 next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."')
                 if next_step == "restart":
                     continue

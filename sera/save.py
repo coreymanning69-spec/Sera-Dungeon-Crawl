@@ -7,8 +7,9 @@ from pathlib import Path
 from sera.weapon import Weapon
 from sera.crafting import CraftingMaterial, CRAFTING_MATERIALS
 from sera.equipment import EquipmentItem
+from sera.consumables import CONSUMABLE_REGISTRY
 
-SAVE_VERSION = "1.10"
+SAVE_VERSION = "1.11"
 DEFAULT_SAVE_PATH = Path("savegame.json")
 
 
@@ -29,8 +30,10 @@ def serialize_state(state) -> dict:
         "equipped_idx": state.equipped_idx,
         "materials": [m.name for m in state.materials],
         "upgrade_shards": state.upgrade_shards,
-        "healing_flasks": state.healing_flasks,
+        "consumables": [c.key for c in state.consumables],
         "floors_cleared": state.floors_cleared,
+        "auto_battle_enabled": state.auto_battle_enabled,
+        "auto_battle_turns": state.auto_battle_turns,
     }
 
 
@@ -58,8 +61,14 @@ def deserialize_state(data: dict, state) -> None:
     mat_names = data.get("materials", [])
     state.materials = [material_map[name] for name in mat_names if name in material_map]
     state.upgrade_shards = data.get("upgrade_shards", 0)
-    state.healing_flasks = data.get("healing_flasks", 2)
+    keys = data.get("consumables", [])
+    state.consumables = [CONSUMABLE_REGISTRY[key] for key in keys if key in CONSUMABLE_REGISTRY]
+    if not state.consumables:
+        legacy_flasks = data.get("healing_flasks", 2)
+        state.add_consumable("healing_flask", legacy_flasks)
     state.floors_cleared = data.get("floors_cleared", 0)
+    state.auto_battle_enabled = data.get("auto_battle_enabled", state.auto_battle_enabled)
+    state.auto_battle_turns = max(1, min(30, data.get("auto_battle_turns", state.auto_battle_turns)))
 
 
 def save_to_file(path: Path | str, state) -> Path:

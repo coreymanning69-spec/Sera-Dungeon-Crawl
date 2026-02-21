@@ -16,6 +16,7 @@ from sera.weapon import Weapon
 from sera.enemy import Enemy, ANNOYANCE_COST
 from sera.interest import InterestManager
 from sera.crafting import CraftingMaterial
+from sera.consumables import ConsumableItem
 from sera.equipment import EquipmentItem, EquipmentLoadout, SLOT_ORDER
 from sera.stats import PlayerStats
 from sera import sprites
@@ -608,12 +609,36 @@ def render_title_screen() -> str:
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
     lines.append(box_line("  ▸ [2] Simulation Mode"))
+    lines.append(box_line("  ▸ [6] Game Statistics"))
     lines.append(box_line("  ▸ [3] Quit"))
     lines.append(box_line("  ▸ [4] Endless Mode"))
     lines.append(box_line("  Revision 1.05a (Audited)", "center"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_pre_run_options(auto_battle_enabled: bool, auto_battle_turns: int) -> str:
+    auto_state = "ON" if auto_battle_enabled else "OFF"
+    lines = [
+        box_top(),
+        box_blank(),
+        box_line("░▒▓█ PRE-RUN OPTIONS █▓▒░", "center"),
+        box_blank(),
+        box_divider(),
+        box_line("  Set defaults before choosing your starting weapon."),
+        box_divider_thin(),
+        box_line(f"  ▸ [T] Auto-battle default: {auto_state}"),
+        box_line(f"  ▸ [B] Burst length: {auto_battle_turns} turns"),
+        box_divider(),
+        box_line("  ▸ [1] Continue"),
+        box_line("  ▸ [2] Skip and keep defaults"),
+        box_line("  ▸ [3] Back to title"),
+        box_line("  Keys: [T][B][1][2][3]", "center"),
+        box_blank(),
+        box_bot(),
+    ]
     return "\n".join(lines)
 
 
@@ -671,6 +696,7 @@ def render_combat_hud(
     interest: InterestManager,
     stats: PlayerStats,
     healing_charges: int,
+    auto_battle_turns: int,
 ) -> str:
     tag_str = ", ".join(t.name for t in weapon.all_tags)
     turn_label = f"╍╍╍ TURN {turn} ╍╍╍"
@@ -715,10 +741,11 @@ def render_combat_hud(
         lines.append(box_line(f"  ▸ [{i+1}] Attack {e.name}"))
     lines.append(box_line("  ▸ [I] Inspect enemy"))
     lines.append(box_line("  ▸ [W] View weapon details"))
+    lines.append(box_line("  ▸ [E] Equip weapon"))
     lines.append(box_line("  ▸ [H] Use healing flask"))
-    lines.append(box_line("  ▸ [A] Auto-battle (Up to 10 turns)"))
+    lines.append(box_line(f"  ▸ [A] Auto-battle (Up to {auto_battle_turns} turns)"))
     lines.append(box_line(f"  ▸ [0] Commands menu (cheat/debug)"))
-    lines.append(box_line("  Keys: [1][I][W][H][A][0]  (Enter repeats last action)", "center"))
+    lines.append(box_line("  Keys: [1][I][W][E][H][A][0]  (Enter repeats last action)", "center"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -842,6 +869,7 @@ def render_loot_screen(
 def render_inventory(
     weapons: list[Weapon],
     materials: list[CraftingMaterial],
+    consumables: list[ConsumableItem],
     equipped_idx: int,
     upgrade_shards: int = 0,
     equipment_items: list[EquipmentItem] | None = None,
@@ -870,6 +898,14 @@ def render_inventory(
         for i, m in enumerate(materials):
             tag_name = m.grants_tag.name if m.grants_tag else "???"
             lines.append(box_line(f"  ▸ [{i+1}] {m.name} (grants [{tag_name}])"))
+    else:
+        lines.append(box_line("  (empty)"))
+
+    lines.append(box_divider())
+    lines.append(box_header("CONSUMABLES"))
+    if consumables:
+        for i, c in enumerate(consumables):
+            lines.append(box_line(f"  ▸ [{i+1}] {c.name} (+{c.potency} patience)"))
     else:
         lines.append(box_line("  (empty)"))
 
@@ -1332,28 +1368,71 @@ def render_sim_detail(result: dict) -> str:
     return "\n".join(lines)
 
 
-
-def render_endless_summary(waves_cleared: int, kills: int, best_wave: int, interest: InterestManager) -> str:
-    """Render endless-mode summary stats after game over."""
+def render_simulation_setup(
+    base_weapon: Weapon,
+    prefix: object | None,
+    suffix: object | None,
+    random_mode: bool,
+) -> str:
+    """Render the simulator loadout configuration screen."""
+    prefix_name = prefix.name if prefix else "None"
+    suffix_name = suffix.name if suffix else "None"
+    mode_label = "Randomized waves" if random_mode else "Deterministic loadout"
     lines = [
         box_top(),
-        box_blank(),
-        box_line("░▒▓█ ENDLESS MODE SUMMARY █▓▒░", "center"),
-        box_blank(),
-        box_divider_pixel(),
-        box_blank(),
-        box_line('"You lasted this long. ...Acceptable."', "center"),
-        box_blank(),
+        box_line("░▒▓█ SIMULATION SETUP █▓▒░", "center"),
         box_divider(),
-        box_line(f"  ▓ Waves cleared:      {waves_cleared}"),
-        box_line(f"  ▓ Total kills:        {kills}"),
-        box_line(f"  ▓ Best wave reached:  {best_wave}"),
-        box_line(f"  ▓ Turns survived:     {interest.turn_number}"),
-        box_line(f"  ▓ Patience remaining: {interest.current_patience}/{interest.max_patience}"),
-        box_blank(),
+        box_line(f"  Mode: {mode_label}"),
+        box_line(f"  Base Weapon: {base_weapon.name} ({base_weapon.base_damage} dmg)"),
+        box_line(f"  Prefix: {prefix_name}"),
+        box_line(f"  Suffix: {suffix_name}"),
+        box_divider(),
+        box_line("  [1] Toggle random mode"),
+        box_line("  [2] Select base weapon"),
+        box_line("  [3] Select prefix"),
+        box_line("  [4] Select suffix"),
+        box_line("  [5] Run simulation"),
+        box_line("  [0] Back"),
+        box_divider_pixel(),
+        box_line('  Sera: "Pick faster. I can wait, but I will hate it."'),
         box_bot(),
     ]
     return "\n".join(lines)
+
+
+def render_simulation_results(results: list[object], selected_index: int | None = None) -> str:
+    """Render simulation history and optional per-wave details."""
+    lines = [
+        box_top(),
+        box_line("░▒▓█ SIMULATION RESULTS █▓▒░", "center"),
+        box_divider(),
+        box_line(f"  {'#':<3} {'Mode':<14} {'Kills':<6} {'Turns':<6} {'Damage':<7} {'Death'}"),
+        box_divider_thin(),
+    ]
+    for idx, result in enumerate(results, 1):
+        death = result.death_wave if result.death_wave is not None else "-"
+        lines.append(box_line(
+            f"  {idx:<3} {result.mode_label:<14} {result.total_kills:<6} "
+            f"{result.total_turns:<6} {result.total_damage:<7} {death}"
+        ))
+
+    if selected_index is not None and 0 <= selected_index < len(results):
+        run = results[selected_index]
+        lines.append(box_divider())
+        lines.append(box_line(f"  RUN {selected_index + 1} WAVE BREAKDOWN"))
+        lines.append(box_divider_thin())
+        for wave in run.waves:
+            outcome = "GAME OVER" if wave.game_over else "OK"
+            lines.append(box_line(
+                f"  W{wave.wave}: T{wave.turns} K{wave.kills} P{wave.patience:<3} "
+                f"D{wave.damage:<3} {outcome}"
+            ))
+            lines.append(box_line(f"      {wave.weapon_name}"))
+    lines.append(box_divider_pixel())
+    lines.append(box_line("  Select a run number to inspect details."))
+    lines.append(box_bot())
+    return "\n".join(lines)
+
 
 def render_run_stats(stats: dict) -> str:
     """Render end-of-run or mid-run statistics."""
@@ -1375,6 +1454,45 @@ def render_run_stats(stats: dict) -> str:
         lines.append(box_line(f"  Final weapon:       {stats['weapon_name']}"))
     lines.append(box_blank())
     lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_game_statistics(last_run: dict | None, overall: dict) -> str:
+    """Render persistent game statistics from disk."""
+    lines = [
+        box_top(),
+        box_line("G A M E   S T A T I S T I C S", "center"),
+        box_divider(),
+        box_line(f"  Total runs:         {overall.get('total_runs', 0)}"),
+        box_line(f"  Wins / Losses:      {overall.get('wins', 0)} / {overall.get('losses', 0)}"),
+        box_line(f"  Total kills:        {overall.get('total_kills', 0)}"),
+        box_line(f"  Total turns:        {overall.get('total_turns', 0)}"),
+        box_line(f"  Cumulative damage:  {overall.get('total_damage', 0)}"),
+        box_line(f"  Best floor:         {overall.get('best_floor', 0)}"),
+        box_line(f"  Best wave:          {overall.get('best_wave', 0)}"),
+        box_line(f"  Best overkill:      {overall.get('best_overkill', 0)}"),
+        box_divider(),
+    ]
+
+    if last_run:
+        lines.extend([
+            box_line("  Last run snapshot:"),
+            box_line(f"    Mode:             {last_run.get('mode', 'unknown')}"),
+            box_line(f"    Floors/Wave:      {last_run.get('floors_cleared', 0)} / {last_run.get('wave_reached', 0)}"),
+            box_line(f"    Kills/Turns:      {last_run.get('total_kills', 0)} / {last_run.get('total_turns', 0)}"),
+            box_line(f"    Damage:           {last_run.get('total_damage', 0)}"),
+            box_line(f"    Result:           {'WIN' if last_run.get('won') else 'LOSS'}"),
+        ])
+        if last_run.get("timestamp_utc"):
+            lines.append(box_line(f"    Timestamp:        {last_run.get('timestamp_utc')}"))
+    else:
+        lines.append(box_line("  Last run snapshot: none"))
+
+    lines.extend([
+        box_blank(),
+        box_line('[Enter] Back to title', "center"),
+        box_bot(),
+    ])
     return "\n".join(lines)
 
 
