@@ -16,6 +16,7 @@ from sera.weapon import Weapon
 from sera.enemy import Enemy, ANNOYANCE_COST
 from sera.interest import InterestManager
 from sera.crafting import CraftingMaterial
+from sera.consumables import ConsumableItem
 from sera.equipment import EquipmentItem, EquipmentLoadout, SLOT_ORDER
 from sera.stats import PlayerStats
 from sera import sprites
@@ -867,6 +868,7 @@ def render_loot_screen(
 def render_inventory(
     weapons: list[Weapon],
     materials: list[CraftingMaterial],
+    consumables: list[ConsumableItem],
     equipped_idx: int,
     upgrade_shards: int = 0,
     equipment_items: list[EquipmentItem] | None = None,
@@ -895,6 +897,14 @@ def render_inventory(
         for i, m in enumerate(materials):
             tag_name = m.grants_tag.name if m.grants_tag else "???"
             lines.append(box_line(f"  ▸ [{i+1}] {m.name} (grants [{tag_name}])"))
+    else:
+        lines.append(box_line("  (empty)"))
+
+    lines.append(box_divider())
+    lines.append(box_header("CONSUMABLES"))
+    if consumables:
+        for i, c in enumerate(consumables):
+            lines.append(box_line(f"  ▸ [{i+1}] {c.name} (+{c.potency} patience)"))
     else:
         lines.append(box_line("  (empty)"))
 

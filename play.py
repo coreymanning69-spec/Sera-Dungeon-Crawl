@@ -20,6 +20,8 @@ from sera.enemy import Enemy, AnnoyanceType, ANNOYANCE_COST, ANNOYANCE_FLAVOR, d
 from sera.interest import InterestManager
 from sera.status import StatusEffect
 from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
+from sera.crafting import CRAFTING_MATERIALS
+from sera.consumables import ConsumableItem, CONSUMABLE_REGISTRY
 from sera.loader import load_weapons, load_affixes, load_enemies, load_equipment_items
 from sera.encounters import generate_encounter, generate_loot_material, generate_loot_shards
 from sera.loot_framework import WeaponPoolManager
@@ -178,6 +180,7 @@ class GameState:
         self.endless_floor_cap = 1000
         self.weapons: list[Weapon] = []
         self.materials: list[CraftingMaterial] = []
+        self.consumables: list[ConsumableItem] = []
         self.upgrade_shards: int = 0
         self.equipped_idx: int = 0
         self.all_enemies = load_enemies()
@@ -188,7 +191,6 @@ class GameState:
         self.equipment_loadout = EquipmentLoadout()
         self.equipment_stash: list[EquipmentItem] = []
         self.all_equipment = load_equipment_items()
-        self.healing_flasks: int = 2
         self.next_revision_set: list[EquipmentItem] = generate_revision_set(self.all_equipment, floor=1)
         self.revision_set_claimed: bool = False
         self.run_stats: RunStats = RunStats()
@@ -206,6 +208,15 @@ class GameState:
     @property
     def equipped_weapon(self) -> Weapon:
         return self.weapons[self.equipped_idx]
+
+    def consumable_count(self, key: str) -> int:
+        return sum(1 for item in self.consumables if item.key == key)
+
+    def add_consumable(self, key: str, count: int = 1):
+        if key not in CONSUMABLE_REGISTRY:
+            return
+        for _ in range(max(0, count)):
+            self.consumables.append(CONSUMABLE_REGISTRY[key])
 
     @property
     def final_stats(self) -> PlayerStats:
@@ -381,78 +392,98 @@ def _show_commands_menu(state: GameState, enemies: list[Enemy]):
     print(ui.box_line("░▒▓█ COMMANDS MENU █▓▒░", "center"))
     print(ui.box_line('Sera: "Cheating? How refreshingly honest."', "center"))
     print(ui.box_divider())
-    print(ui.box_line("  ▸ [1] GetItem - Add weapon to inventory"))
-    print(ui.box_line("  ▸ [2] FightMonster - Spawn enemy"))
-    print(ui.box_line("  ▸ [3] SetHP - Set Patience"))
-    print(ui.box_line("  ▸ [4] SetDMG - Set weapon damage"))
-    print(ui.box_line("  ▸ [5] SetSTR - Set STR stat"))
-    print(ui.box_line("  ▸ [6] SetAP - Set AP stat"))
+    print(ui.box_line("  ▸ [1] SpawnWeapon - Add weapon"))
+    print(ui.box_line("  ▸ [2] SpawnEnemy - Add enemy"))
+    print(ui.box_line("  ▸ [3] SpawnMaterial - Add material"))
+    print(ui.box_line("  ▸ [4] SpawnConsumable - Add consumable"))
+    print(ui.box_line("  ▸ [5] SetHP - Set Patience"))
+    print(ui.box_line("  ▸ [6] SetDMG - Set weapon damage"))
+    print(ui.box_line("  ▸ [7] SetSTR - Set STR stat"))
+    print(ui.box_line("  ▸ [8] SetAP - Set AP stat"))
     print(ui.box_line("  ▸ [0] Back"))
     print(ui.box_blank())
     print(ui.box_bot())
 
-    choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "0"])
+    choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "0"])
     if choice in ("0", "quit"):
         return
 
     if choice == "1":
-        _cmd_get_item(state)
+        _cmd_spawn_weapon(state)
     elif choice == "2":
-        _cmd_fight_monster(state, enemies)
+        _cmd_spawn_enemy(state, enemies)
     elif choice == "3":
-        _cmd_set_hp(state)
+        _cmd_spawn_material(state)
     elif choice == "4":
-        _cmd_set_dmg(state)
+        _cmd_spawn_consumable(state)
     elif choice == "5":
-        _cmd_set_str(state)
+        _cmd_set_hp(state)
     elif choice == "6":
+        _cmd_set_dmg(state)
+    elif choice == "7":
+        _cmd_set_str(state)
+    elif choice == "8":
         _cmd_set_ap(state)
 
     pause()
 
 
-def _cmd_get_item(state: GameState):
-    """Cheat command: Get a weapon or material by name."""
-    print("  Available weapons:")
-    for i, w in enumerate(state.all_weapons[:5]):
-        print(f"    {w.name}")
-
-    item_name = ui.get_input("  Item name > ")
-    if not item_name:
+def _cmd_spawn_weapon(state: GameState):
+    """Cheat command: Add a weapon by index."""
+    print("  Spawn weapon:")
+    for idx, weapon in enumerate(state.all_weapons, start=1):
+        tag_str = ", ".join(t.name for t in weapon.all_tags)
+        print(f"    [{idx}] {weapon.display_name} ({weapon.base_damage} dmg) [{tag_str}]")
+    valid = [str(i) for i in range(1, len(state.all_weapons) + 1)] + ["0"]
+    choice = get_choice("  Weapon # (0 cancel) > ", valid)
+    if choice in ("0", "quit"):
         return
-
-    # Try to find weapon
-    for w in state.all_weapons:
-        if w.name.lower() == item_name.lower():
-            new_weapon = copy.deepcopy(w)
-            state.weapons.append(new_weapon)
-            print(f'  Added {new_weapon.name}. Sera: "Nice."')
-            return
-
-    print(f'  Not found. Sera: "Try again."')
+    new_weapon = copy.deepcopy(state.all_weapons[int(choice) - 1])
+    state.weapons.append(new_weapon)
+    print(f'  Added {new_weapon.display_name}. Sera: "Nice."')
 
 
-def _cmd_fight_monster(state: GameState, enemies: list[Enemy]):
-    """Cheat command: Spawn a specific enemy."""
-    print("  Available enemies:")
-    seen_names = set()
-    for e in state.all_enemies:
-        if e.name not in seen_names:
-            print(f"    {e.name}")
-            seen_names.add(e.name)
-
-    monster_name = ui.get_input("  Enemy name > ")
-    if not monster_name:
+def _cmd_spawn_enemy(state: GameState, enemies: list[Enemy]):
+    """Cheat command: Spawn an enemy by index."""
+    print("  Spawn enemy:")
+    for idx, enemy in enumerate(state.all_enemies, start=1):
+        print(f"    [{idx}] {enemy.name} ({enemy.archetype}, HP {enemy.max_hp})")
+    valid = [str(i) for i in range(1, len(state.all_enemies) + 1)] + ["0"]
+    choice = get_choice("  Enemy # (0 cancel) > ", valid)
+    if choice in ("0", "quit"):
         return
+    new_enemy = copy.deepcopy(state.all_enemies[int(choice) - 1])
+    enemies.append(new_enemy)
+    print(f'  Spawned {new_enemy.name}. Sera: "More toys."')
 
-    for e in state.all_enemies:
-        if e.name.lower() == monster_name.lower():
-            new_enemy = copy.deepcopy(e)
-            enemies.append(new_enemy)
-            print(f'  Spawned {new_enemy.name}. Sera: "More toys."')
-            return
 
-    print(f'  Not found.')
+def _cmd_spawn_material(state: GameState):
+    """Cheat command: Add a crafting material by index."""
+    material_options = list(CRAFTING_MATERIALS.values())
+    print("  Spawn material:")
+    for idx, material in enumerate(material_options, start=1):
+        tag_name = material.grants_tag.name if material.grants_tag else "NONE"
+        print(f"    [{idx}] {material.name} [{tag_name}]")
+    valid = [str(i) for i in range(1, len(material_options) + 1)] + ["0"]
+    choice = get_choice("  Material # (0 cancel) > ", valid)
+    if choice in ("0", "quit"):
+        return
+    state.materials.append(copy.deepcopy(material_options[int(choice) - 1]))
+    print('  Material added. Sera: "Useful."')
+
+
+def _cmd_spawn_consumable(state: GameState):
+    """Cheat command: Add a consumable by index."""
+    consumable_options = list(CONSUMABLE_REGISTRY.values())
+    print("  Spawn consumable:")
+    for idx, item in enumerate(consumable_options, start=1):
+        print(f"    [{idx}] {item.name} (+{item.potency} patience)")
+    valid = [str(i) for i in range(1, len(consumable_options) + 1)] + ["0"]
+    choice = get_choice("  Consumable # (0 cancel) > ", valid)
+    if choice in ("0", "quit"):
+        return
+    state.consumables.append(consumable_options[int(choice) - 1])
+    print('  Consumable added. Sera: "Keep moving."')
 
 
 def _cmd_set_hp(state: GameState):
@@ -591,7 +622,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 continue
             if choice == "h":
                 state.last_player_action = choice
-                _use_healing_flask(state)
+                _use_consumable(state)
                 if interest.game_over:
                     return False
                 pause()
@@ -1021,26 +1052,27 @@ def _resolve_enemy_action(
 
 
 
-def _use_healing_flask(state: GameState):
+def _use_consumable(state: GameState):
     interest = state.interest
-    if state.healing_flasks <= 0:
+    flask_index = next((idx for idx, item in enumerate(state.consumables) if item.key == "healing_flask"), None)
+    if flask_index is None:
         print('  No healing flasks left. "Try not to disappoint me instead."')
         return
     if interest.current_patience >= interest.max_patience:
         print('  Patience already full. "I am already perfectly entertained."')
         return
 
-    heal = state.final_stats.healing_power()
+    flask = state.consumables.pop(flask_index)
+    heal = flask.potency + state.final_stats.healing_power()
     for item in state.equipment_loadout.equipped.values():
         if item and "Second Wind" in (item.ability or ""):
             heal += 2
 
     before = interest.current_patience
     interest._restore(heal)
-    state.healing_flasks -= 1
     gained = interest.current_patience - before
-    print(f"  Used Healing Flask: +{gained} Patience ({interest.current_patience}/{interest.max_patience})")
-    print('  Sera: "Better. Keep the momentum."')
+    print(f"  Used {flask.name}: +{gained} Patience ({interest.current_patience}/{interest.max_patience})")
+    print(f"  Sera: {flask.flavor}")
 
 
 # ─────────────────────────────────────────────────────────
@@ -1125,7 +1157,7 @@ def between_floors(state: GameState) -> bool:
     while True:
         ui.clear()
         print(ui.render_between_floors(
-            state.floor, state.interest, state.upgrade_shards, state.healing_flasks,
+            state.floor, state.interest, state.upgrade_shards, state.consumable_count("healing_flask"),
             state.next_revision_set, state.revision_set_claimed))
 
         choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
@@ -1147,7 +1179,7 @@ def between_floors(state: GameState) -> bool:
         if choice == "5":
             ui.clear()
             print(ui.render_inventory(
-                state.weapons, state.materials, state.equipped_idx,
+                state.weapons, state.materials, state.consumables, state.equipped_idx,
                 state.upgrade_shards, state.equipment_stash, state.final_stats))
             pause()
 
@@ -1444,7 +1476,8 @@ def run_new_game_from_state(state: GameState) -> str:
         save_to_file(SAVE_PATH, state)
 
         loot_phase(state)
-        state.healing_flasks = min(state.healing_flasks + 1, 3)
+        if state.consumable_count("healing_flask") < 3:
+            state.add_consumable("healing_flask", 1)
         state.next_revision_set = generate_revision_set(state.all_equipment, floor_num + 1)
         state.revision_set_claimed = False
         save_to_file(SAVE_PATH, state)
