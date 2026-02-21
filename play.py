@@ -718,6 +718,7 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
         actual, dead = target.take_damage(damage)
         turn_damage += actual
         total_damage_dealt += actual
+        state.run_stats.record_damage(actual)
         print(ui.box_line(f"  Attack {target.name}: {actual} damage ({target.current_hp}/{target.max_hp})"))
 
         for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:

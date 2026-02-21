@@ -1,31 +1,30 @@
 +--------------------------------------------------------------------------+
-| SERA PIXEL UI PREVIEW                                                    |
-| ======================================================================== |
-| Viewport: combat updates continuously unless blocked.                    |
-| Enemy: Clanking Dreadknight  HP [#####-----] 26/50                       |
-| Sera: "Entertain me."                                                    |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-| ------------------------------------------------------------------------ |
-| BottomBar: [SYS] [STATUS] [LOADOUT] [LOG]      active=log_screen         |
-| ======================================================================== |
-| [ LOG ]                                                                  |
-| > You hit Clanking Dreadknight for 12                                    |
-| > BLEED ticks for 3                                                      |
-| > Dreadknight begins Oath of Honor                                       |
-| > Interrupted! +3 Patience                                               |
-|                                                                          |
-| [Chat] Sera: "Adequate violence."                                        |
-| (Non-blocking: pass-through outside widgets)                             |
+| SERA PIXEL UI PREVIEW                                                      |
+| ========================================================================   |
+| Viewport: combat updates continuously unless blocked.                      |
+| Enemy: Clanking Dreadknight  HP [#####-----] 26/50                         |
+| Sera: "Entertain me."                                                      |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+| ------------------------------------------------------------------------   |
+| BottomBar: [SYS] [STATUS] [LOADOUT] [LOG]      active=log_screen           |
+| ========================================================================   |
+| [ LOG ]                                                                    |
+| > You hit Clanking Dreadknight for 12                                      |
+| > BLEED ticks for 3                                                        |
+| > Dreadknight begins Oath of Honor                                         |
+| > Interrupted! +3 Patience                                                 |
+|                                                                            |
+| [Chat] Sera: "Adequate violence."                                          |
+| (Non-blocking: pass-through outside widgets)                               |
 +--------------------------------------------------------------------------+
