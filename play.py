@@ -242,6 +242,17 @@ class GameState:
         self.auto_battle_turns: int = DEFAULT_AUTO_BATTLE_TURNS
 
     @property
+    def healing_flasks(self) -> int:
+        return self.consumable_count("healing_flask")
+
+    @healing_flasks.setter
+    def healing_flasks(self, count: int):
+        target = max(0, count)
+        non_flasks = [item for item in self.consumables if item.key != "healing_flask"]
+        self.consumables = non_flasks
+        self.add_consumable("healing_flask", target)
+
+    @property
     def equipped_weapon(self) -> Weapon:
         return self.weapons[self.equipped_idx]
 
@@ -286,25 +297,37 @@ def pause(msg: str = "  [Press Enter]"):
 # ─────────────────────────────────────────────────────────
 
 def title_screen() -> str:
-    """Returns 'new_game', 'continue', 'simulation', 'statistics', or 'quit'."""
+    """Returns 'new_game', 'continue', 'simulation', 'statistics', 'endless', or 'quit'."""
     ui.clear()
     print(ui.render_title_screen())
-    valid = ["1", "2", "3", "7"]
+    valid = ["1", "2", "3", "4", "5"]
     if SAVE_PATH.exists():
-        print("  ▸ [C] Continue from save")
-        valid.append("c")
+        valid.insert(1, "c")
     choice = get_choice("> ", valid)
-    if choice in ("quit", "3", "7"):
+    if choice in ("quit", "5"):
         return "quit"
-    if choice == "6":
-        return "statistics"
-    if choice == "2":
-        return "simulation"
     if choice == "4":
+        return "statistics"
+    if choice == "3":
+        return "simulation"
+    if choice == "2":
         return "endless"
     if choice == "c":
         return "continue"
     return "new_game"
+
+
+def _report_runtime_error(context: str, err: Exception):
+    """Show a recoverable runtime error and keep the run alive."""
+    ui.clear()
+    print(ui.box_top())
+    print(ui.box_line("░░ RUNTIME ERROR RECOVERED ░░", "center"))
+    print(ui.box_divider())
+    print(ui.box_line(f"Context: {context}"))
+    print(ui.box_line(f"Error: {type(err).__name__}: {err}"))
+    print(ui.box_line('Sera: "You broke tempo. Keep going."'))
+    print(ui.box_bot())
+    pause()
 
 
 # ─────────────────────────────────────────────────────────
@@ -579,202 +602,210 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
     """
     interest = state.interest
     combat_turn = 0
+    consecutive_errors = 0
 
     while True:
-        alive = [e for e in enemies if e.current_hp > 0]
-        if not alive:
-            _show_room_clear(interest)
-            return True
+        try:
+            alive = [e for e in enemies if e.current_hp > 0]
+            if not alive:
+                _show_room_clear(interest)
+                return True
 
-        if interest.game_over:
-            return False
-
-        combat_turn += 1
-        interest.turn_number += 1
-        interest._kills_this_turn = 0
-
-        # Passive drain (starts after turn 1 so turn zero is free)
-        if combat_turn > 1:
-            interest._drain(interest.TICK_DRAIN, "Time passes.")
             if interest.game_over:
                 return False
 
-        # --- PLAYER TURN ---
-        alive = [e for e in enemies if e.current_hp > 0]
-        weapon = state.equipped_weapon
-        ui.clear()
-        print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+            combat_turn += 1
+            interest.turn_number += 1
+            interest._kills_this_turn = 0
 
-        # Patience-based commentary
-        if interest.current_patience <= 20:
-            print(f"  Sera: {sera_quip(LOW_PATIENCE_QUIPS)}")
-        else:
-            print(f'  Sera: "{interest._time_quip()}"')
-        if combat_turn > 1:
-            print("  [-1 Patience] Time ticks.")
-        print()
+            # Passive drain (starts after turn 1 so turn zero is free)
+            if combat_turn > 1:
+                interest._drain(interest.TICK_DRAIN, "Time passes.")
+                if interest.game_over:
+                    return False
 
-        # Get player action
-        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "e", "h", "a", "0"]
-        action = None
-        last_action = getattr(state, "last_player_action", "1")
-        while action is None:
-            raw_choice = ui.get_input("  Your move > ").lower().strip()
-            if raw_choice == "" and state.auto_battle_enabled:
-                choice = "a"
+            # --- PLAYER TURN ---
+            alive = [e for e in enemies if e.current_hp > 0]
+            weapon = state.equipped_weapon
+            ui.clear()
+            print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+
+            # Patience-based commentary
+            if interest.current_patience <= 20:
+                print(f"  Sera: {sera_quip(LOW_PATIENCE_QUIPS)}")
             else:
-                choice = last_action if raw_choice == "" else raw_choice
+                print(f'  Sera: "{interest._time_quip()}"')
+            if combat_turn > 1:
+                print("  [-1 Patience] Time ticks.")
+            print()
 
-            # Fallback if the last action is no longer valid (e.g. target died)
-            if choice not in valid_actions and not is_quit_token(choice):
-                if raw_choice == "" and "1" in valid_actions:
-                    choice = "1"
+            # Get player action
+            valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "e", "h", "a", "0"]
+            action = None
+            last_action = getattr(state, "last_player_action", "1")
+            while action is None:
+                raw_choice = ui.get_input("  Your move > ").lower().strip()
+                if raw_choice == "" and state.auto_battle_enabled:
+                    choice = "a"
                 else:
-                    print(f'  Invalid. Options: {", ".join(valid_actions)}')
-                    continue
-            if is_quit_token(choice):
-                return False
-            if choice == "0":
-                state.last_player_action = choice
-                _show_commands_menu(state, enemies)
-                ui.clear()
-                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
-                continue
-            if choice == "i":
-                state.last_player_action = choice
-                _do_inspect(alive, combat_turn, enemies, interest, state)
-                continue
-            if choice == "w":
-                state.last_player_action = choice
-                ui.clear()
-                print(ui.render_weapon_detail(state.equipped_weapon))
-                pause()
-                ui.clear()
-                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
-                continue
-            if choice == "e":
-                state.last_player_action = choice
-                equip_screen(state)
-                ui.clear()
-                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
-                continue
-            if choice == "h":
-                state.last_player_action = choice
-                _use_consumable(state)
-                if interest.game_over:
+                    choice = last_action if raw_choice == "" else raw_choice
+
+                # Fallback if the last action is no longer valid (e.g. target died)
+                if choice not in valid_actions and not is_quit_token(choice):
+                    if raw_choice == "" and "1" in valid_actions:
+                        choice = "1"
+                    else:
+                        print(f'  Invalid. Options: {", ".join(valid_actions)}')
+                        continue
+                if is_quit_token(choice):
                     return False
-                pause()
-                ui.clear()
-                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
-                continue
-            if choice == "a":
-                state.last_player_action = choice
-                turns_run = _run_auto_battle_burst(state, enemies, state.auto_battle_turns)
-                combat_turn += max(0, turns_run - 1)
-                if interest.game_over:
-                    return False
-                if not any(e.current_hp > 0 for e in enemies):
-                    _show_room_clear(interest)
-                    return True
-                pause()
-                action = None
-                continue
-            state.last_player_action = choice
-            action = int(choice) - 1
-
-        target = alive[action]
-
-        # --- RESOLVE ATTACK ---
-        print()
-        _resolve_player_attack(state, state.equipped_weapon, target, interest, state.final_stats, state.run_stats)
-        pause()
-
-        if interest.game_over:
-            return False
-
-        # --- ENEMY PHASE ---
-        alive = [e for e in enemies if e.current_hp > 0]
-        enemy_phase_had_output = False
-        defense_profile = _build_defense_profile(state)
-        for enemy in alive:
-            if interest.game_over:
-                return False
-            if enemy.is_frozen():
-                ui.clear()
-                print(ui.box_top())
-                print(ui.box_line(f"░░ {enemy.name} is FROZEN! ░░", "center"))
-                print(ui.box_line('Sera: "Stay still. I like you better this way."', "center"))
-                print(ui.box_bot())
-                enemy_phase_had_output = True
-                if not AUTO_ADVANCE_ENEMY_PHASE:
-                    pause()
-                continue
-            resolved = _resolve_enemy_action(enemy, state, defense_profile, wait_for_input=not AUTO_ADVANCE_ENEMY_PHASE)
-            enemy_phase_had_output = enemy_phase_had_output or resolved
-
-            if interest.game_over:
-                return False
-
-        # --- DOT PHASE ---
-        for enemy in enemies:
-            if enemy.current_hp > 0:
-                hp_before_dot = enemy.current_hp
-                dot_total, dot_log = enemy.tick_dot_damage()
-                if dot_log:
-                    kill_name = enemy.name if enemy.current_hp <= 0 else None
+                if choice == "0":
+                    state.last_player_action = choice
+                    _show_commands_menu(state, enemies)
                     ui.clear()
-                    print(ui.render_dot_tick(dot_log, kill_name))
-                    enemy_phase_had_output = True
-                    if kill_name:
-                        kill_log = interest.register_kill(
-                            enemy.name, dot_total, hp_before_dot)
-                        print(ui.render_kill_report(enemy.name, kill_log))
-                        state.run_stats.record_damage(dot_total)
-                    if not AUTO_ADVANCE_ENEMY_PHASE:
-                        pause()
+                    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                    continue
+                if choice == "i":
+                    state.last_player_action = choice
+                    _do_inspect(alive, combat_turn, enemies, interest, state)
+                    continue
+                if choice == "w":
+                    state.last_player_action = choice
+                    ui.clear()
+                    print(ui.render_weapon_detail(state.equipped_weapon))
+                    pause()
+                    ui.clear()
+                    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                    continue
+                if choice == "e":
+                    state.last_player_action = choice
+                    equip_screen(state)
+                    ui.clear()
+                    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                    continue
+                if choice == "h":
+                    state.last_player_action = choice
+                    _use_consumable(state)
+                    if interest.game_over:
+                        return False
+                    pause()
+                    ui.clear()
+                    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                    continue
+                if choice == "a":
+                    state.last_player_action = choice
+                    turns_run = _run_auto_battle_burst(state, enemies, state.auto_battle_turns)
+                    combat_turn += max(0, turns_run - 1)
+                    if interest.game_over:
+                        return False
+                    if not any(e.current_hp > 0 for e in enemies):
+                        _show_room_clear(interest)
+                        return True
+                    pause()
+                    action = None
+                    continue
+                state.last_player_action = choice
+                action = int(choice) - 1
 
-        # --- CLEANUP PHASE ---
-        for enemy in enemies:
-            if enemy.current_hp > 0:
-                status_log, kill_events = enemy.tick_statuses()
-                if status_log:
-                    # Show any detonations or expirations
-                    for line in status_log:
-                        if "DOOM" in line or "destroyed" in line:
-                            ui.clear()
-                            print(ui.box_top())
-                            print(ui.box_line("░░ DOOM DETONATES ░░", "center"))
-                            print(ui.box_line(line.strip(), "center"))
-                            print(ui.box_bot())
-                            enemy_phase_had_output = True
-                            if not AUTO_ADVANCE_ENEMY_PHASE:
-                                pause()
-                for event in kill_events:
-                    kill_log = interest.register_kill(
-                        event.enemy_name,
-                        event.damage_dealt,
-                        event.enemy_hp_was,
-                    )
-                    print(ui.render_kill_report(event.enemy_name, kill_log))
-                    enemy_phase_had_output = True
-                    if not AUTO_ADVANCE_ENEMY_PHASE:
-                        pause()
-                enemy.tick_cooldowns()
-                healed = enemy.tick_regen()
-                if healed > 0:
+            target = alive[action]
+
+            # --- RESOLVE ATTACK ---
+            print()
+            _resolve_player_attack(state, state.equipped_weapon, target, interest, state.final_stats, state.run_stats)
+            pause()
+
+            if interest.game_over:
+                return False
+
+            # --- ENEMY PHASE ---
+            alive = [e for e in enemies if e.current_hp > 0]
+            enemy_phase_had_output = False
+            defense_profile = _build_defense_profile(state)
+            for enemy in alive:
+                if interest.game_over:
+                    return False
+                if enemy.is_frozen():
                     ui.clear()
                     print(ui.box_top())
-                    print(ui.box_line(f"{enemy.name} regenerates {healed} HP!", "center"))
-                    print(ui.box_line(f"HP: {ui.hp_bar(enemy.current_hp, enemy.max_hp, 15)}", "center"))
-                    print(ui.box_line(f'Sera: "Stop healing. It\'s dragging on."', "center"))
+                    print(ui.box_line(f"░░ {enemy.name} is FROZEN! ░░", "center"))
+                    print(ui.box_line('Sera: "Stay still. I like you better this way."', "center"))
                     print(ui.box_bot())
                     enemy_phase_had_output = True
                     if not AUTO_ADVANCE_ENEMY_PHASE:
                         pause()
+                    continue
+                resolved = _resolve_enemy_action(enemy, state, defense_profile, wait_for_input=not AUTO_ADVANCE_ENEMY_PHASE)
+                enemy_phase_had_output = enemy_phase_had_output or resolved
 
-        if AUTO_ADVANCE_ENEMY_PHASE and enemy_phase_had_output and any(e.current_hp > 0 for e in enemies):
-            pause("  [Press Enter for next player turn]")
+                if interest.game_over:
+                    return False
 
+            # --- DOT PHASE ---
+            for enemy in enemies:
+                if enemy.current_hp > 0:
+                    hp_before_dot = enemy.current_hp
+                    dot_total, dot_log = enemy.tick_dot_damage()
+                    if dot_log:
+                        kill_name = enemy.name if enemy.current_hp <= 0 else None
+                        ui.clear()
+                        print(ui.render_dot_tick(dot_log, kill_name))
+                        enemy_phase_had_output = True
+                        if kill_name:
+                            kill_log = interest.register_kill(
+                                enemy.name, dot_total, hp_before_dot)
+                            print(ui.render_kill_report(enemy.name, kill_log))
+                            state.run_stats.record_damage(dot_total)
+                        if not AUTO_ADVANCE_ENEMY_PHASE:
+                            pause()
+
+            # --- CLEANUP PHASE ---
+            for enemy in enemies:
+                if enemy.current_hp > 0:
+                    status_log, kill_events = enemy.tick_statuses()
+                    if status_log:
+                        # Show any detonations or expirations
+                        for line in status_log:
+                            if "DOOM" in line or "destroyed" in line:
+                                ui.clear()
+                                print(ui.box_top())
+                                print(ui.box_line("░░ DOOM DETONATES ░░", "center"))
+                                print(ui.box_line(line.strip(), "center"))
+                                print(ui.box_bot())
+                                enemy_phase_had_output = True
+                                if not AUTO_ADVANCE_ENEMY_PHASE:
+                                    pause()
+                    for event in kill_events:
+                        kill_log = interest.register_kill(
+                            event.enemy_name,
+                            event.damage_dealt,
+                            event.enemy_hp_was,
+                        )
+                        print(ui.render_kill_report(event.enemy_name, kill_log))
+                        enemy_phase_had_output = True
+                        if not AUTO_ADVANCE_ENEMY_PHASE:
+                            pause()
+                    enemy.tick_cooldowns()
+                    healed = enemy.tick_regen()
+                    if healed > 0:
+                        ui.clear()
+                        print(ui.box_top())
+                        print(ui.box_line(f"{enemy.name} regenerates {healed} HP!", "center"))
+                        print(ui.box_line(f"HP: {ui.hp_bar(enemy.current_hp, enemy.max_hp, 15)}", "center"))
+                        print(ui.box_line(f'Sera: "Stop healing. It\'s dragging on."', "center"))
+                        print(ui.box_bot())
+                        enemy_phase_had_output = True
+                        if not AUTO_ADVANCE_ENEMY_PHASE:
+                            pause()
+
+            if AUTO_ADVANCE_ENEMY_PHASE and enemy_phase_had_output and any(e.current_hp > 0 for e in enemies):
+                pause("  [Press Enter for next player turn]")
+            consecutive_errors = 0
+        except Exception as err:
+            consecutive_errors += 1
+            _report_runtime_error("combat turn", err)
+            if consecutive_errors >= 3:
+                print('  Sera: "Enough. We move on."')
+                return False
 
 def _show_room_clear(interest: InterestManager):
     ui.clear()
@@ -902,115 +933,105 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
     # Track stats for summary table
     total_damage_dealt = 0
     total_kills = 0
-    total_patience_lost = 0
-    turn_results = []
 
     ui.clear()
     print(ui.box_top())
     print(ui.box_line(f"░▒▓█ AUTO-BATTLE ({max_turns} TURNS MAX) █▓▒░", "center"))
-    print(ui.box_line('Sera: "Fine. I\'ll do it myself for a bit."', "center"))
+    print(ui.box_line("Sera: \"Fine. I'll do it myself for a bit.\"", "center"))
     print(ui.box_divider())
 
     for _ in range(max_turns):
-        alive = [e for e in enemies if e.current_hp > 0]
-        if not alive or interest.game_over:
-            break
+        try:
+            alive = [e for e in enemies if e.current_hp > 0]
+            if not alive or interest.game_over:
+                break
 
-        turns_run += 1
-        interest.turn_number += 1
-        interest._kills_this_turn = 0
-        patience_before_turn = interest.current_patience
-        interest._drain(interest.TICK_DRAIN, "Time passes.")
-        print(ui.box_line(f"Turn {interest.turn_number}: -1 Patience (time)"))
-        if interest.game_over:
-            break
-
-        turn_damage = 0
-        turn_kills = 0
-
-        weapon = state.equipped_weapon
-        target = alive[0]
-        damage, _steps = weapon.calculate_damage(target)
-        damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
-        hp_before = target.current_hp
-        actual, dead = target.take_damage(damage)
-        turn_damage += actual
-        total_damage_dealt += actual
-        state.run_stats.record_damage(actual)
-        print(ui.box_line(f"  Attack {target.name}: {actual} damage ({target.current_hp}/{target.max_hp})"))
-
-        for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
-            if affix and affix.inflicts_status:
-                effect = StatusEffect[affix.inflicts_status]
-                target.apply_status(effect, affix.status_duration, affix.status_potency)
-
-        if dead:
-            interest.register_kill(target.name, damage, hp_before)
-            turn_kills += 1
-            total_kills += 1
-            print(ui.box_line(f"  {target.name} defeated. Patience now {interest.current_patience}."))
-
-        reduction, resistance, resistances = _build_defense_profile(state, stats)
-        for enemy in [e for e in enemies if e.current_hp > 0]:
-            if enemy.is_frozen():
-                print(ui.box_line(f"  {enemy.name} is frozen and skips."))
-                continue
-            ability = enemy.choose_action()
-            if ability is None:
-                if enemy.is_casting and enemy.pending_ability:
-                    print(ui.box_line(f"  {enemy.name} charges {enemy.pending_ability.name}."))
-                continue
-
-            base_cost = ANNOYANCE_COST[ability.annoyance]
-            mult = enemy.get_annoyance_multiplier()
-            pre_mitigation = max(1, int(base_cost * mult))
-            attack_type = defense_key_for_attack(ability.attack_type)
-            elem_res = resistances.get(attack_type, 0)
-            mitigated = max(1, pre_mitigation - reduction)
-            resist_pct = min(0.75, (resistance + elem_res) / 100)
-            cost = max(1, int(round(mitigated * (1 - resist_pct))))
-            interest.take_annoyance(cost, ability.name)
-            print(ui.box_line(f"  {enemy.name} uses {ability.name} [{attack_type}]: -{cost} Patience"))
+            turns_run += 1
+            interest.turn_number += 1
+            interest._kills_this_turn = 0
+            interest._drain(interest.TICK_DRAIN, "Time passes.")
+            print(ui.box_line(f"Turn {interest.turn_number}: -1 Patience (time)"))
             if interest.game_over:
                 break
 
-        if interest.game_over:
-            break
+            turn_damage = 0
+            turn_kills = 0
 
-        for enemy in enemies:
-            if enemy.current_hp <= 0:
-                continue
-            hp_before_dot = enemy.current_hp
-            dot_total, _ = enemy.tick_dot_damage()
-            if dot_total > 0:
-                print(ui.box_line(f"  DOT on {enemy.name}: {dot_total} ({enemy.current_hp}/{enemy.max_hp})"))
-            if enemy.current_hp <= 0:
-                interest.register_kill(enemy.name, dot_total, hp_before_dot)
-                continue
+            weapon = state.equipped_weapon
+            target = alive[0]
+            damage, _steps = weapon.calculate_damage(target)
+            damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
+            hp_before = target.current_hp
+            actual, dead = target.take_damage(damage)
+            turn_damage += actual
+            total_damage_dealt += actual
+            state.run_stats.record_damage(actual)
+            print(ui.box_line(f"  Attack {target.name}: {actual} damage ({target.current_hp}/{target.max_hp})"))
 
-            _status_log, kill_events = enemy.tick_statuses()
-            for event in kill_events:
-                interest.register_kill(event.enemy_name, event.damage_dealt, event.enemy_hp_was)
-                print(ui.box_line(f"  {event.enemy_name} destroyed by status detonation."))
+            for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
+                if affix and affix.inflicts_status:
+                    effect = StatusEffect[affix.inflicts_status]
+                    target.apply_status(effect, affix.status_duration, affix.status_potency)
 
-            enemy.tick_cooldowns()
-            healed = enemy.tick_regen()
-            if healed > 0:
-                print(ui.box_line(f"  {enemy.name} regenerates {healed}."))
+            if dead:
+                interest.register_kill(target.name, damage, hp_before)
+                turn_kills += 1
+                total_kills += 1
+                print(ui.box_line(f"  {target.name} defeated. Patience now {interest.current_patience}."))
 
-        patience_after_turn = interest.current_patience
-        patience_delta = patience_after_turn - patience_before_turn
-        total_patience_lost += abs(min(0, patience_delta))
+            reduction, resistance, resistances = _build_defense_profile(state, stats)
+            for enemy in [e for e in enemies if e.current_hp > 0]:
+                if enemy.is_frozen():
+                    print(ui.box_line(f"  {enemy.name} is frozen and skips."))
+                    continue
+                ability = enemy.choose_action()
+                if ability is None:
+                    if enemy.is_casting and enemy.pending_ability:
+                        print(ui.box_line(f"  {enemy.name} charges {enemy.pending_ability.name}."))
+                    continue
 
-        turn_results.append({
-            "turn": interest.turn_number,
-            "damage": turn_damage,
-            "kills": turn_kills,
-            "patience": f"{patience_after_turn}/{interest.max_patience}",
-        })
+                base_cost = ANNOYANCE_COST[ability.annoyance]
+                mult = enemy.get_annoyance_multiplier()
+                pre_mitigation = max(1, int(base_cost * mult))
+                attack_type = defense_key_for_attack(ability.attack_type)
+                elem_res = resistances.get(attack_type, 0)
+                mitigated = max(1, pre_mitigation - reduction)
+                resist_pct = min(0.75, (resistance + elem_res) / 100)
+                cost = max(1, int(round(mitigated * (1 - resist_pct))))
+                interest.take_annoyance(cost, ability.name)
+                print(ui.box_line(f"  {enemy.name} uses {ability.name} [{attack_type}]: -{cost} Patience"))
+                if interest.game_over:
+                    break
 
-        print(ui.box_line(f"  End Patience: {interest.current_patience}/{interest.max_patience}"))
-        print(ui.box_divider_thin())
+            if interest.game_over:
+                break
+
+            for enemy in enemies:
+                if enemy.current_hp <= 0:
+                    continue
+                hp_before_dot = enemy.current_hp
+                dot_total, _ = enemy.tick_dot_damage()
+                if dot_total > 0:
+                    print(ui.box_line(f"  DOT on {enemy.name}: {dot_total} ({enemy.current_hp}/{enemy.max_hp})"))
+                if enemy.current_hp <= 0:
+                    interest.register_kill(enemy.name, dot_total, hp_before_dot)
+                    continue
+
+                _status_log, kill_events = enemy.tick_statuses()
+                for event in kill_events:
+                    interest.register_kill(event.enemy_name, event.damage_dealt, event.enemy_hp_was)
+                    print(ui.box_line(f"  {event.enemy_name} destroyed by status detonation."))
+
+                enemy.tick_cooldowns()
+                healed = enemy.tick_regen()
+                if healed > 0:
+                    print(ui.box_line(f"  {enemy.name} regenerates {healed}."))
+
+            print(ui.box_line(f"  End Patience: {interest.current_patience}/{interest.max_patience}"))
+            print(ui.box_divider_thin())
+        except Exception as err:
+            _report_runtime_error("auto-battle turn", err)
+            continue
 
     # Display summary
     print(ui.box_divider())
@@ -1020,7 +1041,6 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
     print(ui.box_line(f'Sera: "Done."', "center"))
     print(ui.box_bot())
     return turns_run
-
 
 def _resolve_enemy_action(
     enemy: Enemy,
@@ -1576,7 +1596,11 @@ def run_endless_mode(seed: int | None = None) -> str:
         pause()
 
         kills_before = state.interest.total_kills
-        survived = run_combat(state, enemies)
+        try:
+            survived = run_combat(state, enemies)
+        except Exception as err:
+            _report_runtime_error("endless combat", err)
+            survived = True
         if not survived:
             break
 
@@ -1615,7 +1639,11 @@ def run_new_game_from_state(state: GameState) -> str:
         print(f"  Sera: {sera_quip(FLOOR_INTRO_QUIPS)}")
         pause()
 
-        survived = run_combat(state, enemies)
+        try:
+            survived = run_combat(state, enemies)
+        except Exception as err:
+            _report_runtime_error("campaign combat", err)
+            survived = True
         if not survived:
             ui.clear()
             print(ui.render_game_over(state.interest, state.floor))
