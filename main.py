@@ -2,13 +2,15 @@
 """
 SERA: ENDLESS ENGAGEMENT — Combat Simulation Demo
 
-Runs 3 scripted combat scenarios showing the math engine in action.
+Runs 4 scripted combat scenarios showing the math engine in action.
 
 Scenario 1: "The Setup" — Petty Shiv vs Flickering Imps (multi-kill overkill)
 Scenario 2: "The Permission Problem" — Wrong weapon vs Ghost, then crafted fix
 Scenario 3: "The Boss Fight" — Full build vs Dreadknight (all systems firing)
+Scenario 4: "Elemental Pressure" — Fire build vs Stone Warden (resistance + statuses)
 """
 
+from sera import GAME_REVISION, GAME_TAGLINE, GAME_TITLE
 from sera.tags import DamageTag
 from sera.weapon import Weapon, Affix
 from sera.enemy import Enemy, EnemyAbility, AnnoyanceType, EnemyVulnerability
@@ -319,9 +321,10 @@ def run_scenario_4():
 
 
 def main():
-    print(banner("SERA: ENDLESS ENGAGEMENT"))
+    print(banner(GAME_TITLE))
     print('  "I am a Goddess. Entertain me or I leave."')
-    print("  A Systems-Heavy Roguelike Prototype")
+    print(f"  {GAME_TAGLINE}")
+    print(f"  Revision {GAME_REVISION}")
     print(f"  {'─' * 40}")
     print("  Core Loop: Kill aggressively to stay interested.")
     print("  Lose State: Patience hits 0. Sera leaves. Game Over.")

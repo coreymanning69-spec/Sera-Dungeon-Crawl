@@ -1,2 +1,5 @@
-# SERA: ENDLESS ENGAGEMENT
-# A Systems-Heavy Roguelike where a Goddess gets bored.
+"""Project metadata shared across entry points and UI."""
+
+GAME_TITLE = "SERA: ENDLESS ENGAGEMENT"
+GAME_TAGLINE = "A Systems-Heavy Roguelike Prototype"
+GAME_REVISION = "1.00"

@@ -17,7 +17,7 @@ from sera.interest import InterestManager
 from sera.crafting import CraftingMaterial
 from sera.equipment import EquipmentItem, EquipmentLoadout, SLOT_ORDER
 from sera.stats import PlayerStats
-from sera import sprites
+from sera import GAME_TITLE, sprites
 
 
 # ─────────────────────────────────────────────────────────
@@ -130,7 +130,7 @@ def xp_bar(current: int, maximum: int, width: int = 15) -> str:
 # Composite screens
 # ─────────────────────────────────────────────────────────
 
-def render_title_screen() -> str:
+def render_title_screen(revision: str | None = None) -> str:
     lines = [
         box_top(),
         box_blank(),
@@ -150,6 +150,8 @@ def render_title_screen() -> str:
     lines.append(box_blank())
     lines.append(box_divider())
     lines.append(box_line('"I am a Goddess. Entertain me."', "center"))
+    if revision:
+        lines.append(box_line(f"{GAME_TITLE} • Rev {revision}", "center"))
     lines.append(box_divider())
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))

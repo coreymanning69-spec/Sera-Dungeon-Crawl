@@ -20,7 +20,7 @@ from sera.status import StatusEffect
 from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
 from sera.loader import load_weapons, load_affixes, load_enemies, load_equipment_items
 from sera.encounters import generate_encounter, generate_loot_weapon, generate_loot_material, generate_loot_shards
-from sera import ui
+from sera import GAME_REVISION, ui
 from sera.stats import PlayerStats
 from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_revision_set
 
@@ -193,7 +193,7 @@ def pause(msg: str = "  [Press Enter]"):
 def title_screen() -> str:
     """Returns 'new_game', 'simulation', or 'quit'."""
     ui.clear()
-    print(ui.render_title_screen())
+    print(ui.render_title_screen(revision=GAME_REVISION))
     choice = get_choice("> ", ["1", "2", "3"])
     if choice in ("quit", "3"):
         return "quit"
