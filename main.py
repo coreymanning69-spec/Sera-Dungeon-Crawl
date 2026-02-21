@@ -17,6 +17,7 @@ Revision 1.05 (2/20/26).
 from __future__ import annotations
 import copy
 import random
+import argparse
 
 from sera.tags import DamageTag
 from sera.weapon import Weapon, Affix
@@ -358,7 +359,13 @@ def run_scenario_4(verbose: bool = True) -> dict:
 # ---------------------------------------------------------------------------
 
 def main():
+    parser = argparse.ArgumentParser(description="SERA simulation")
+    parser.add_argument("--seed", type=int, default=105, help="Deterministic seed")
+    args = parser.parse_args()
+    random.seed(args.seed)
+
     print(banner("SERA: ENDLESS ENGAGEMENT"))
+    print(f"  Seed: {args.seed}")
     print('  "I am a Goddess. Entertain me or I leave."')
     print("  A Systems-Heavy Roguelike Prototype")
     print(f"  {'─' * 40}")
@@ -374,6 +381,13 @@ def main():
     run_scenario_3(verbose=True)
     print("\n" + "─" * 60)
     run_scenario_4(verbose=True)
+
+    run_metadata = {
+        "seed": args.seed,
+        "revision": "1.10",
+        "scenario_count": 4,
+    }
+    print(f"  Run metadata: {run_metadata}")
 
     print(banner("END OF SIMULATION"))
     print('  Sera: "Not bad. Not GOOD, but not bad."')
