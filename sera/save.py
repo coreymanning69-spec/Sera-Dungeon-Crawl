@@ -8,13 +8,13 @@ from sera.weapon import Weapon
 from sera.crafting import CraftingMaterial, CRAFTING_MATERIALS
 from sera.equipment import EquipmentItem
 
-SAVE_VERSION = 1
+SAVE_VERSION = "1.10"
 DEFAULT_SAVE_PATH = Path("savegame.json")
 
 
 def serialize_state(state) -> dict:
     return {
-        "version": SAVE_VERSION,
+        "saveVersion": SAVE_VERSION,
         "floor": state.floor,
         "max_floors": state.max_floors,
         "mode": state.mode,
@@ -72,6 +72,17 @@ def load_from_file(path: Path | str, state) -> bool:
     target = Path(path)
     if not target.exists():
         return False
-    data = json.loads(target.read_text())
-    deserialize_state(data, state)
+    try:
+        data = json.loads(target.read_text())
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(data, dict):
+        return False
+    save_version = data.get("saveVersion", data.get("version"))
+    if save_version is None:
+        return False
+    try:
+        deserialize_state(data, state)
+    except Exception:
+        return False
     return True

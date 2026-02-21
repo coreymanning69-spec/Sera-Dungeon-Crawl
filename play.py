@@ -11,6 +11,7 @@ Survive 5 floors. Keep Sera interested. Don't be boring.
 from __future__ import annotations
 import copy
 import random
+import argparse
 from pathlib import Path
 
 from sera.tags import DamageTag
@@ -153,7 +154,7 @@ class RunStats:
 # ─────────────────────────────────────────────────────────
 
 class GameState:
-    def __init__(self):
+    def __init__(self, seed: int | None = None):
         self.interest = InterestManager()
         self.floor = 0
         self.max_floors = 5
@@ -175,7 +176,8 @@ class GameState:
         self.revision_set_claimed: bool = False
         self.run_stats: RunStats = RunStats()
         self.mode: str = "campaign"
-        self.rng_seed: int = random.randint(1, 99_999_999)
+        self.rng_seed: int = seed if seed is not None else random.randint(1, 99_999_999)
+        random.seed(self.rng_seed)
         self.rng: RunRNG = RunRNG(self.rng_seed)
         self.endless: EndlessProgress = EndlessProgress(seed=self.rng_seed)
         self.material_pool: list[CraftingMaterial] = []
@@ -1303,8 +1305,9 @@ def _show_closing_menu(title: str, quote: str) -> str:
     return "menu"
 
 
-def run_new_game() -> str:
-    state = GameState()
+def run_new_game(seed: int | None = None) -> str:
+    state = GameState(seed=seed)
+    print(f"  Run seed: {state.rng_seed}")
 
     if not choose_starting_weapon(state):
         return "menu"
@@ -1364,6 +1367,10 @@ def run_new_game_from_state(state: GameState) -> str:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="SERA: ENDLESS ENGAGEMENT")
+    parser.add_argument("--seed", type=int, default=None, help="Deterministic run seed")
+    args = parser.parse_args()
+
     while True:
         choice = title_screen()
         if choice == "quit":
@@ -1382,15 +1389,16 @@ def main():
             continue
 
         if choice == "continue":
-            state = GameState()
+            state = GameState(seed=args.seed)
             if not load_from_file(SAVE_PATH, state):
                 print("  No save found.")
                 continue
+            print(f"  Loaded seed: {state.rng_seed}")
             result = run_new_game_from_state(state)
         else:
-            result = run_new_game()
+            result = run_new_game(seed=args.seed)
         while result == "restart":
-            result = run_new_game()
+            result = run_new_game(seed=args.seed)
         if result == "quit":
             print('  Sera: "We\'re done here."')
             return
