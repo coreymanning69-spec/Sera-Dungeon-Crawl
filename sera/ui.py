@@ -8,6 +8,7 @@ Monospace terminal assumed.
 
 from __future__ import annotations
 import os
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable
@@ -471,6 +472,14 @@ def clear():
         os.system("cls" if os.name == "nt" else "clear")
     else:
         print("\n" * 2)
+
+
+def refresh():
+    """Hard refresh the terminal with a tiny flash before redraw."""
+    clear()
+    print("\033[2J\033[H", end="")
+    time.sleep(0.015)
+    clear()
 
 
 def box_top():
