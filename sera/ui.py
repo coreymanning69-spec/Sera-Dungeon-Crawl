@@ -599,9 +599,9 @@ def render_title_screen() -> str:
     import random
     title_quotes = [
         '"I am a Goddess. Entertain me."',
-        '"Hiii. Here we are, now. Nice to meet you ^_^"',
+        '"Nothing in this cosmos is interesting. Prove me wrong."',
         '"I don\'t think there\'s anything at all that can stop me."',
-        '"Well, what do you think we should go fix first?"',
+        '"Fine. Let\'s see what you\'ve got."',
     ]
     lines.append(box_line(random.choice(title_quotes), "center"))
     lines.append(box_divider())
@@ -1290,27 +1290,6 @@ def render_interrupt(enemy_name: str, ability_name: str) -> str:
     return "\n".join(lines)
 
 
-def render_run_stats(stats_dict: dict) -> str:
-    """Render cumulative run statistics."""
-    lines = [
-        box_top(),
-        box_blank(),
-        box_line("░▒▓█ RUN STATISTICS █▓▒░", "center"),
-        box_blank(),
-        box_divider(),
-    ]
-    lines.append(box_line(f"  Total Damage Dealt:    {stats_dict.get('total_damage', 0)}"))
-    lines.append(box_line(f"  Best Overkill:         {stats_dict.get('best_overkill', 0)}"))
-    lines.append(box_line(f"  Weapons Found:         {stats_dict.get('weapons_found', 0)}"))
-    lines.append(box_line(f"  Materials Used:         {stats_dict.get('materials_used', 0)}"))
-    lines.append(box_line(f"  Floors Cleared:        {stats_dict.get('floors_cleared', 0)}"))
-    lines.append(box_line(f"  Current Patience:      {stats_dict.get('patience', '?')}"))
-    lines.append(box_blank())
-    lines.append(box_divider_pixel())
-    lines.append(box_bot())
-    return "\n".join(lines)
-
-
 def render_sim_summary(results: list[dict]) -> str:
     """Render a simulation summary table for all scenarios."""
     lines = [
@@ -1332,31 +1311,6 @@ def render_sim_summary(results: list[dict]) -> str:
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_line('Sera: "Not bad. Not GOOD, but not bad."', "center"))
-    lines.append(box_bot())
-    return "\n".join(lines)
-
-
-def render_sim_summary(results: list[dict]) -> str:
-    """Render a compact summary table for simulation scenarios."""
-    lines = [
-        box_top(),
-        box_blank(),
-        box_line("S I M U L A T I O N   R E S U L T S", "center"),
-        box_blank(),
-        box_divider(),
-    ]
-    for i, r in enumerate(results):
-        status = "GAME OVER" if r["game_over"] else "SURVIVED"
-        lines.append(box_line(f"  [{i+1}] {r['name']}"))
-        lines.append(box_line(
-            f"      {status}  |  Kills: {r['kills']}  "
-            f"|  Patience: {r['patience']}/{r['max_patience']}  "
-            f"|  Turns: {r['turns']}"
-        ))
-        lines.append(box_blank())
-    lines.append(box_divider())
-    lines.append(box_line("[#] View scenario details   [0] Back"))
-    lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
 
@@ -1435,27 +1389,273 @@ def render_post_game(stats: dict, won: bool) -> str:
     return "\n".join(lines)
 
 
-def render_between_floors(floor: int, interest: InterestManager) -> str:
-    lines = [
-        box_top(),
-        box_line(f"FLOOR {floor} COMPLETE", "center"),
-        box_divider(),
-        box_line(f"Patience: {patience_bar(interest)}"),
-        box_divider(),
-        box_line("[1] Continue to next floor"),
-        box_line("[2] Equip weapon"),
-        box_line("[3] Craft (apply material to weapon)"),
-        box_line("[4] View inventory"),
-        box_line("[5] View run stats"),
-        box_line("[6] Quit"),
-        box_blank(),
-        box_bot(),
-    ]
-    return "\n".join(lines)
-
-
 def get_input(prompt: str = "> ") -> str:
     try:
         return input(prompt).strip()
     except (EOFError, KeyboardInterrupt):
         return "quit"
+
+
+# ─────────────────────────────────────────────────────────
+# Pixel UI overlay system
+# ─────────────────────────────────────────────────────────
+
+
+@dataclass
+class Rect:
+    x: int
+    y: int
+    width: int
+    height: int
+
+    def contains(self, px: int, py: int) -> bool:
+        return self.x <= px < (self.x + self.width) and self.y <= py < (self.y + self.height)
+
+
+@dataclass
+class UIEvent:
+    event_type: str
+    x: int = 0
+    y: int = 0
+    key: str = ""
+
+
+@dataclass
+class EventResult:
+    consumed: bool = False
+
+
+class UIStateType(Enum):
+    VIEWPORT = "VIEWPORT"
+    OVERLAY = "OVERLAY"
+    MODAL = "MODAL"
+
+
+@dataclass
+class UIState:
+    state_type: UIStateType = UIStateType.VIEWPORT
+    open_overlay_id: str | None = None
+    modal_id: str | None = None
+    modal_previous_state: tuple[UIStateType, str | None] | None = None
+
+
+@dataclass
+class Overlay:
+    overlay_id: str
+    title: str
+    blocking_viewport: bool
+    interactive_hitboxes: list[Rect] = field(default_factory=list)
+    lines: list[str] = field(default_factory=list)
+
+    def is_blocking_viewport(self) -> bool:
+        return self.blocking_viewport
+
+    def handle_event(self, event: UIEvent) -> EventResult:
+        if self.blocking_viewport:
+            return EventResult(consumed=True)
+        if event.event_type != "click":
+            return EventResult(consumed=False)
+        consumed = any(rect.contains(event.x, event.y) for rect in self.interactive_hitboxes)
+        return EventResult(consumed=consumed)
+
+
+class UIRoot:
+    def __init__(
+        self,
+        overlays: dict[str, Overlay],
+        viewport_handler,
+        bottom_bar_hitboxes: dict[str, Rect],
+    ):
+        self.overlays = overlays
+        self.viewport_handler = viewport_handler
+        self.bottom_bar_hitboxes = bottom_bar_hitboxes
+        self.state = UIState()
+
+    def open_overlay(self, overlay_id: str):
+        if overlay_id not in self.overlays:
+            return
+        if self.state.state_type == UIStateType.MODAL:
+            return
+        if self.state.state_type == UIStateType.OVERLAY and self.state.open_overlay_id == overlay_id:
+            self.state = UIState(state_type=UIStateType.VIEWPORT)
+            return
+        self.state = UIState(state_type=UIStateType.OVERLAY, open_overlay_id=overlay_id)
+
+    def dismiss_active_overlay(self):
+        if self.state.state_type == UIStateType.OVERLAY:
+            self.state = UIState(state_type=UIStateType.VIEWPORT)
+
+    def is_viewport_suspended(self) -> bool:
+        if self.state.state_type == UIStateType.MODAL:
+            return True
+        if self.state.state_type == UIStateType.OVERLAY and self.state.open_overlay_id:
+            overlay = self.overlays[self.state.open_overlay_id]
+            return overlay.is_blocking_viewport()
+        return False
+
+    def _handle_esc(self):
+        if self.state.state_type == UIStateType.MODAL and self.state.modal_previous_state:
+            prev_type, prev_overlay = self.state.modal_previous_state
+            self.state = UIState(state_type=prev_type, open_overlay_id=prev_overlay)
+            return
+        if self.state.state_type == UIStateType.OVERLAY:
+            self.state = UIState(state_type=UIStateType.VIEWPORT)
+            return
+        self.open_overlay("system_menu")
+
+    def _dispatch_bottom_bar(self, event: UIEvent) -> EventResult:
+        if event.event_type != "click":
+            return EventResult(consumed=False)
+        for overlay_id, rect in self.bottom_bar_hitboxes.items():
+            if rect.contains(event.x, event.y):
+                self.open_overlay(overlay_id)
+                return EventResult(consumed=True)
+        return EventResult(consumed=False)
+
+    def dispatch_event(self, event: UIEvent) -> EventResult:
+        if event.event_type == "key" and event.key.lower() == "esc":
+            self._handle_esc()
+            return EventResult(consumed=True)
+
+        if self.state.state_type == UIStateType.MODAL:
+            return EventResult(consumed=True)
+
+        if self.state.state_type == UIStateType.OVERLAY and self.state.open_overlay_id:
+            overlay_result = self.overlays[self.state.open_overlay_id].handle_event(event)
+            if overlay_result.consumed:
+                return overlay_result
+
+        bar_result = self._dispatch_bottom_bar(event)
+        if bar_result.consumed:
+            return bar_result
+
+        return self.viewport_handler(event)
+
+
+def _default_viewport_handler(_event: UIEvent) -> EventResult:
+    return EventResult(consumed=True)
+
+
+def build_default_ui_root(viewport_handler=None) -> UIRoot:
+    status_overlay = Overlay(
+        overlay_id="status_screen",
+        title="STATUS",
+        blocking_viewport=False,
+        interactive_hitboxes=[Rect(8, 30, 56, 8)],
+        lines=[
+            "HP: ########## 999/999",
+            "Dmg Type: PHYSICAL | BLEED",
+            "Resist: FIRE 20% | ARCANE 40%",
+            "Statuses: Marked(2), Haste(1)",
+            "Run: Floor 3 | Kills 27 | Turns 44",
+            "",
+            "(Non-blocking: pass-through outside widgets)",
+        ],
+    )
+    loadout_overlay = Overlay(
+        overlay_id="loadout_screen",
+        title="LOADOUT",
+        blocking_viewport=False,
+        interactive_hitboxes=[Rect(8, 30, 56, 8)],
+        lines=[
+            "Weapon: Petty Rusty Shiv of Agony",
+            "Armor : Threaded Moonplate",
+            "Charm : Sunshard Loop",
+            "",
+            "[1] Equip  [2] Swap Set",
+            "",
+            "(Non-blocking: pass-through outside widgets)",
+        ],
+    )
+    log_overlay = Overlay(
+        overlay_id="log_screen",
+        title="LOG",
+        blocking_viewport=False,
+        interactive_hitboxes=[Rect(8, 30, 56, 8)],
+        lines=[
+            "> You hit Clanking Dreadknight for 12",
+            "> BLEED ticks for 3",
+            "> Dreadknight begins Oath of Honor",
+            "> Interrupted! +3 Patience",
+            "",
+            "[Chat] Sera: \"Adequate violence.\"",
+            "(Non-blocking: pass-through outside widgets)",
+        ],
+    )
+    system_overlay = Overlay(
+        overlay_id="system_menu",
+        title="SYSTEM",
+        blocking_viewport=True,
+        lines=[
+            "  > Save Run",
+            "  > Options",
+            "  > Return to Title",
+            "  > Exit",
+            "",
+            "(Blocking: combat suspended)",
+        ],
+    )
+
+    overlays = {
+        o.overlay_id: o
+        for o in [system_overlay, status_overlay, loadout_overlay, log_overlay]
+    }
+    bottom_bar_hitboxes = {
+        "system_menu": Rect(10, 20, 6, 2),
+        "status_screen": Rect(18, 20, 9, 2),
+        "loadout_screen": Rect(29, 20, 10, 2),
+        "log_screen": Rect(41, 20, 6, 2),
+    }
+    return UIRoot(
+        overlays=overlays,
+        viewport_handler=viewport_handler or _default_viewport_handler,
+        bottom_bar_hitboxes=bottom_bar_hitboxes,
+    )
+
+
+def _frame_line(text: str) -> str:
+    inner = 74
+    return "| " + text.ljust(inner) + " |"
+
+
+def render_pixel_interface_art(root: UIRoot) -> str:
+    active_id = root.state.open_overlay_id or "none"
+    lines = [
+        "+--------------------------------------------------------------------------+",
+        _frame_line("SERA PIXEL UI PREVIEW"),
+        _frame_line("========================================================================"),
+        _frame_line("Viewport: combat updates continuously unless blocked."),
+        _frame_line("Enemy: Clanking Dreadknight  HP [#####-----] 26/50"),
+        _frame_line('Sera: "Entertain me."'),
+    ]
+    for _ in range(12):
+        lines.append(_frame_line(""))
+    lines.append(_frame_line("------------------------------------------------------------------------"))
+    lines.append(_frame_line(f"BottomBar: [SYS] [STATUS] [LOADOUT] [LOG]      active={active_id}"))
+
+    if root.state.state_type == UIStateType.OVERLAY and root.state.open_overlay_id:
+        overlay = root.overlays[root.state.open_overlay_id]
+        lines.append(_frame_line("========================================================================"))
+        lines.append(_frame_line(f"[ {overlay.title} ]"))
+        for overlay_line in overlay.lines:
+            lines.append(_frame_line(overlay_line))
+
+    lines.append("+--------------------------------------------------------------------------+")
+    return "\n".join(lines)
+
+
+def export_pixel_ui_mockups(output_dir: str) -> list[str]:
+    os.makedirs(output_dir, exist_ok=True)
+    root = build_default_ui_root()
+    outputs = [("viewport.txt", render_pixel_interface_art(root))]
+    for overlay_id in ["system_menu", "status_screen", "loadout_screen", "log_screen"]:
+        root.open_overlay(overlay_id)
+        outputs.append((f"{overlay_id if overlay_id != 'system_menu' else 'system_menu'}.txt", render_pixel_interface_art(root)))
+
+    written: list[str] = []
+    for filename, content in outputs:
+        path = os.path.join(output_dir, filename)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content + "\n")
+        written.append(path)
+    return written
