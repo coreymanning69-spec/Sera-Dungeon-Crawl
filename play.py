@@ -20,7 +20,8 @@ from sera.interest import InterestManager
 from sera.status import StatusEffect
 from sera.crafting import CraftingMaterial, apply_material, upgrade_weapon
 from sera.loader import load_weapons, load_affixes, load_enemies, load_equipment_items
-from sera.encounters import generate_encounter, generate_loot_weapon, generate_loot_material, generate_loot_shards
+from sera.encounters import generate_encounter, generate_loot_material, generate_loot_shards
+from sera.loot_framework import WeaponPoolManager
 from sera import ui
 from sera.damage_scale import apply_damage_policy, DEFAULT_DAMAGE_POLICY
 from sera.stats import PlayerStats
@@ -156,6 +157,7 @@ class GameState:
         self.interest = InterestManager()
         self.floor = 0
         self.max_floors = 5
+        self.endless_floor_cap = 1000
         self.weapons: list[Weapon] = []
         self.materials: list[CraftingMaterial] = []
         self.upgrade_shards: int = 0
@@ -177,6 +179,8 @@ class GameState:
         self.rng: RunRNG = RunRNG(self.rng_seed)
         self.endless: EndlessProgress = EndlessProgress(seed=self.rng_seed)
         self.material_pool: list[CraftingMaterial] = []
+        self.weapon_pool_manager = WeaponPoolManager(self.all_weapons, self.all_affixes, self.rng)
+        self.last_player_action: str = "1"
 
     @property
     def equipped_weapon(self) -> Weapon:
@@ -463,10 +467,11 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         interest.turn_number += 1
         interest._kills_this_turn = 0
 
-        # Passive drain
-        interest._drain(interest.TICK_DRAIN, "Time passes.")
-        if interest.game_over:
-            return False
+        # Passive drain (starts after turn 1 so turn zero is free)
+        if combat_turn > 1:
+            interest._drain(interest.TICK_DRAIN, "Time passes.")
+            if interest.game_over:
+                return False
 
         # --- PLAYER TURN ---
         alive = [e for e in enemies if e.current_hp > 0]
@@ -478,25 +483,34 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
             print(f"  Sera: {sera_quip(LOW_PATIENCE_QUIPS)}")
         else:
             print(f'  Sera: "{interest._time_quip()}"')
-        print(f"  [-1 Patience] Time ticks.")
+        if combat_turn > 1:
+            print("  [-1 Patience] Time ticks.")
         print()
 
         # Get player action
         valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h", "a", "0"]
         action = None
+        last_action = getattr(state, "last_player_action", "1")
         while action is None:
-            choice = get_choice("  Your move > ", valid_actions)
+            raw_choice = ui.get_input("  Your move > ").lower().strip()
+            choice = last_action if raw_choice == "" else raw_choice
+            if choice not in valid_actions and choice not in ("quit", "q"):
+                print(f'  Invalid. Options: {", ".join(valid_actions)}')
+                continue
             if choice == "quit":
                 return False
             if choice == "0":
+                state.last_player_action = choice
                 _show_commands_menu(state, enemies)
                 ui.clear()
                 print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
                 continue
             if choice == "i":
+                state.last_player_action = choice
                 _do_inspect(alive, combat_turn, weapon, enemies, interest, state)
                 continue
             if choice == "w":
+                state.last_player_action = choice
                 ui.clear()
                 print(ui.render_weapon_detail(weapon))
                 pause()
@@ -504,6 +518,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
                 continue
             if choice == "h":
+                state.last_player_action = choice
                 _use_healing_flask(state)
                 if interest.game_over:
                     return False
@@ -512,6 +527,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
                 continue
             if choice == "a":
+                state.last_player_action = choice
                 turns_run = _run_auto_battle_burst(state, enemies, AUTO_BATTLE_TURNS)
                 combat_turn += max(0, turns_run - 1)
                 if interest.game_over:
@@ -522,6 +538,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 pause()
                 action = None
                 continue
+            state.last_player_action = choice
             action = int(choice) - 1
 
         target = alive[action]
@@ -960,7 +977,7 @@ def _use_healing_flask(state: GameState):
 
 def loot_phase(state: GameState):
     """Offer loot after clearing a room."""
-    weapon_drop = generate_loot_weapon(state.floor, state.all_weapons, state.all_affixes)
+    weapon_drop = state.weapon_pool_manager.generate_drop(state.floor)
     material_drop = generate_loot_material()
     shard_drop = generate_loot_shards(state.floor)
     equipment_drop = roll_item(random.choice(state.all_equipment)) if state.all_equipment and random.random() < 0.55 else None
@@ -1230,27 +1247,38 @@ def claim_revision_set(state: GameState):
 # ─────────────────────────────────────────────────────────
 
 def run_simulation():
-    """Run all scripted scenarios from main.py and show summary."""
-    from main import run_scenario_1, run_scenario_2, run_scenario_3, run_scenario_4
+    """Run a varied simulation using procedural encounters and loadout rolls."""
+    from sera.combat import resolve_combat
+
     ui.clear()
     print(ui.box_top())
     print(ui.box_line("░▒▓█ SIMULATION MODE █▓▒░", "center"))
-    print(ui.box_line('Sera: "Show me the math."', "center"))
+    print(ui.box_line('Sera: "No scripts. Run real waves."', "center"))
     print(ui.box_bot())
     print()
 
-    run_scenario_1()
-    print("\n" + "─" * 60)
-    run_scenario_2()
-    print("\n" + "─" * 60)
-    run_scenario_3()
-    print("\n" + "─" * 60)
-    run_scenario_4()
+    sim_state = GameState()
+    if not sim_state.weapons:
+        sim_state.weapons = [sim_state.weapon_pool_manager.generate_starting_weapon()]
+
+    for wave in range(1, 5):
+        sim_weapon = copy.deepcopy(sim_state.weapon_pool_manager.generate_drop(wave + 1))
+        encounter = generate_encounter(wave + 1, sim_state.all_enemies, rng=sim_state.rng)
+        interest = InterestManager(current_patience=80)
+        result = resolve_combat(sim_weapon, encounter, interest, max_turns=8)
+        print(ui.box_top())
+        print(ui.box_line(f"SIM WAVE {wave}", "center"))
+        print(ui.box_divider())
+        print(ui.box_line(f"Weapon: {sim_weapon.display_name}"))
+        print(ui.box_line(f"Kills: {result.enemies_killed} | Turns: {result.turns_taken}"))
+        print(ui.box_line(f"Patience: {result.patience_remaining}/{interest.max_patience}"))
+        print(ui.box_line(f"Outcome: {'GAME OVER' if result.game_over else 'CONTINUES'}"))
+        print(ui.box_bot())
 
     print()
     print(ui.box_top())
     print(ui.box_line("░▒▓█ SIMULATION COMPLETE █▓▒░", "center"))
-    print(ui.box_line('Sera: "Not bad. Not GOOD, but not bad."', "center"))
+    print(ui.box_line('Sera: "Acceptable variability."', "center"))
     print(ui.box_bot())
 
 
@@ -1284,19 +1312,17 @@ def run_new_game() -> str:
 
 
 def run_new_game_from_state(state: GameState) -> str:
-    start_floor = max(1, state.floor or 1)
-    for floor_num in range(start_floor, state.max_floors + 1):
+    floor_num = max(1, state.floor or 1)
+    while floor_num <= state.endless_floor_cap:
         state.floor = floor_num
 
-        enemies = generate_encounter(floor_num, state.all_enemies)
+        enemies = generate_encounter(floor_num, state.all_enemies, rng=state.rng)
 
-        # Floor intro
         ui.clear()
         print(ui.render_floor_intro(floor_num, enemies, state.interest))
         print(f"  Sera: {sera_quip(FLOOR_INTRO_QUIPS)}")
         pause()
 
-        # Combat
         survived = run_combat(state, enemies)
         if not survived:
             ui.clear()
@@ -1310,28 +1336,31 @@ def run_new_game_from_state(state: GameState) -> str:
         state.floors_cleared = floor_num
         save_to_file(SAVE_PATH, state)
 
-        # Loot
         loot_phase(state)
         state.healing_flasks = min(state.healing_flasks + 1, 3)
         state.next_revision_set = generate_revision_set(state.all_equipment, floor_num + 1)
         state.revision_set_claimed = False
         save_to_file(SAVE_PATH, state)
 
-        # Between floors (except after final)
-        if floor_num < state.max_floors:
-            if not between_floors(state):
-                print('  Sera: "Fine. I was getting bored anyway."')
+        if floor_num == state.max_floors:
+            ui.clear()
+            print(ui.render_victory(state.max_floors, state.interest))
+            print(ui.box_line("Run complete. [1] Continue Endless  [2] Title  [3] Quit", "center"))
+            print(ui.box_bot())
+            next_step = get_choice("> ", ["1", "2", "3"])
+            if next_step == "3":
+                return "quit"
+            if next_step == "2":
                 return "menu"
+            state.max_floors += 50
 
+        if not between_floors(state):
+            print('  Sera: "Fine. I was getting bored anyway."')
+            return "menu"
 
-    # Post-game screen with play again option
-    ui.clear()
-    print(ui.render_victory(state.max_floors, state.interest))
-    pause()
-    ui.clear()
-    print(ui.render_run_stats(state.run_stats.to_dict(state)))
-    pause()
-    return _show_closing_menu("░▒▓█ VICTORY LOGGED █▓▒░", 'Sera: "...Acceptable."')
+        floor_num += 1
+
+    return "menu"
 
 
 def main():

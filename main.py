@@ -2,7 +2,7 @@
 """
 SERA: ENDLESS ENGAGEMENT — Combat Simulation Demo
 
-Runs scripted combat scenarios showing the math engine in action.
+Runs combat scenarios showing the math engine in action.
 
 Scenario 1: "The Setup" — Petty Shiv vs Flickering Imps (multi-kill overkill)
 Scenario 2: "The Permission Problem" — Wrong weapon vs Ghost, then crafted fix
@@ -11,6 +11,7 @@ Scenario 4: "Elemental Counterplay" — Fire and Ice matchup tuning
 
 Each scenario function returns a dict with structured results for the UI,
 and can also be run standalone for verbose output.
+Revision 1.05 (2/20/26).
 """
 
 from __future__ import annotations
