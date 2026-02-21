@@ -30,6 +30,11 @@ from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_
 from sera.randomization import RunRNG, select_weapon_choices
 from sera.modes.endless import EndlessProgress
 from sera.save import save_to_file, load_from_file, DEFAULT_SAVE_PATH
+from sera.game_stats import (
+    load_game_stats,
+    merge_run_stats,
+    stamp_run_summary,
+)
 
 
 def _build_defense_profile(state: "GameState", stats: PlayerStats | None = None) -> tuple[int, int, dict[str, int]]:
@@ -109,6 +114,18 @@ ROOM_CLEAR_QUIPS = [
 AUTO_BATTLE_TURNS = 10
 SAVE_PATH = DEFAULT_SAVE_PATH
 AUTO_ADVANCE_ENEMY_PHASE = True
+
+
+def _record_persistent_run(state: "GameState", *, won: bool, wave_reached: int | None = None):
+    """Persist this run into game_stats.json."""
+    base_summary = state.run_stats.to_dict(state)
+    if wave_reached is not None:
+        base_summary["wave_reached"] = wave_reached
+    else:
+        base_summary["wave_reached"] = state.floor
+    run_summary = stamp_run_summary(base_summary, won=won, mode=state.mode, seed=state.rng_seed)
+    payload = load_game_stats()
+    merge_run_stats(payload, run_summary)
 
 
 def sera_quip(pool: list[str]) -> str:
@@ -216,16 +233,18 @@ def pause(msg: str = "  [Press Enter]"):
 # ─────────────────────────────────────────────────────────
 
 def title_screen() -> str:
-    """Returns 'new_game', 'continue', 'simulation', or 'quit'."""
+    """Returns 'new_game', 'continue', 'simulation', 'statistics', or 'quit'."""
     ui.clear()
     print(ui.render_title_screen())
-    valid = ["1", "2", "3"]
+    valid = ["1", "2", "3", "6"]
     if SAVE_PATH.exists():
         print("  ▸ [C] Continue from save")
         valid.append("c")
     choice = get_choice("> ", valid)
     if choice in ("quit", "3"):
         return "quit"
+    if choice == "6":
+        return "statistics"
     if choice == "2":
         return "simulation"
     if choice == "c":
@@ -1268,11 +1287,21 @@ def run_simulation():
     if not sim_state.weapons:
         sim_state.weapons = [sim_state.weapon_pool_manager.generate_starting_weapon()]
 
+    total_kills = 0
+    total_turns = 0
+    wave_reached = 0
+    survived_all = True
+
     for wave in range(1, 5):
         sim_weapon = copy.deepcopy(sim_state.weapon_pool_manager.generate_drop(wave + 1))
         encounter = generate_encounter(wave + 1, sim_state.all_enemies, rng=sim_state.rng)
         interest = InterestManager(current_patience=80)
         result = resolve_combat(sim_weapon, encounter, interest, max_turns=8)
+        total_kills += result.enemies_killed
+        total_turns += result.turns_taken
+        wave_reached = wave
+        if result.game_over:
+            survived_all = False
         print(ui.box_top())
         print(ui.box_line(f"SIM WAVE {wave}", "center"))
         print(ui.box_divider())
@@ -1281,12 +1310,31 @@ def run_simulation():
         print(ui.box_line(f"Patience: {result.patience_remaining}/{interest.max_patience}"))
         print(ui.box_line(f"Outcome: {'GAME OVER' if result.game_over else 'CONTINUES'}"))
         print(ui.box_bot())
+        if result.game_over:
+            break
 
     print()
     print(ui.box_top())
     print(ui.box_line("░▒▓█ SIMULATION COMPLETE █▓▒░", "center"))
     print(ui.box_line('Sera: "Acceptable variability."', "center"))
     print(ui.box_bot())
+
+    return {
+        "floors_cleared": wave_reached,
+        "wave_reached": wave_reached,
+        "total_kills": total_kills,
+        "total_turns": total_turns,
+        "total_damage": 0,
+        "best_overkill": 0,
+        "weapons_found": 0,
+        "materials_used": 0,
+        "patience": 80,
+        "max_patience": 80,
+        "weapon_name": "Simulation Loadout",
+        "won": survived_all,
+        "mode": "simulation",
+        "seed": sim_state.rng_seed,
+    }
 
 
 def _show_closing_menu(title: str, quote: str) -> str:
@@ -1339,6 +1387,7 @@ def run_new_game_from_state(state: GameState) -> str:
             ui.clear()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
+            _record_persistent_run(state, won=False)
             return _show_closing_menu("░▒▓█ RUN OVER █▓▒░", 'Sera: "You can do better. Try again."')
 
         state.floors_cleared = floor_num
@@ -1357,13 +1406,16 @@ def run_new_game_from_state(state: GameState) -> str:
             print(ui.box_bot())
             next_step = get_choice("> ", ["1", "2", "3"])
             if next_step == "3":
+                _record_persistent_run(state, won=True)
                 return "quit"
             if next_step == "2":
+                _record_persistent_run(state, won=True)
                 return "menu"
             state.max_floors += 50
 
         if not between_floors(state):
             print('  Sera: "Fine. I was getting bored anyway."')
+            _record_persistent_run(state, won=False)
             return "menu"
 
         floor_num += 1
@@ -1381,9 +1433,17 @@ def main():
         if choice == "quit":
             print("  Sera didn't even show up.")
             return
+        if choice == "statistics":
+            payload = load_game_stats()
+            ui.clear()
+            print(ui.render_game_statistics(payload.get("last_run"), payload.get("overall", {})))
+            pause()
+            continue
         if choice == "simulation":
             while True:
-                run_simulation()
+                sim_summary = run_simulation()
+                sim_summary = stamp_run_summary(sim_summary, won=sim_summary.get("won", False), mode="simulation", seed=sim_summary.get("seed", 0))
+                merge_run_stats(load_game_stats(), sim_summary)
                 next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."')
                 if next_step == "restart":
                     continue

@@ -608,6 +608,7 @@ def render_title_screen() -> str:
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
     lines.append(box_line("  ▸ [2] Simulation Mode"))
+    lines.append(box_line("  ▸ [6] Game Statistics"))
     lines.append(box_line("  ▸ [3] Quit"))
     lines.append(box_line("  Revision 1.05a (Audited)", "center"))
     lines.append(box_blank())
@@ -1351,6 +1352,45 @@ def render_run_stats(stats: dict) -> str:
         lines.append(box_line(f"  Final weapon:       {stats['weapon_name']}"))
     lines.append(box_blank())
     lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_game_statistics(last_run: dict | None, overall: dict) -> str:
+    """Render persistent game statistics from disk."""
+    lines = [
+        box_top(),
+        box_line("G A M E   S T A T I S T I C S", "center"),
+        box_divider(),
+        box_line(f"  Total runs:         {overall.get('total_runs', 0)}"),
+        box_line(f"  Wins / Losses:      {overall.get('wins', 0)} / {overall.get('losses', 0)}"),
+        box_line(f"  Total kills:        {overall.get('total_kills', 0)}"),
+        box_line(f"  Total turns:        {overall.get('total_turns', 0)}"),
+        box_line(f"  Cumulative damage:  {overall.get('total_damage', 0)}"),
+        box_line(f"  Best floor:         {overall.get('best_floor', 0)}"),
+        box_line(f"  Best wave:          {overall.get('best_wave', 0)}"),
+        box_line(f"  Best overkill:      {overall.get('best_overkill', 0)}"),
+        box_divider(),
+    ]
+
+    if last_run:
+        lines.extend([
+            box_line("  Last run snapshot:"),
+            box_line(f"    Mode:             {last_run.get('mode', 'unknown')}"),
+            box_line(f"    Floors/Wave:      {last_run.get('floors_cleared', 0)} / {last_run.get('wave_reached', 0)}"),
+            box_line(f"    Kills/Turns:      {last_run.get('total_kills', 0)} / {last_run.get('total_turns', 0)}"),
+            box_line(f"    Damage:           {last_run.get('total_damage', 0)}"),
+            box_line(f"    Result:           {'WIN' if last_run.get('won') else 'LOSS'}"),
+        ])
+        if last_run.get("timestamp_utc"):
+            lines.append(box_line(f"    Timestamp:        {last_run.get('timestamp_utc')}"))
+    else:
+        lines.append(box_line("  Last run snapshot: none"))
+
+    lines.extend([
+        box_blank(),
+        box_line('[Enter] Back to title', "center"),
+        box_bot(),
+    ])
     return "\n".join(lines)
 
 
