@@ -170,6 +170,66 @@
       "base_damage": 2,
       "tags": ["ICE", "ETHEREAL"],
       "flavor": "It returns. Unlike your dignity."
+    },
+    {
+      "name": "Godsthorn Needle",
+      "base_damage": 1,
+      "tags": ["DIVINE", "PHYSICAL"],
+      "flavor": "Thin as intent. Carries divine weight. You don't touch what belongs to God."
+    },
+    {
+      "name": "Obsidian Cleaver",
+      "base_damage": 3,
+      "tags": ["HEAVY", "BLEED"],
+      "flavor": "Acts on intent, not action. Makes them bleed and wonder why they stood there."
+    },
+    {
+      "name": "Runebrand Whip",
+      "base_damage": 2,
+      "tags": ["ARCANE", "BLEED"],
+      "flavor": "Inscribed with seventeen curses. I wrote fourteen of them on a slow afternoon."
+    },
+    {
+      "name": "Ashen Crossbow",
+      "base_damage": 2,
+      "tags": ["FIRE", "PHYSICAL"],
+      "flavor": "Shoots bolts that arrive already burning. Everything is better on fire."
+    },
+    {
+      "name": "Void Crystal",
+      "base_damage": 2,
+      "tags": ["ETHEREAL", "ARCANE"],
+      "flavor": "It hums before it hurts. Whatever it is, it isn't from here."
+    },
+    {
+      "name": "Bile Flask",
+      "base_damage": 1,
+      "tags": ["CORROSIVE", "PHYSICAL"],
+      "flavor": "Disgusting. Effective. I could dissolve ambitions with this. And faces."
+    },
+    {
+      "name": "Silver Moonshard",
+      "base_damage": 2,
+      "tags": ["SILVER", "ETHEREAL"],
+      "flavor": "Cannot be moved without consent. Cuts what shouldn't be cuttable."
+    },
+    {
+      "name": "Siren's Harp",
+      "base_damage": 2,
+      "tags": ["SONIC", "ARCANE"],
+      "flavor": "Plays a note that makes lesser beings reconsider their life choices. Immediately."
+    },
+    {
+      "name": "Frozen Greatclub",
+      "base_damage": 3,
+      "tags": ["ICE", "HEAVY"],
+      "flavor": "A slab of permafrost on a handle. Subtle as a glacier. Effective as contempt."
+    },
+    {
+      "name": "Judgment Gauntlet",
+      "base_damage": 2,
+      "tags": ["DIVINE", "HEAVY"],
+      "flavor": "Acts on intent, not action. I decide if the hit lands. It always does."
     }
   ]
 }

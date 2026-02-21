@@ -353,6 +353,336 @@
           "flavor": "They gnaw. Collectively. Sera is offended by the logistics."
         }
       ]
+    },
+    {
+      "name": "Vain Paladin",
+      "archetype": "elite",
+      "max_hp": 28,
+      "vulnerability": "REQUIRES_CORROSIVE",
+      "armor": 4,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "All that holy armor and still nothing to say worth hearing.",
+      "abilities": [
+        {
+          "name": "Oath of the Fallen",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 6,
+          "charge_time": 3,
+          "flavor": "It recites vows nobody asked for. Three. Whole. Turns.",
+          "attack_type": "divine"
+        },
+        {
+          "name": "Shield Wall",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "Bashes with a shield. Points for ambition.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Holy Strike",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "A blessed punch. Blessed by whom? Not me.",
+          "attack_type": "divine"
+        }
+      ]
+    },
+    {
+      "name": "Withered Vampyr",
+      "archetype": "boss",
+      "max_hp": 42,
+      "vulnerability": "REQUIRES_SILVER",
+      "armor": 1,
+      "regen_per_turn": 4,
+      "dodge_chance": 0.1,
+      "flavor": "You built a whole kingdom out of not letting go. Sad.",
+      "abilities": [
+        {
+          "name": "Blood Drain",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 2,
+          "charge_time": 0,
+          "flavor": "It drinks. If she doesn't choose you, you don't get her.",
+          "attack_type": "decay"
+        },
+        {
+          "name": "Thrall Summon",
+          "annoyance": "SUMMON",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "Has anyone asked these thralls what they want?",
+          "attack_type": "darkness"
+        },
+        {
+          "name": "Eternal Monologue",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 7,
+          "charge_time": 3,
+          "flavor": "It explains its centuries of loneliness. You're not scary. You're lonely.",
+          "attack_type": "arcane"
+        },
+        {
+          "name": "Talons",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "Rakes with ancient claws. Elder abuse, frankly.",
+          "attack_type": "physical"
+        }
+      ]
+    },
+    {
+      "name": "Screaming Specter",
+      "archetype": "trash",
+      "max_hp": 9,
+      "vulnerability": "REQUIRES_ETHEREAL",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.3,
+      "flavor": "Mostly noise. 30% not being where I swing. Both are annoying.",
+      "abilities": [
+        {
+          "name": "Phase Slip",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 2,
+          "charge_time": 0,
+          "flavor": "It phases out. Stand still, you translucent nuisance.",
+          "attack_type": "generic"
+        },
+        {
+          "name": "Wail",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "A scream aimed at Sera. She's heard better from furniture.",
+          "attack_type": "sonic"
+        }
+      ]
+    },
+    {
+      "name": "Iron Troll",
+      "archetype": "boss",
+      "max_hp": 48,
+      "vulnerability": "REQUIRES_FIRE",
+      "armor": 3,
+      "regen_per_turn": 6,
+      "dodge_chance": 0.0,
+      "flavor": "It regenerates. Sera finds this personally offensive.",
+      "abilities": [
+        {
+          "name": "Club Slam",
+          "annoyance": "STUN",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "Slow. Deliberate. Infuriating. Like its entire existence.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Regenerate",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 1,
+          "charge_time": 0,
+          "flavor": "Wounds close. Patience doesn't.",
+          "attack_type": "decay"
+        },
+        {
+          "name": "Swipe",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "A lazy backhand. Predictable. Tedious.",
+          "attack_type": "physical"
+        }
+      ]
+    },
+    {
+      "name": "Barrow Witch",
+      "archetype": "elite",
+      "max_hp": 22,
+      "vulnerability": "REQUIRES_FIRE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "elemental_weaknesses": ["FIRE"],
+      "elemental_resistances": ["ARCANE"],
+      "flavor": "Has asked zero interesting questions and cursed twice already.",
+      "abilities": [
+        {
+          "name": "Grave Curse",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 5,
+          "charge_time": 3,
+          "flavor": "Three turns of incantation. For this.",
+          "attack_type": "darkness"
+        },
+        {
+          "name": "Bone Swarm",
+          "annoyance": "SUMMON",
+          "cooldown": 2,
+          "charge_time": 0,
+          "flavor": "Calls dead things. The dead should stay quiet.",
+          "attack_type": "decay"
+        },
+        {
+          "name": "Hex Bolt",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "Slings a curse. On a Goddess. Read the room.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Void Stalker",
+      "archetype": "elite",
+      "max_hp": 26,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.2,
+      "elemental_resistances": ["PHYSICAL"],
+      "flavor": "It steps between moments. Rude and without warning.",
+      "abilities": [
+        {
+          "name": "Null Strike",
+          "annoyance": "STUN",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "Hits from a direction that shouldn't exist. Don't make me wait.",
+          "attack_type": "arcane"
+        },
+        {
+          "name": "Blink Dodge",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 2,
+          "charge_time": 0,
+          "flavor": "She doesn't teleport. She arrives. This thing does the cheap version.",
+          "attack_type": "generic"
+        },
+        {
+          "name": "Void Claw",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "Scratches at the fabric of reality. And at Sera.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Rusted Automaton",
+      "archetype": "trash",
+      "max_hp": 12,
+      "vulnerability": "REQUIRES_CORROSIVE",
+      "armor": 2,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Somebody built this and then forgot about it. Same.",
+      "abilities": [
+        {
+          "name": "Piston Punch",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "Mechanical. Predictable. Offensively average.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Steam Vent",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "Vents scalding steam. Functional, technically.",
+          "attack_type": "fire"
+        }
+      ]
+    },
+    {
+      "name": "Gilded Revenant",
+      "archetype": "elite",
+      "max_hp": 30,
+      "vulnerability": "REQUIRES_DIVINE",
+      "armor": 2,
+      "regen_per_turn": 2,
+      "dodge_chance": 0.0,
+      "elemental_resistances": ["PHYSICAL"],
+      "flavor": "Dead but rich about it. Wears gold like a personality.",
+      "abilities": [
+        {
+          "name": "Cursed Riches",
+          "annoyance": "SUMMON",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "Flings cursed coins. Adds insult to insult.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Death Lament",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 5,
+          "charge_time": 3,
+          "flavor": "Laments its former glory. Nobody cares.",
+          "attack_type": "arcane"
+        },
+        {
+          "name": "Spectral Grasp",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "Cold, grasping hands. Like a bad investment.",
+          "attack_type": "decay"
+        }
+      ]
+    },
+    {
+      "name": "Mirrorborn Doppelganger",
+      "archetype": "boss",
+      "max_hp": 40,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.15,
+      "elemental_weaknesses": ["DIVINE"],
+      "elemental_resistances": ["ARCANE", "PHYSICAL"],
+      "flavor": "Wears Sera's face. She is not amused. She is, in fact, deeply annoyed.",
+      "abilities": [
+        {
+          "name": "Mirror Monologue",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 6,
+          "charge_time": 3,
+          "flavor": "Recites Sera's own words back at her. Wrong. And wrong.",
+          "attack_type": "arcane"
+        },
+        {
+          "name": "Counterfeit Strike",
+          "annoyance": "STUN",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "Mimics Sera's fighting style. Poorly. Embarrassingly.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Echo Summon",
+          "annoyance": "SUMMON",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "Summons reflections of itself. Copies of a copy. How depressing.",
+          "attack_type": "arcane"
+        },
+        {
+          "name": "False Strike",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "A pale imitation of something worth hitting.",
+          "attack_type": "physical"
+        }
+      ]
     }
   ]
 }
