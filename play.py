@@ -111,7 +111,7 @@ ROOM_CLEAR_QUIPS = [
     '"Is that all?"',
 ]
 
-AUTO_BATTLE_TURNS = 10
+DEFAULT_AUTO_BATTLE_TURNS = 10
 SAVE_PATH = DEFAULT_SAVE_PATH
 AUTO_ADVANCE_ENEMY_PHASE = True
 
@@ -200,6 +200,8 @@ class GameState:
         self.material_pool: list[CraftingMaterial] = []
         self.weapon_pool_manager = WeaponPoolManager(self.all_weapons, self.all_affixes, self.rng)
         self.last_player_action: str = "1"
+        self.auto_battle_enabled: bool = False
+        self.auto_battle_turns: int = DEFAULT_AUTO_BATTLE_TURNS
 
     @property
     def equipped_weapon(self) -> Weapon:
@@ -216,12 +218,16 @@ class GameState:
 
 def get_choice(prompt: str = "> ", valid: list[str] | None = None) -> str:
     while True:
-        choice = ui.get_input(prompt).lower()
-        if choice in ("quit", "q"):
+        choice = ui.get_input(prompt).lower().strip()
+        if is_quit_token(choice):
             return "quit"
         if valid is None or choice in valid:
             return choice
         print(f'  Invalid. Options: {", ".join(valid)}')
+
+
+def is_quit_token(text: str) -> bool:
+    return text in {"q", "quit", "exit", "escape"}
 
 
 def pause(msg: str = "  [Press Enter]"):
@@ -236,12 +242,12 @@ def title_screen() -> str:
     """Returns 'new_game', 'continue', 'simulation', 'statistics', or 'quit'."""
     ui.clear()
     print(ui.render_title_screen())
-    valid = ["1", "2", "3", "6"]
+    valid = ["1", "2", "3", "7"]
     if SAVE_PATH.exists():
         print("  ▸ [C] Continue from save")
         valid.append("c")
     choice = get_choice("> ", valid)
-    if choice in ("quit", "3"):
+    if choice in ("quit", "3", "7"):
         return "quit"
     if choice == "6":
         return "statistics"
@@ -250,6 +256,37 @@ def title_screen() -> str:
     if choice == "c":
         return "continue"
     return "new_game"
+
+
+# ─────────────────────────────────────────────────────────
+# Pre-run options
+# ─────────────────────────────────────────────────────────
+
+def pre_run_options_screen(state: GameState) -> str:
+    """Returns 'continue', 'skip', or 'menu'."""
+    while True:
+        ui.clear()
+        print(ui.render_pre_run_options(state.auto_battle_enabled, state.auto_battle_turns))
+        choice = get_choice("> ", ["1", "2", "3", "t", "b"])
+
+        if choice in ("quit", "3"):
+            return "menu"
+        if choice == "1":
+            return "continue"
+        if choice == "2":
+            return "skip"
+        if choice == "t":
+            state.auto_battle_enabled = not state.auto_battle_enabled
+            continue
+        if choice == "b":
+            value = ui.get_input("  Burst length [1-30] > ").strip()
+            try:
+                turns = int(value)
+            except ValueError:
+                print("  Invalid burst length.")
+                pause()
+                continue
+            state.auto_battle_turns = max(1, min(30, turns))
 
 
 # ─────────────────────────────────────────────────────────
@@ -472,7 +509,6 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
     Returns True if Sera survived, False if game over.
     """
     interest = state.interest
-    weapon = state.equipped_weapon
     combat_turn = 0
 
     while True:
@@ -496,8 +532,9 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- PLAYER TURN ---
         alive = [e for e in enemies if e.current_hp > 0]
+        weapon = state.equipped_weapon
         ui.clear()
-        print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+        print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
 
         # Patience-based commentary
         if interest.current_patience <= 20:
@@ -509,39 +546,48 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         print()
 
         # Get player action
-        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "h", "a", "0"]
+        valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "e", "h", "a", "0"]
         action = None
         last_action = getattr(state, "last_player_action", "1")
         while action is None:
             raw_choice = ui.get_input("  Your move > ").lower().strip()
-            choice = last_action if raw_choice == "" else raw_choice
+            if raw_choice == "" and state.auto_battle_enabled:
+                choice = "a"
+            else:
+                choice = last_action if raw_choice == "" else raw_choice
 
             # Fallback if the last action is no longer valid (e.g. target died)
-            if choice not in valid_actions and choice not in ("quit", "q"):
+            if choice not in valid_actions and not is_quit_token(choice):
                 if raw_choice == "" and "1" in valid_actions:
                     choice = "1"
                 else:
                     print(f'  Invalid. Options: {", ".join(valid_actions)}')
                     continue
-            if choice in ("quit", "q"):
+            if is_quit_token(choice):
                 return False
             if choice == "0":
                 state.last_player_action = choice
                 _show_commands_menu(state, enemies)
                 ui.clear()
-                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                 continue
             if choice == "i":
                 state.last_player_action = choice
-                _do_inspect(alive, combat_turn, weapon, enemies, interest, state)
+                _do_inspect(alive, combat_turn, enemies, interest, state)
                 continue
             if choice == "w":
                 state.last_player_action = choice
                 ui.clear()
-                print(ui.render_weapon_detail(weapon))
+                print(ui.render_weapon_detail(state.equipped_weapon))
                 pause()
                 ui.clear()
-                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                continue
+            if choice == "e":
+                state.last_player_action = choice
+                equip_screen(state)
+                ui.clear()
+                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                 continue
             if choice == "h":
                 state.last_player_action = choice
@@ -550,11 +596,11 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     return False
                 pause()
                 ui.clear()
-                print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+                print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                 continue
             if choice == "a":
                 state.last_player_action = choice
-                turns_run = _run_auto_battle_burst(state, enemies, AUTO_BATTLE_TURNS)
+                turns_run = _run_auto_battle_burst(state, enemies, state.auto_battle_turns)
                 combat_turn += max(0, turns_run - 1)
                 if interest.game_over:
                     return False
@@ -571,7 +617,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
         # --- RESOLVE ATTACK ---
         print()
-        _resolve_player_attack(state, weapon, target, interest, state.final_stats, state.run_stats)
+        _resolve_player_attack(state, state.equipped_weapon, target, interest, state.final_stats, state.run_stats)
         pause()
 
         if interest.game_over:
@@ -671,7 +717,7 @@ def _show_room_clear(interest: InterestManager):
     pause()
 
 
-def _do_inspect(alive, combat_turn, weapon, enemies, interest, state):
+def _do_inspect(alive, combat_turn, enemies, interest, state):
     if len(alive) == 1:
         inspect_idx = 0
     else:
@@ -684,7 +730,7 @@ def _do_inspect(alive, combat_turn, weapon, enemies, interest, state):
     print(ui.render_inspect(alive[inspect_idx]))
     pause()
     ui.clear()
-    print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks))
+    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
 
 
 def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats, run_stats: RunStats | None = None):
@@ -781,7 +827,6 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
 def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: int) -> int:
     """Run a quick auto-battle burst and print a compact turn-by-turn summary."""
     interest = state.interest
-    weapon = state.equipped_weapon
     stats = state.final_stats
     turns_run = 0
 
@@ -814,6 +859,7 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
         turn_damage = 0
         turn_kills = 0
 
+        weapon = state.equipped_weapon
         target = alive[0]
         damage, _steps = weapon.calculate_damage(target)
         damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
@@ -1350,8 +1396,8 @@ def _show_closing_menu(title: str, quote: str) -> str:
     print(ui.box_line("[3] Quit", "center"))
     print(ui.box_bot())
 
-    choice = get_choice("> ", ["1", "2", "3"])
-    if choice in ("quit", "3"):
+    choice = get_choice("> ", ["1", "2", "3", "7"])
+    if choice in ("quit", "3", "7"):
         return "quit"
     if choice == "1":
         return "restart"
@@ -1361,6 +1407,10 @@ def _show_closing_menu(title: str, quote: str) -> str:
 def run_new_game(seed: int | None = None) -> str:
     state = GameState(seed=seed)
     print(f"  Run seed: {state.rng_seed}")
+
+    options_result = pre_run_options_screen(state)
+    if options_result == "menu":
+        return "menu"
 
     if not choose_starting_weapon(state):
         return "menu"
@@ -1404,9 +1454,8 @@ def run_new_game_from_state(state: GameState) -> str:
             print(ui.render_victory(state.max_floors, state.interest))
             print(ui.box_line("Run complete. [1] Continue Endless  [2] Title  [3] Quit", "center"))
             print(ui.box_bot())
-            next_step = get_choice("> ", ["1", "2", "3"])
-            if next_step == "3":
-                _record_persistent_run(state, won=True)
+            next_step = get_choice("> ", ["1", "2", "3", "7"])
+            if next_step in ("3", "7", "quit"):
                 return "quit"
             if next_step == "2":
                 _record_persistent_run(state, won=True)

@@ -617,6 +617,29 @@ def render_title_screen() -> str:
     return "\n".join(lines)
 
 
+def render_pre_run_options(auto_battle_enabled: bool, auto_battle_turns: int) -> str:
+    auto_state = "ON" if auto_battle_enabled else "OFF"
+    lines = [
+        box_top(),
+        box_blank(),
+        box_line("░▒▓█ PRE-RUN OPTIONS █▓▒░", "center"),
+        box_blank(),
+        box_divider(),
+        box_line("  Set defaults before choosing your starting weapon."),
+        box_divider_thin(),
+        box_line(f"  ▸ [T] Auto-battle default: {auto_state}"),
+        box_line(f"  ▸ [B] Burst length: {auto_battle_turns} turns"),
+        box_divider(),
+        box_line("  ▸ [1] Continue"),
+        box_line("  ▸ [2] Skip and keep defaults"),
+        box_line("  ▸ [3] Back to title"),
+        box_line("  Keys: [T][B][1][2][3]", "center"),
+        box_blank(),
+        box_bot(),
+    ]
+    return "\n".join(lines)
+
+
 def render_floor_intro(floor: int, enemies: list[Enemy], interest: InterestManager) -> str:
     floor_label = f"░▒▓█  FLOOR {floor}  █▓▒░"
     lines = [
@@ -671,6 +694,7 @@ def render_combat_hud(
     interest: InterestManager,
     stats: PlayerStats,
     healing_charges: int,
+    auto_battle_turns: int,
 ) -> str:
     tag_str = ", ".join(t.name for t in weapon.all_tags)
     turn_label = f"╍╍╍ TURN {turn} ╍╍╍"
@@ -715,10 +739,11 @@ def render_combat_hud(
         lines.append(box_line(f"  ▸ [{i+1}] Attack {e.name}"))
     lines.append(box_line("  ▸ [I] Inspect enemy"))
     lines.append(box_line("  ▸ [W] View weapon details"))
+    lines.append(box_line("  ▸ [E] Equip weapon"))
     lines.append(box_line("  ▸ [H] Use healing flask"))
-    lines.append(box_line("  ▸ [A] Auto-battle (Up to 10 turns)"))
+    lines.append(box_line(f"  ▸ [A] Auto-battle (Up to {auto_battle_turns} turns)"))
     lines.append(box_line(f"  ▸ [0] Commands menu (cheat/debug)"))
-    lines.append(box_line("  Keys: [1][I][W][H][A][0]  (Enter repeats last action)", "center"))
+    lines.append(box_line("  Keys: [1][I][W][E][H][A][0]  (Enter repeats last action)", "center"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
