@@ -1367,6 +1367,72 @@ def render_sim_detail(result: dict) -> str:
     return "\n".join(lines)
 
 
+def render_simulation_setup(
+    base_weapon: Weapon,
+    prefix: object | None,
+    suffix: object | None,
+    random_mode: bool,
+) -> str:
+    """Render the simulator loadout configuration screen."""
+    prefix_name = prefix.name if prefix else "None"
+    suffix_name = suffix.name if suffix else "None"
+    mode_label = "Randomized waves" if random_mode else "Deterministic loadout"
+    lines = [
+        box_top(),
+        box_line("░▒▓█ SIMULATION SETUP █▓▒░", "center"),
+        box_divider(),
+        box_line(f"  Mode: {mode_label}"),
+        box_line(f"  Base Weapon: {base_weapon.name} ({base_weapon.base_damage} dmg)"),
+        box_line(f"  Prefix: {prefix_name}"),
+        box_line(f"  Suffix: {suffix_name}"),
+        box_divider(),
+        box_line("  [1] Toggle random mode"),
+        box_line("  [2] Select base weapon"),
+        box_line("  [3] Select prefix"),
+        box_line("  [4] Select suffix"),
+        box_line("  [5] Run simulation"),
+        box_line("  [0] Back"),
+        box_divider_pixel(),
+        box_line('  Sera: "Pick faster. I can wait, but I will hate it."'),
+        box_bot(),
+    ]
+    return "\n".join(lines)
+
+
+def render_simulation_results(results: list[object], selected_index: int | None = None) -> str:
+    """Render simulation history and optional per-wave details."""
+    lines = [
+        box_top(),
+        box_line("░▒▓█ SIMULATION RESULTS █▓▒░", "center"),
+        box_divider(),
+        box_line(f"  {'#':<3} {'Mode':<14} {'Kills':<6} {'Turns':<6} {'Damage':<7} {'Death'}"),
+        box_divider_thin(),
+    ]
+    for idx, result in enumerate(results, 1):
+        death = result.death_wave if result.death_wave is not None else "-"
+        lines.append(box_line(
+            f"  {idx:<3} {result.mode_label:<14} {result.total_kills:<6} "
+            f"{result.total_turns:<6} {result.total_damage:<7} {death}"
+        ))
+
+    if selected_index is not None and 0 <= selected_index < len(results):
+        run = results[selected_index]
+        lines.append(box_divider())
+        lines.append(box_line(f"  RUN {selected_index + 1} WAVE BREAKDOWN"))
+        lines.append(box_divider_thin())
+        for wave in run.waves:
+            outcome = "GAME OVER" if wave.game_over else "OK"
+            lines.append(box_line(
+                f"  W{wave.wave}: T{wave.turns} K{wave.kills} P{wave.patience:<3} "
+                f"D{wave.damage:<3} {outcome}"
+            ))
+            lines.append(box_line(f"      {wave.weapon_name}"))
+    lines.append(box_divider_pixel())
+    lines.append(box_line("  Select a run number to inspect details."))
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
 def render_run_stats(stats: dict) -> str:
     """Render end-of-run or mid-run statistics."""
     lines = [
