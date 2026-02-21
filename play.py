@@ -199,12 +199,16 @@ class GameState:
 
 def get_choice(prompt: str = "> ", valid: list[str] | None = None) -> str:
     while True:
-        choice = ui.get_input(prompt).lower()
-        if choice in ("quit", "q"):
+        choice = ui.get_input(prompt).lower().strip()
+        if is_quit_token(choice):
             return "quit"
         if valid is None or choice in valid:
             return choice
         print(f'  Invalid. Options: {", ".join(valid)}')
+
+
+def is_quit_token(text: str) -> bool:
+    return text in {"q", "quit", "exit", "escape"}
 
 
 def pause(msg: str = "  [Press Enter]"):
@@ -219,12 +223,12 @@ def title_screen() -> str:
     """Returns 'new_game', 'continue', 'simulation', or 'quit'."""
     ui.clear()
     print(ui.render_title_screen())
-    valid = ["1", "2", "3"]
+    valid = ["1", "2", "3", "7"]
     if SAVE_PATH.exists():
         print("  ▸ [C] Continue from save")
         valid.append("c")
     choice = get_choice("> ", valid)
-    if choice in ("quit", "3"):
+    if choice in ("quit", "3", "7"):
         return "quit"
     if choice == "2":
         return "simulation"
@@ -498,13 +502,13 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
             choice = last_action if raw_choice == "" else raw_choice
 
             # Fallback if the last action is no longer valid (e.g. target died)
-            if choice not in valid_actions and choice not in ("quit", "q"):
+            if choice not in valid_actions and not is_quit_token(choice):
                 if raw_choice == "" and "1" in valid_actions:
                     choice = "1"
                 else:
                     print(f'  Invalid. Options: {", ".join(valid_actions)}')
                     continue
-            if choice in ("quit", "q"):
+            if is_quit_token(choice):
                 return False
             if choice == "0":
                 state.last_player_action = choice
@@ -1302,8 +1306,8 @@ def _show_closing_menu(title: str, quote: str) -> str:
     print(ui.box_line("[3] Quit", "center"))
     print(ui.box_bot())
 
-    choice = get_choice("> ", ["1", "2", "3"])
-    if choice in ("quit", "3"):
+    choice = get_choice("> ", ["1", "2", "3", "7"])
+    if choice in ("quit", "3", "7"):
         return "quit"
     if choice == "1":
         return "restart"
@@ -1355,8 +1359,8 @@ def run_new_game_from_state(state: GameState) -> str:
             print(ui.render_victory(state.max_floors, state.interest))
             print(ui.box_line("Run complete. [1] Continue Endless  [2] Title  [3] Quit", "center"))
             print(ui.box_bot())
-            next_step = get_choice("> ", ["1", "2", "3"])
-            if next_step == "3":
+            next_step = get_choice("> ", ["1", "2", "3", "7"])
+            if next_step in ("3", "7", "quit"):
                 return "quit"
             if next_step == "2":
                 return "menu"
