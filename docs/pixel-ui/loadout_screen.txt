@@ -1,31 +1,30 @@
 +--------------------------------------------------------------------------+
-| SERA PIXEL UI PREVIEW                                                    |
-| ======================================================================== |
-| Viewport: combat updates continuously unless blocked.                    |
-| Enemy: Clanking Dreadknight  HP [#####-----] 26/50                       |
-| Sera: "Entertain me."                                                    |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-| ------------------------------------------------------------------------ |
-| BottomBar: [SYS] [STATUS] [LOADOUT] [LOG]      active=loadout_screen     |
-| ======================================================================== |
-| [ LOADOUT ]                                                              |
-| Weapon: Petty Rusty Shiv of Agony                                        |
-| Armor : Threaded Moonplate                                               |
-| Charm : Sunshard Loop                                                    |
-|                                                                          |
-| [1] Equip  [2] Swap Set                                                  |
-|                                                                          |
-| (Non-blocking: pass-through outside widgets)                             |
+| SERA PIXEL UI PREVIEW                                                      |
+| ========================================================================   |
+| Viewport: combat updates continuously unless blocked.                      |
+| Enemy: Clanking Dreadknight  HP [#####-----] 26/50                         |
+| Sera: "Entertain me."                                                      |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+| ------------------------------------------------------------------------   |
+| BottomBar: [SYS] [STATUS] [LOADOUT] [LOG]      active=loadout_screen       |
+| ========================================================================   |
+| [ LOADOUT ]                                                                |
+| Weapon: Petty Rusty Shiv of Agony                                          |
+| Armor : Threaded Moonplate                                                 |
+| Charm : Sunshard Loop                                                      |
+|                                                                            |
+| [1] Equip  [2] Swap Set                                                    |
+|                                                                            |
+| (Non-blocking: pass-through outside widgets)                               |
 +--------------------------------------------------------------------------+
