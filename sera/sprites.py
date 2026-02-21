@@ -141,6 +141,43 @@ WEAPON_SPRITES = {
     ██
     ██
 """,
+    "claymore": r"""
+      ▄
+     ███
+    ███
+   ███
+  ███
+   ▐▌
+   ▐▌
+   ▀▀
+""",
+    "rapier": r"""
+      ▄
+     ▐█
+     ▐█
+     ▐█
+  ▀▀▀█▀▀▀
+     ▐▌
+""",
+    "whip": r"""
+   ~~~▄
+  ~~▄▀
+ ~~▄▀
+  ▐▌
+""",
+    "tome": r"""
+   ▄████▄
+  █▌░░░▐█
+  █▌░◆░▐█
+   ▀████▀
+""",
+    "vial": r"""
+    ▄▄
+   ████
+    ██
+   ▐██▌
+    ▀▀
+""",
     "staff": r"""
    ◈
    ██
@@ -150,10 +187,133 @@ WEAPON_SPRITES = {
    ▐▌
    ▀▀
 """,
+    "lantern": r"""
+    ▄▄▄
+   █░◆░█
+   █░░░█
+    ▀█▀
+    ▐▌
+""",
+    "bell": r"""
+    ▄██▄
+   █░░░█
+    ▀██▀
+     ██
+""",
+    "scepter": r"""
+    ◇
+   ▄██▄
+    ▐▌
+    ▐▌
+    ▀▀
+""",
+    "hook": r"""
+    ▄▄▄
+      █
+    ▄▀
+   ▐▌
+   ▐▌
+""",
+    "dagger": r"""
+     ▄
+    ██
+    █▀
+    ▐▌
+    ▀
+""",
+    "gauntlet": r"""
+   ▄██▄
+  █▌██▐█
+  █▌██▐█
+   ▀██▀
+""",
+    "scythe": r"""
+  ▄████
+ █░░░
+  ▀██▄
+    ▐▌
+    ▐▌
+""",
+    "flail": r"""
+   ▄██▄
+  █░░░█
+   ▀█▀
+    ║
+   ▐▌
+""",
+    "mace": r"""
+   ▄██▄
+  ██████
+   ▀██▀
+    ▐▌
+""",
+    "needle": r"""
+    ▄
+    █
+    █
+   ▀█▀
+""",
+    "crossbow": r"""
+  ◄███►
+    ██
+    ██
+   ▐▌
+""",
+    "pike": r"""
+     ▄
+    ███
+     █
+     █
+     █
+    ▐▌
+""",
+    "wand": r"""
+    ◈
+    ██
+    ▐▌
+    ▀
+""",
+    "chakram": r"""
+   ▄████▄
+  █░░░░░█
+  █░▄█▄░█
+   ▀████▀
+""",
     "default": r"""
     ╋
    ╋
   ╋
+""",
+}
+
+ITEM_SPRITES = {
+    "material": "◈",
+    "shard": "◇",
+    "flask": "✚",
+    "loot": "▣",
+}
+
+NPC_SPRITES = {
+    "merchant": r"""
+    ▄▄██▄▄
+   █ ◆  ◆ █
+   █  ──  █
+    ▀█▄▄█▀
+     ▐██▌
+""",
+    "blacksmith": r"""
+    ▄████▄
+   █ ▓  ▓ █
+   █  ██  █
+    ▀█▄▄█▀
+     ▐▌▐▌
+""",
+    "scribe": r"""
+    ▄▄██▄▄
+   █ ◇  ◇ █
+   █  ▀▀  █
+    ▀█▄▄█▀
+     ▐▌▐▌
 """,
 }
 
@@ -318,3 +478,11 @@ def get_weapon_sprite(weapon_name: str) -> str:
         if key in name_lower:
             return WEAPON_SPRITES[key]
     return WEAPON_SPRITES["default"]
+
+
+def get_item_sprite(item_kind: str) -> str:
+    return ITEM_SPRITES.get(item_kind, ITEM_SPRITES["loot"])
+
+
+def get_npc_sprite(npc_name: str) -> str:
+    return NPC_SPRITES.get(npc_name, NPC_SPRITES["merchant"])

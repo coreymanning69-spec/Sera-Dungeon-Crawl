@@ -154,7 +154,7 @@ def render_title_screen() -> str:
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
     lines.append(box_line("  ▸ [2] Simulation Mode"))
-    lines.append(box_line("  ▸ [3] Quit"))
+    lines.append(box_line("  ▸ [3] Stay on title"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
     lines.append(box_bot())
@@ -359,7 +359,7 @@ def render_loot_screen(
 
     if material_loot:
         tag_name = material_loot.grants_tag.name if material_loot.grants_tag else "???"
-        lines.append(box_line(f"  ▸ [{idx}] {material_loot.name} (grants [{tag_name}])"))
+        lines.append(box_line(f"  {sprites.get_item_sprite('material')} [{idx}] {material_loot.name} (grants [{tag_name}])"))
         if material_loot.flavor:
             lines.append(box_line(f'        {material_loot.flavor}'))
         choices.append(("material", idx))
@@ -471,7 +471,7 @@ def render_craft_screen(
     lines.append(box_header("MATERIALS"))
     for i, m in enumerate(materials):
         tag_name = m.grants_tag.name if m.grants_tag else "???"
-        lines.append(box_line(f"  ▸ [{i+1}] {m.name} (grants [{tag_name}])"))
+        lines.append(box_line(f"  {sprites.get_item_sprite('material')} [{i+1}] {m.name} (grants [{tag_name}])"))
 
     lines.append(box_blank())
     lines.append(box_line("  ▸ [0] Cancel"))
@@ -593,6 +593,12 @@ def render_between_floors(
         preview = ", ".join(item.slot for item in revision_set[:4])
         if preview:
             lines.append(box_line(f"    Preview slots: {preview}"))
+    lines.append(box_divider_thin())
+    lines.append(box_line("Hub Staff on standby:", "left"))
+    lines.append(box_line(f"  Forgekeeper {sprites.get_item_sprite('loot')}  |  Quartermaster {sprites.get_item_sprite('material')}  |  Archivist {sprites.get_item_sprite('shard')}"))
+    for npc in ("blacksmith", "merchant", "scribe"):
+        npc_line = sprites.get_npc_sprite(npc).strip().split("\n")[0]
+        lines.append(box_line(f"    {npc_line}"))
     lines.append(box_line("  ▸ [1] Continue to next floor"))
     lines.append(box_line("  ▸ [2] Equip weapon"))
     lines.append(box_line("  ▸ [3] Craft (apply material to weapon)"))
@@ -601,7 +607,7 @@ def render_between_floors(
     lines.append(box_line("  ▸ [6] Equipment menu"))
     lines.append(box_line("  ▸ [7] Claim next-revision gear set"))
     lines.append(box_line("  ▸ [8] View Run Stats"))
-    lines.append(box_line("  ▸ [9] Quit"))
+    lines.append(box_line("  ▸ [9] Back to title"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)

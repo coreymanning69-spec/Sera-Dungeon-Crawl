@@ -383,10 +383,10 @@ def _cmd_set_ap(state: GameState):
 # Interactive combat
 # ─────────────────────────────────────────────────────────
 
-def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
+def run_combat(state: GameState, enemies: list[Enemy]) -> bool | None:
     """
     Interactive combat loop.
-    Returns True if Sera survived, False if game over.
+    Returns True if the room is cleared, False on game over, None if player exits to title.
     """
     interest = state.interest
     weapon = state.equipped_weapon
@@ -429,7 +429,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
         while action is None:
             choice = get_choice("  Your move > ", valid_actions)
             if choice == "quit":
-                return False
+                return None
             if choice == "0":
                 _show_commands_menu(state, enemies)
                 ui.clear()
@@ -953,7 +953,7 @@ def loot_phase(state: GameState):
 def between_floors(state: GameState) -> bool:
     """
     Between-floor menu: equip, craft, upgrade, view inventory, or continue.
-    Returns False if player quits.
+    Returns False when returning to title.
     """
     while True:
         ui.clear()
@@ -1177,12 +1177,10 @@ def _show_closing_menu(title: str, quote: str) -> str:
     print(ui.box_blank())
     print(ui.box_line("[1] Restart", "center"))
     print(ui.box_line("[2] Back to title", "center"))
-    print(ui.box_line("[3] Quit", "center"))
+    print(ui.box_line("[3] Back to title", "center"))
     print(ui.box_bot())
 
     choice = get_choice("> ", ["1", "2", "3"])
-    if choice in ("quit", "3"):
-        return "quit"
     if choice == "1":
         return "restart"
     return "title"
@@ -1208,6 +1206,8 @@ def run_new_game_session() -> str:
 
         # Combat
         survived = run_combat(state, enemies)
+        if survived is None:
+            return "title"
         if not survived:
             ui.clear()
             print(ui.render_game_over(state.interest, state.floor))
@@ -1245,8 +1245,12 @@ def main():
     while True:
         choice = title_screen()
         if choice == "quit":
-            print("  Sera didn't even show up.")
-            return
+            ui.clear()
+            print(ui.box_top())
+            print(ui.box_line('Sera: "No. We are not done yet."', "center"))
+            print(ui.box_bot())
+            pause()
+            continue
 
         if choice == "simulation":
             while True:
@@ -1254,16 +1258,10 @@ def main():
                 next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."')
                 if next_step == "restart":
                     continue
-                if next_step == "quit":
-                    print("  Sera: \"We're done here.\"")
-                    return
                 break
             continue
 
         next_step = run_new_game_session()
-        if next_step == "quit":
-            print("  Sera: \"We're done here.\"")
-            return
         if next_step == "restart":
             continue
 
