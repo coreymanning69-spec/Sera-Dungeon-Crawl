@@ -1,10 +1,18 @@
-# Revision 1.10 Vision
+# Project Vision
 
-Revision 1.10 keeps the 1.05 loop intact, but upgrades the framework:
+The near-term objective is a strong **autobattle-first dungeon loop** with transparent math.
 
-- Pokemon/Buriedbornes-inspired battle layout scaffold (player panel, enemy panel, log panel).
-- Numbers-first combat transparency via deterministic calculations and drill-down stats.
-- Manual/Auto dual-driver combat on one legality engine.
-- Save/load only between fights to avoid branch-scrubbing exploits.
-- Endless mode remains the core loop.
-- Story/mission layers are future work on top of this framework.
+## Priorities
+
+- One shared combat legality engine for manual and auto actions.
+- Fast replayability via deterministic seeded simulations.
+- Clear player-facing logs explaining why outcomes happened.
+- Endless mode progression tuned around patience pressure, not HP attrition.
+
+## Scope guardrails
+
+- Keep the game pure Python with no external dependencies.
+- Prefer small, testable systems over large framework rewrites.
+- Delay story layer expansion until autobattle quality and balance are stable.
+
+See `docs/AUTOBATTLE_ROADMAP.md` for implementation sequencing.
