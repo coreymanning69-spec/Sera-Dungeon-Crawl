@@ -1029,7 +1029,7 @@ def loot_phase(state: GameState):
             else:
                 print(f'  Sera: "Trash."')
 
-        if kind == "material":
+        elif kind == "material":
             ui.clear()
             print(screen)
             print(f"  [{idx}] Take {material_drop.name}?  [y/n]")
