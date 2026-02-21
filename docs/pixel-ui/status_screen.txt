@@ -1,31 +1,30 @@
 +--------------------------------------------------------------------------+
-| SERA PIXEL UI PREVIEW                                                    |
-| ======================================================================== |
-| Viewport: combat updates continuously unless blocked.                    |
-| Enemy: Clanking Dreadknight  HP [#####-----] 26/50                       |
-| Sera: "Entertain me."                                                    |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-|                                                                          |
-| ------------------------------------------------------------------------ |
-| BottomBar: [SYS] [STATUS] [LOADOUT] [LOG]      active=status_screen      |
-| ======================================================================== |
-| [ STATUS ]                                                               |
-| HP: ########## 999/999                                                   |
-| Dmg Type: PHYSICAL | BLEED                                               |
-| Resist: FIRE 20% | ARCANE 40%                                            |
-| Statuses: Marked(2), Haste(1)                                            |
-| Run: Floor 3 | Kills 27 | Turns 44                                       |
-|                                                                          |
-| (Non-blocking: pass-through outside widgets)                             |
+| SERA PIXEL UI PREVIEW                                                      |
+| ========================================================================   |
+| Viewport: combat updates continuously unless blocked.                      |
+| Enemy: Clanking Dreadknight  HP [#####-----] 26/50                         |
+| Sera: "Entertain me."                                                      |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+|                                                                            |
+| ------------------------------------------------------------------------   |
+| BottomBar: [SYS] [STATUS] [LOADOUT] [LOG]      active=status_screen        |
+| ========================================================================   |
+| [ STATUS ]                                                                 |
+| HP: ########## 999/999                                                     |
+| Dmg Type: PHYSICAL | BLEED                                                 |
+| Resist: FIRE 20% | ARCANE 40%                                              |
+| Statuses: Marked(2), Haste(1)                                              |
+| Run: Floor 3 | Kills 27 | Turns 44                                         |
+|                                                                            |
+| (Non-blocking: pass-through outside widgets)                               |
 +--------------------------------------------------------------------------+
