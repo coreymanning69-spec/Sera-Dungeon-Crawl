@@ -1,4 +1,4 @@
-"""Save/load framework for serializing run state. Revision 1.115a."""
+"""Save/load framework for serializing run state. Revision 1.20a."""
 
 from __future__ import annotations
 import json
