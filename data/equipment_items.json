@@ -1,27 +1,344 @@
 {
   "equipment_items": [
-    {"name": "Bronze Helm", "slot": "Helmet", "ascii_art": " /^^\\ ", "stat_bonuses": {"AC": 1}, "damage_reduction": 1, "damage_resistance": 0, "resistances": {"earth": 5}},
-    {"name": "Moonlit Circlet", "slot": "Helmet", "ascii_art": " .**. ", "stat_bonuses": {"WIS": 1}, "damage_reduction": 0, "damage_resistance": 5, "resistances": {"divine": 10}},
-
-    {"name": "Wolf Tooth Charm", "slot": "Necklace", "ascii_art": "  /\\  ", "stat_bonuses": {"STR": 1}, "damage_reduction": 0, "damage_resistance": 5, "resistances": {}},
-    {"name": "Crystal Locket", "slot": "Necklace", "ascii_art": " <()>", "stat_bonuses": {"INT": 1}, "damage_reduction": 0, "damage_resistance": 5, "resistances": {"water": 10}},
-
-    {"name": "Traveler Cloak", "slot": "Cloak", "ascii_art": " /~~\\ ", "stat_bonuses": {"DEX": 1}, "damage_reduction": 0, "damage_resistance": 5, "resistances": {"darkness": 5}},
-    {"name": "Ashen Cape", "slot": "Cloak", "ascii_art": " /##\\ ", "stat_bonuses": {"AP": 1}, "damage_reduction": 0, "damage_resistance": 0, "resistances": {"fire": 10}},
-
-    {"name": "Scale Vest", "slot": "Torso", "ascii_art": " [##] ", "stat_bonuses": {"CON": 1, "AC": 1}, "damage_reduction": 1, "damage_resistance": 5, "resistances": {}},
-    {"name": "Runed Armor", "slot": "Torso", "ascii_art": " [@@] ", "stat_bonuses": {"WIS": 1, "AC": 1}, "damage_reduction": 1, "damage_resistance": 0, "resistances": {"decay": 10}},
-
-    {"name": "Copper Band", "slot": "Ring 1", "ascii_art": " (o) ", "stat_bonuses": {"AP": 1}, "damage_reduction": 0, "damage_resistance": 0, "resistances": {}},
-    {"name": "Frost Ring", "slot": "Ring 1", "ascii_art": " (*) ", "stat_bonuses": {"DEX": 1}, "damage_reduction": 0, "damage_resistance": 0, "resistances": {"ice": 10}},
-
-    {"name": "Obsidian Loop", "slot": "Ring 2", "ascii_art": " (0) ", "stat_bonuses": {"LUK": 1}, "damage_reduction": 0, "damage_resistance": 5, "resistances": {"darkness": 10}},
-    {"name": "Sun Ring", "slot": "Ring 2", "ascii_art": " (O) ", "stat_bonuses": {"STR": 1}, "damage_reduction": 0, "damage_resistance": 0, "resistances": {"fire": 5}},
-
-    {"name": "Guarded Greaves", "slot": "Legs", "ascii_art": " |##| ", "stat_bonuses": {"CON": 1}, "damage_reduction": 1, "damage_resistance": 0, "resistances": {"earth": 5}},
-    {"name": "Silent Legwraps", "slot": "Legs", "ascii_art": " |~~| ", "stat_bonuses": {"DEX": 1}, "damage_reduction": 0, "damage_resistance": 5, "resistances": {}},
-
-    {"name": "Steel Boots", "slot": "Boots", "ascii_art": " [_] ", "stat_bonuses": {"AC": 1}, "damage_reduction": 1, "damage_resistance": 0, "resistances": {}},
-    {"name": "Windstep Boots", "slot": "Boots", "ascii_art": " /_/ ", "stat_bonuses": {"DEX": 1, "AP": 1}, "damage_reduction": 0, "damage_resistance": 0, "resistances": {"water": 5}}
+    {
+      "name": "Bronze Helm",
+      "slot": "Helmet",
+      "ascii_art": " /^^\\ ",
+      "stat_bonuses": {
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 0,
+      "resistances": {
+        "earth": 5
+      }
+    },
+    {
+      "name": "Moonlit Circlet",
+      "slot": "Helmet",
+      "ascii_art": " .**. ",
+      "stat_bonuses": {
+        "WIS": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "divine": 10
+      }
+    },
+    {
+      "name": "Wolf Tooth Charm",
+      "slot": "Necklace",
+      "ascii_art": "  /\\  ",
+      "stat_bonuses": {
+        "STR": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {}
+    },
+    {
+      "name": "Crystal Locket",
+      "slot": "Necklace",
+      "ascii_art": " <()>",
+      "stat_bonuses": {
+        "INT": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "water": 10
+      }
+    },
+    {
+      "name": "Traveler Cloak",
+      "slot": "Cloak",
+      "ascii_art": " /~~\\ ",
+      "stat_bonuses": {
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "darkness": 5
+      }
+    },
+    {
+      "name": "Ashen Cape",
+      "slot": "Cloak",
+      "ascii_art": " /##\\ ",
+      "stat_bonuses": {
+        "AP": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "fire": 10
+      }
+    },
+    {
+      "name": "Scale Vest",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "CON": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {}
+    },
+    {
+      "name": "Runed Armor",
+      "slot": "Torso",
+      "ascii_art": " [@@] ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 0,
+      "resistances": {
+        "decay": 10
+      }
+    },
+    {
+      "name": "Copper Band",
+      "slot": "Ring 1",
+      "ascii_art": " (o) ",
+      "stat_bonuses": {
+        "AP": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {}
+    },
+    {
+      "name": "Frost Ring",
+      "slot": "Ring 1",
+      "ascii_art": " (*) ",
+      "stat_bonuses": {
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "ice": 10
+      }
+    },
+    {
+      "name": "Obsidian Loop",
+      "slot": "Ring 2",
+      "ascii_art": " (0) ",
+      "stat_bonuses": {
+        "LUK": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "darkness": 10
+      }
+    },
+    {
+      "name": "Sun Ring",
+      "slot": "Ring 2",
+      "ascii_art": " (O) ",
+      "stat_bonuses": {
+        "STR": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "fire": 5
+      }
+    },
+    {
+      "name": "Guarded Greaves",
+      "slot": "Legs",
+      "ascii_art": " |##| ",
+      "stat_bonuses": {
+        "CON": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 0,
+      "resistances": {
+        "earth": 5
+      }
+    },
+    {
+      "name": "Silent Legwraps",
+      "slot": "Legs",
+      "ascii_art": " |~~| ",
+      "stat_bonuses": {
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {}
+    },
+    {
+      "name": "Steel Boots",
+      "slot": "Boots",
+      "ascii_art": " [_] ",
+      "stat_bonuses": {
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 0,
+      "resistances": {}
+    },
+    {
+      "name": "Windstep Boots",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "water": 5
+      }
+    },
+    {
+      "name": "Pilgrim Hood",
+      "slot": "Helmet",
+      "ascii_art": " /\\_/\\ ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 0,
+      "resistances": {
+        "arcane": 5
+      }
+    },
+    {
+      "name": "Warden Gorget",
+      "slot": "Necklace",
+      "ascii_art": " <==> ",
+      "stat_bonuses": {
+        "CON": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 5
+      }
+    },
+    {
+      "name": "Nightglass Cloak",
+      "slot": "Cloak",
+      "ascii_art": " /..\\ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "WIS": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "darkness": 10
+      }
+    },
+    {
+      "name": "Bastion Cuirass",
+      "slot": "Torso",
+      "ascii_art": " [||] ",
+      "stat_bonuses": {
+        "CON": 1,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 5,
+      "resistances": {
+        "earth": 10
+      }
+    },
+    {
+      "name": "Gale Band",
+      "slot": "Ring 1",
+      "ascii_art": " (~) ",
+      "stat_bonuses": {
+        "AP": 1,
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "sonic": 10
+      }
+    },
+    {
+      "name": "Gravetide Loop",
+      "slot": "Ring 2",
+      "ascii_art": " (x) ",
+      "stat_bonuses": {
+        "WIS": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "decay": 10
+      }
+    },
+    {
+      "name": "Siegebreak Greaves",
+      "slot": "Legs",
+      "ascii_art": " |[]| ",
+      "stat_bonuses": {
+        "STR": 1,
+        "CON": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 10
+      }
+    },
+    {
+      "name": "Cinderstep Boots",
+      "slot": "Boots",
+      "ascii_art": " /##/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "fire": 10
+      }
+    },
+    {
+      "name": "Lorekeeper Hood",
+      "slot": "Helmet",
+      "ascii_art": " /::\\ ",
+      "stat_bonuses": {
+        "INT": 1,
+        "WIS": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "arcane": 10
+      }
+    },
+    {
+      "name": "Duelist Chain",
+      "slot": "Necklace",
+      "ascii_art": " </>  ",
+      "stat_bonuses": {
+        "STR": 1,
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 5,
+        "sonic": 5
+      }
+    }
   ]
 }
