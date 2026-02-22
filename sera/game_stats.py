@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_GAME_STATS_PATH = Path("game_stats.json")
+MAX_STORED_RUNS = 5
 
 
 # ─────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ def _default_overall() -> dict:
 def default_stats_payload() -> dict:
     return {
         "last_run": None,
+        "recent_runs": [],
         "overall": _default_overall(),
     }
 
@@ -52,6 +54,10 @@ def load_game_stats(path: Path | str = DEFAULT_GAME_STATS_PATH) -> dict:
     payload = default_stats_payload()
     if isinstance(data.get("last_run"), dict):
         payload["last_run"] = data["last_run"]
+
+    recent_runs = data.get("recent_runs", [])
+    if isinstance(recent_runs, list):
+        payload["recent_runs"] = [item for item in recent_runs if isinstance(item, dict)][-MAX_STORED_RUNS:]
 
     overall = data.get("overall", {})
     if isinstance(overall, dict):
@@ -84,7 +90,11 @@ def merge_run_stats(
     path: Path | str = DEFAULT_GAME_STATS_PATH,
 ) -> dict:
     payload.setdefault("overall", _default_overall())
+    payload.setdefault("recent_runs", [])
     payload["last_run"] = run_summary
+    payload["recent_runs"] = [item for item in payload["recent_runs"] if isinstance(item, dict)]
+    payload["recent_runs"].append(run_summary)
+    payload["recent_runs"] = payload["recent_runs"][-MAX_STORED_RUNS:]
 
     overall = payload["overall"]
     overall["total_runs"] = _to_int(overall.get("total_runs")) + 1
