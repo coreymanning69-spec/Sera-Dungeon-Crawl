@@ -29,7 +29,7 @@ from sera.loot_framework import WeaponPoolManager
 from sera import ui
 from sera.damage_scale import apply_damage_policy, DEFAULT_DAMAGE_POLICY
 from sera.stats import PlayerStats
-from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_revision_set
+from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_revision_set, upgrade_equipment
 from sera.randomization import RunRNG, select_weapon_choices
 from sera.modes.endless import EndlessProgress
 from sera.save import save_to_file, load_from_file, DEFAULT_SAVE_PATH
@@ -1262,7 +1262,7 @@ def loot_phase(state: GameState):
     if equipment_drop:
         ui.refresh()
         print(screen)
-        print(f"  [E] Found equipment: {equipment_drop.name} ({equipment_drop.slot}) {equipment_drop.ascii_art}")
+        print(f"  [E] Found equipment: {equipment_drop.name} Lv {equipment_drop.level}/{equipment_drop.max_level} ({equipment_drop.slot}) {equipment_drop.ascii_art}")
         print(f"      Bonuses: {equipment_drop.stat_bonuses} | DR {equipment_drop.damage_reduction} | RES {equipment_drop.damage_resistance}%")
         if equipment_drop.resistances:
             print(f"      Elemental: {equipment_drop.resistances}")
@@ -1399,10 +1399,25 @@ def equipment_screen(state: GameState):
             pause()
             return
 
-        valid = [str(i+1) for i in range(len(state.equipment_stash))] + ["0"]
-        choice = get_choice("  Equip item # (or 0 to leave) > ", valid)
+        valid = [str(i+1) for i in range(len(state.equipment_stash))] + ["0", "u"]
+        choice = get_choice("  Equip item #, [u] upgrade equipped, or 0 to leave > ", valid)
         if choice in ("0", "quit"):
             return
+
+        if choice == "u":
+            equipped = [item for item in state.equipment_loadout.equipped.values() if item]
+            if not equipped:
+                print("  Nothing equipped to upgrade.")
+                pause()
+                continue
+            target = equipped[0]
+            log, spent = upgrade_equipment(target, state.upgrade_shards)
+            state.upgrade_shards -= spent
+            for line in log:
+                print(line)
+            print(f"  Shards remaining: {state.upgrade_shards}")
+            pause()
+            continue
 
         idx = int(choice) - 1
         item = state.equipment_stash.pop(idx)

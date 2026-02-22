@@ -101,6 +101,8 @@ def load_equipment_items() -> list[EquipmentItem]:
             damage_reduction=item.get("damage_reduction", 0),
             damage_resistance=item.get("damage_resistance", 0),
             resistances={normalize_defense_key(k): v for k, v in item.get("resistances", {}).items()},
+            level=item.get("level", 1),
+            is_unique=item.get("is_unique", False),
         ))
     return items
 

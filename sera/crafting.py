@@ -81,7 +81,7 @@ def upgrade_weapon(weapon: Weapon, shards_available: int) -> tuple[list[str], in
     import random
     log = []
     if not weapon.can_upgrade:
-        log.append(f"  {weapon.display_name} is at maximum upgrade (+{weapon.MAX_UPGRADE_LEVEL}).")
+        log.append(f"  {weapon.display_name} is at maximum upgrade (+{weapon.max_upgrade_level}).")
         log.append(f'  Sera: "It can\'t get any better. Unlike you."')
         return log, 0
 
