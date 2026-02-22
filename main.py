@@ -11,7 +11,7 @@ Scenario 4: "Elemental Counterplay" — Fire and Ice matchup tuning
 
 Each scenario function returns a dict with structured results for the UI,
 and can also be run standalone for verbose output.
-Revision 1.05a (audited baseline for 1.150 planning).
+Revision 1.115a.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ import copy
 import random
 import argparse
 
+from sera import REVISION
 from sera.tags import DamageTag
 from sera.weapon import Weapon, Affix
 from sera.enemy import Enemy, EnemyAbility, AnnoyanceType, EnemyVulnerability
@@ -384,7 +385,7 @@ def main():
 
     run_metadata = {
         "seed": args.seed,
-        "revision": "1.10",
+        "revision": REVISION,
         "scenario_count": 4,
     }
     print(f"  Run metadata: {run_metadata}")

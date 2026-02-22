@@ -1,9 +1,10 @@
-"""Save/load framework for serializing run state."""
+"""Save/load framework for serializing run state. Revision 1.115a."""
 
 from __future__ import annotations
 import json
 from pathlib import Path
 
+from sera import REVISION
 from sera.weapon import Weapon
 from sera.crafting import CraftingMaterial, CRAFTING_MATERIALS
 from sera.equipment import EquipmentItem
@@ -11,7 +12,7 @@ from sera.consumables import CONSUMABLE_REGISTRY
 from sera.randomization import RunRNG
 from sera.modes.endless import EndlessProgress
 
-SAVE_VERSION = "1.11"
+SAVE_VERSION = REVISION
 DEFAULT_SAVE_PATH = Path("savegame.json")
 
 
