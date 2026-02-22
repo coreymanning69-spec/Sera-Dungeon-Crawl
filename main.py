@@ -15,6 +15,7 @@ Revision 1.115a.
 """
 
 from __future__ import annotations
+import os
 import copy
 import random
 import argparse
@@ -360,6 +361,10 @@ def run_scenario_4(verbose: bool = True) -> dict:
 # ---------------------------------------------------------------------------
 
 def main():
+    # Set standard large console window for the RPG (Windows cmd).
+    if os.name == "nt":
+        os.system("mode con cols=150 lines=45")
+
     parser = argparse.ArgumentParser(description="SERA simulation")
     parser.add_argument("--seed", type=int, default=105, help="Deterministic seed")
     args = parser.parse_args()

@@ -15,6 +15,20 @@ from sera.equipment import EquipmentItem, normalize_defense_key
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 
+CULTIST_QUIPS = [
+    "For the glory of the Queen!",
+    "The hoard grows!",
+    "You will make a fine sacrifice.",
+]
+
+GUARD_QUIPS = [
+    "Hold the line! Greenest will not fall!",
+    "Keep them away from the keep!",
+    "By Chauntea, there are too many of them!",
+]
+
+
+
 def load_weapons() -> list[Weapon]:
     with open(DATA_DIR / "weapons.json") as f:
         data = json.load(f)

@@ -121,6 +121,38 @@ BOSS_MUTATOR_POOL = [
     },
 ]
 
+BOSS_MUTATORS: dict[str, dict[str, float | str]] = {
+    "Draconic Resilience": {
+        "description": "At 50% HP, cleanses debuffs and doubles armor for 2 turns.",
+        "trigger_threshold": 0.5,
+        "effect": "cleanse_and_fortify",
+        "weight": 0.6,
+    },
+    "Acidic Blood": {
+        "description": "Deals minor acid splash damage to the player upon receiving a melee critical hit.",
+        "trigger_event": "on_receive_crit",
+        "effect": "acid_splash_damage",
+        "weight": 0.4,
+    },
+}
+
+
+def _weighted_boss_mutator_roll(rand=random) -> dict[str, float | str]:
+    pool = list(BOSS_MUTATORS.items())
+    total = sum(float(data.get("weight", 1.0)) for _, data in pool)
+    pick = rand.uniform(0.0, total)
+    cursor = 0.0
+    for name, data in pool:
+        cursor += float(data.get("weight", 1.0))
+        if pick <= cursor:
+            rolled = copy.deepcopy(data)
+            rolled["name"] = name
+            return rolled
+    fallback_name, fallback = pool[-1]
+    rolled = copy.deepcopy(fallback)
+    rolled["name"] = fallback_name
+    return rolled
+
 
 def _roll_boss_mutator(enemy: Enemy, floor: int, rand=random) -> None:
     """Small weighted chance for bosses to spawn with a named mutator ability."""
@@ -140,6 +172,14 @@ def _roll_boss_mutator(enemy: Enemy, floor: int, rand=random) -> None:
         flavor=ab["flavor"],
         attack_type=ab["attack_type"],
     ))
+
+    # Separate named boss mutator profile (used by combat hooks).
+    named_chance = min(0.22 + floor * 0.015, 0.45)
+    if rand.random() <= named_chance:
+        rolled = _weighted_boss_mutator_roll(rand)
+        existing = getattr(enemy, "boss_mutators", [])
+        existing.append(rolled)
+        setattr(enemy, "boss_mutators", existing)
 
 def _scale_endless_enemy(enemy: Enemy, wave: int, pressure: int, rand=random) -> None:
     """Apply endless-mode scaling pressure to a copied enemy."""
@@ -244,4 +284,3 @@ def generate_loot_shards(floor: int) -> int:
     if floor <= 4:
         return random.choices([1, 2, 3], weights=[45, 40, 15], k=1)[0]
     return random.choices([1, 2, 3], weights=[25, 45, 30], k=1)[0]
-
