@@ -58,23 +58,36 @@ ATTACK_QUIPS = [
     '"Die faster."',
     '"Next."',
     '"Try not to bore me."',
-    '"Nice try. It wasn\'t."',
-    '"You get one mercy. Did you think you\'d get two?"',
+    '"Nice try. It wasn't."',
+    '"You get one mercy. Did you think you'd get two?"',
+    '"I expected nothing. You still missed it."',
+    '"Swing again. Maybe by accident you improve."',
+    '"You call that resistance?"',
+    '"Keep flailing. It helps me aim."',
+    '"I end wars faster than this."',
 ]
 
 KILL_QUIPS = [
     '"Fixed."',
     '"Obviously."',
     '"One down."',
-    '"Well. That\'s done."',
+    '"Well. That's done."',
     '"Acceptable."',
+    '"They fall so easily."',
+    '"Another problem solved itself."',
+    '"That one was beneath minimal effort."',
+    '"Gone. Finally quiet."',
+    '"I warned you. Briefly."',
 ]
 
 OVERKILL_QUIPS = [
-    '"NOW we\'re talking!"',
+    '"NOW we're talking!"',
     '"THAT is how you kill something."',
     '"See? I fix everything!"',
     '"Excessive? Perfect."',
+    '"Finally, a hit worth watching!"',
+    '"Yes. More of that!"',
+    '"Beautiful ruin!"',
 ]
 
 DODGE_QUIPS = [
@@ -85,14 +98,21 @@ DODGE_QUIPS = [
 
 IMMUNE_QUIPS = [
     '"Wrong weapon. Think harder."',
-    '"It\'s immune. Wonderful."',
+    '"It's immune. Wonderful."',
     '"You brought the wrong toy."',
+    '"Try the correct damage type before I lose interest."',
+    '"No effect. Exactly like your planning."',
+    '"Impressive. You found the one way to do nothing."',
 ]
 
 INTERRUPT_QUIPS = [
     '"I said shut up."',
     '"Nobody asked for your monologue."',
     '"Nooooo, no. Only I get to talk that long."',
+    '"Your speech ends here."',
+    '"If you wanted to finish that sentence, you should have moved faster."',
+    '"I interrupt. Therefore I am."',
+    '"Talking phase revoked."',
 ]
 
 LOW_PATIENCE_QUIPS = [
