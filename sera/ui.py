@@ -630,6 +630,7 @@ def render_title_screen() -> str:
     lines.append(box_line("  ▸ [3] Simulation Mode"))
     lines.append(box_line("  ▸ [4] Game Statistics"))
     lines.append(box_line("  ▸ [5] Quit"))
+    lines.append(box_line("  ▸ [6] Tower Defense Simulator"))
     lines.append(box_line("  ▸ [C] Continue (when save exists)"))
     lines.append(box_line(f"  Revision {REVISION}", "center"))
     lines.append(box_blank())
@@ -1153,6 +1154,7 @@ def render_between_floors(
     flasks: int = 0,
     revision_set: list[EquipmentItem] | None = None,
     revision_claimed: bool = False,
+    auto_director_enabled: bool = False,
 ) -> str:
     lines = [
         box_top(),
@@ -1186,7 +1188,9 @@ def render_between_floors(
     lines.append(box_line("  ▸ [8] View Run Stats"))
     lines.append(box_line("  ▸ [9] Save run now"))
     lines.append(box_line("  ▸ [10] Export analytics"))
-    lines.append(box_line("  ▸ [11] Quit"))
+    lines.append(box_line(f"  ▸ [11] Toggle auto director ({'ON' if auto_director_enabled else 'OFF'})"))
+    lines.append(box_line("  ▸ [12] Run auto floor director"))
+    lines.append(box_line("  ▸ [13] Quit"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -1194,8 +1198,15 @@ def render_between_floors(
 
 
 
-def render_auto_battle_screen(turn_results: list[dict], total_damage: int, total_kills: int, patience: int, max_patience: int) -> str:
-    """Render live auto-battle telemetry for quick turn-by-turn updates."""
+def render_auto_battle_screen(
+    turn_results: list[dict],
+    total_damage: int,
+    total_kills: int,
+    patience: int,
+    max_patience: int,
+    sprite_frame: str = "",
+) -> str:
+    """Render live auto-battle telemetry with active sprite frames."""
     lines = [
         box_top(),
         box_line("░▒▓█ AUTO BATTLE FEED █▓▒░", "center"),
@@ -1205,10 +1216,17 @@ def render_auto_battle_screen(turn_results: list[dict], total_damage: int, total
         box_line(f"  Patience: {patience}/{max_patience}"),
         box_divider(),
     ]
+    if sprite_frame:
+        lines.append(box_line("  Active target sprite:"))
+        for frame_line in sprite_frame.split("\n")[:6]:
+            lines.append(box_line(f"    {frame_line}"))
+        lines.append(box_divider_thin())
     for result in turn_results[-6:]:
         lines.append(box_line(f"  Turn {result['turn']}: {result['target']} for {result['damage']} ({result['target_hp']})"))
         if result["kills"] > 0:
             lines.append(box_line(f"      Kills +{result['kills']} | Patience now {result['patience']}"))
+        if result.get("event"):
+            lines.append(box_line(f"      {result['event']}"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)

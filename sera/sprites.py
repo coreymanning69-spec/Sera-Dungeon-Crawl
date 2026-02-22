@@ -6,6 +6,7 @@ Uses block characters: ░▒▓█▀▄▐▌ and box-drawing for the retro fe
 """
 
 import textwrap
+from dataclasses import dataclass
 
 # ─────────────────────────────────────────────────────────
 # Title / Logo
@@ -711,6 +712,32 @@ def get_enemy_sprite(archetype: str, enemy_name: str = "") -> str:
         return textwrap.dedent(ENEMY_NAME_SPRITES[key])
     return textwrap.dedent(ENEMY_SPRITES.get(archetype, ENEMY_SPRITES["trash"]))
 
+
+
+@dataclass
+class SpriteAnimator:
+    """Simple frame-cycler for active combat sprites."""
+    frames: list[str]
+    index: int = 0
+
+    def next_frame(self) -> str:
+        if not self.frames:
+            return ""
+        frame = textwrap.dedent(self.frames[self.index % len(self.frames)])
+        self.index += 1
+        return frame
+
+
+def build_enemy_animator(archetype: str, enemy_name: str = "") -> SpriteAnimator:
+    """Build looping enemy animation frames for combat feed updates."""
+    base = get_enemy_sprite(archetype, enemy_name).rstrip("\n")
+    if not base:
+        return SpriteAnimator(frames=["(no sprite)"])
+    lines = base.split("\n")
+    shifted = [f" {line}" if idx % 2 == 0 else line for idx, line in enumerate(lines)]
+    blink = [line.replace("o", "•") for line in lines]
+    frames = ["\n".join(lines), "\n".join(shifted), "\n".join(blink)]
+    return SpriteAnimator(frames=frames)
 
 def get_weapon_sprite(weapon_name: str) -> str:
     """Match weapon name to a sprite."""
