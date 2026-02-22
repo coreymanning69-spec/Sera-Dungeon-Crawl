@@ -133,6 +133,26 @@ def _record_persistent_run(state: "GameState", *, won: bool, wave_reached: int |
     merge_run_stats(payload, run_summary)
 
 
+def _record_session_event(reason: str):
+    """Persist a non-run lifecycle event into game_stats.json."""
+    base_summary = {
+        "floors_cleared": 0,
+        "wave_reached": 0,
+        "total_kills": 0,
+        "total_turns": 0,
+        "total_damage": 0,
+        "best_overkill": 0,
+        "weapons_found": 0,
+        "materials_used": 0,
+        "patience": 0,
+        "max_patience": 0,
+        "weapon_name": reason,
+    }
+    summary = stamp_run_summary(base_summary, won=False, mode="session", seed=0)
+    payload = load_game_stats()
+    merge_run_stats(payload, summary)
+
+
 def sera_quip(pool: list[str]) -> str:
     return random.choice(pool)
 
@@ -298,7 +318,7 @@ def pause(msg: str = "  [Press Enter]"):
 
 def title_screen() -> str:
     """Returns 'new_game', 'continue', 'simulation', 'statistics', 'endless', or 'quit'."""
-    ui.clear()
+    ui.refresh()
     print(ui.render_title_screen())
     valid = ["1", "2", "3", "4", "5"]
     if SAVE_PATH.exists():
@@ -319,7 +339,7 @@ def title_screen() -> str:
 
 def _report_runtime_error(context: str, err: Exception):
     """Show a recoverable runtime error and keep the run alive."""
-    ui.clear()
+    ui.refresh()
     print(ui.box_top())
     print(ui.box_line("░░ RUNTIME ERROR RECOVERED ░░", "center"))
     print(ui.box_divider())
@@ -337,7 +357,7 @@ def _report_runtime_error(context: str, err: Exception):
 def pre_run_options_screen(state: GameState) -> str:
     """Returns 'continue', 'skip', or 'menu'."""
     while True:
-        ui.clear()
+        ui.refresh()
         print(ui.render_pre_run_options(state.auto_battle_enabled, state.auto_battle_turns))
         choice = get_choice("> ", ["1", "2", "3", "t", "b"])
 
@@ -366,7 +386,7 @@ def pre_run_options_screen(state: GameState) -> str:
 # ─────────────────────────────────────────────────────────
 
 def choose_starting_weapon(state: GameState):
-    ui.clear()
+    ui.refresh()
     # Build guaranteed diverse starting options covering the 3 major vulnerability types:
     #   Slot 1: DIVINE or ETHEREAL (counters spirits/ghosts on floors 3-4)
     #   Slot 2: HEAVY (counters armored enemies) — biased toward high-dmg weapons
@@ -430,7 +450,7 @@ def choose_starting_weapon(state: GameState):
     state.weapons.append(picked)
     state.equipped_idx = 0
 
-    ui.clear()
+    ui.refresh()
     print(ui.box_top())
     print(ui.box_line(f'Sera picks up the {picked.name}.', "center"))
     for sl in ui.sprites.get_weapon_sprite(picked.name).strip().split("\n"):
@@ -448,7 +468,7 @@ def choose_starting_weapon(state: GameState):
 
 def _show_commands_menu(state: GameState, enemies: list[Enemy]):
     """Show cheat/debug commands menu."""
-    ui.clear()
+    ui.refresh()
     print(ui.box_top())
     print(ui.box_line("░▒▓█ COMMANDS MENU █▓▒░", "center"))
     print(ui.box_line('Sera: "Cheating? How refreshingly honest."', "center"))
@@ -627,7 +647,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
             # --- PLAYER TURN ---
             alive = [e for e in enemies if e.current_hp > 0]
             weapon = state.equipped_weapon
-            ui.clear()
+            ui.refresh()
             print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
 
             # Patience-based commentary
@@ -662,7 +682,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 if choice == "0":
                     state.last_player_action = choice
                     _show_commands_menu(state, enemies)
-                    ui.clear()
+                    ui.refresh()
                     print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                     continue
                 if choice == "i":
@@ -671,16 +691,16 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     continue
                 if choice == "w":
                     state.last_player_action = choice
-                    ui.clear()
+                    ui.refresh()
                     print(ui.render_weapon_detail(state.equipped_weapon))
                     pause()
-                    ui.clear()
+                    ui.refresh()
                     print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                     continue
                 if choice == "e":
                     state.last_player_action = choice
                     equip_screen(state)
-                    ui.clear()
+                    ui.refresh()
                     print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                     continue
                 if choice == "h":
@@ -689,7 +709,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     if interest.game_over:
                         return False
                     pause()
-                    ui.clear()
+                    ui.refresh()
                     print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
                     continue
                 if choice == "a":
@@ -725,7 +745,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 if interest.game_over:
                     return False
                 if enemy.is_frozen():
-                    ui.clear()
+                    ui.refresh()
                     print(ui.box_top())
                     print(ui.box_line(f"░░ {enemy.name} is FROZEN! ░░", "center"))
                     print(ui.box_line('Sera: "Stay still. I like you better this way."', "center"))
@@ -747,7 +767,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     dot_total, dot_log = enemy.tick_dot_damage()
                     if dot_log:
                         kill_name = enemy.name if enemy.current_hp <= 0 else None
-                        ui.clear()
+                        ui.refresh()
                         print(ui.render_dot_tick(dot_log, kill_name))
                         enemy_phase_had_output = True
                         if kill_name:
@@ -766,7 +786,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                         # Show any detonations or expirations
                         for line in status_log:
                             if "DOOM" in line or "destroyed" in line:
-                                ui.clear()
+                                ui.refresh()
                                 print(ui.box_top())
                                 print(ui.box_line("░░ DOOM DETONATES ░░", "center"))
                                 print(ui.box_line(line.strip(), "center"))
@@ -787,7 +807,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     enemy.tick_cooldowns()
                     healed = enemy.tick_regen()
                     if healed > 0:
-                        ui.clear()
+                        ui.refresh()
                         print(ui.box_top())
                         print(ui.box_line(f"{enemy.name} regenerates {healed} HP!", "center"))
                         print(ui.box_line(f"HP: {ui.hp_bar(enemy.current_hp, enemy.max_hp, 15)}", "center"))
@@ -808,7 +828,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 return False
 
 def _show_room_clear(interest: InterestManager):
-    ui.clear()
+    ui.refresh()
     print(ui.box_top())
     print(ui.box_line("░▒▓█ ROOM CLEARED █▓▒░", "center"))
     print(ui.box_line(sera_quip(ROOM_CLEAR_QUIPS), "center"))
@@ -826,10 +846,10 @@ def _do_inspect(alive, combat_turn, enemies, interest, state):
         if ic == "quit":
             return
         inspect_idx = int(ic) - 1
-    ui.clear()
+    ui.refresh()
     print(ui.render_inspect(alive[inspect_idx]))
     pause()
-    ui.clear()
+    ui.refresh()
     print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
 
 
@@ -851,7 +871,7 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
     patience_ratio = interest.current_patience / interest.max_patience
     miss_chance = max(0, (1.0 - patience_ratio) * 0.20)  # Up to 20% miss at 0 patience
     if random.random() < miss_chance:
-        ui.clear()
+        ui.refresh()
         print(ui.box_top())
         print(ui.box_line("░░ MISS! ░░", "center"))
         print(ui.box_divider())
@@ -864,7 +884,7 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
 
     # --- Dodge Roll ---
     if target.try_dodge():
-        ui.clear()
+        ui.refresh()
         print(ui.render_dodge(target.name))
         interest._drain(2, "Dodge")
         return
@@ -872,7 +892,7 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
     # --- Interrupt Check (hitting a casting enemy cancels their charge) ---
     interrupted = target.interrupt_cast()
     if interrupted:
-        ui.clear()
+        ui.refresh()
         print(ui.render_interrupt(target.name, interrupted))
         interest._restore(3)
         print(f"  Sera: {sera_quip(INTERRUPT_QUIPS)}")
@@ -934,7 +954,7 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
     total_damage_dealt = 0
     total_kills = 0
 
-    ui.clear()
+    ui.refresh()
     print(ui.box_top())
     print(ui.box_line(f"░▒▓█ AUTO-BATTLE ({max_turns} TURNS MAX) █▓▒░", "center"))
     print(ui.box_line("Sera: \"Fine. I'll do it myself for a bit.\"", "center"))
@@ -1055,7 +1075,7 @@ def _resolve_enemy_action(
     if ability is None:
         if enemy.is_casting and enemy.pending_ability:
             remaining = enemy.cast_turns_remaining
-            ui.clear()
+            ui.refresh()
             print(ui.box_top())
             print(ui.box_line(f"{enemy.name} is charging...", "center"))
             print(ui.box_line(
@@ -1083,7 +1103,7 @@ def _resolve_enemy_action(
 
     flavor = ability.flavor or ANNOYANCE_FLAVOR[ability.annoyance]
 
-    ui.clear()
+    ui.refresh()
     print(ui.render_enemy_action(enemy, f"{ability.name} [{attack_type}]", flavor, cost))
     if mult < 1.0:
         print(f"  (WEAKENED: {base_cost} -> {pre_mitigation} patience drain)")
@@ -1144,7 +1164,7 @@ def loot_phase(state: GameState):
     shard_drop = generate_loot_shards(state.floor)
     equipment_drop = roll_item(random.choice(state.all_equipment)) if state.all_equipment and random.random() < 0.55 else None
 
-    ui.clear()
+    ui.refresh()
     screen, choices = ui.render_loot_screen(
         weapon_drop, material_drop, state.interest, shard_drop)
     print(screen)
@@ -1158,7 +1178,7 @@ def loot_phase(state: GameState):
         print()
 
     if equipment_drop:
-        ui.clear()
+        ui.refresh()
         print(screen)
         print(f"  [E] Found equipment: {equipment_drop.name} ({equipment_drop.slot}) {equipment_drop.ascii_art}")
         print(f"      Bonuses: {equipment_drop.stat_bonuses} | DR {equipment_drop.damage_reduction} | RES {equipment_drop.damage_resistance}%")
@@ -1178,7 +1198,7 @@ def loot_phase(state: GameState):
 
     for kind, idx in choices:
         if kind == "weapon":
-            ui.clear()
+            ui.refresh()
             print(screen)
             print(f"  [{idx}] Take {weapon_drop.display_name}?  [y/n]")
             c = get_choice("  > ", ["y", "n"])
@@ -1190,7 +1210,7 @@ def loot_phase(state: GameState):
                 print(f'  Sera: "Trash."')
 
         elif kind == "material":
-            ui.clear()
+            ui.refresh()
             print(screen)
             print(f"  [{idx}] Take {material_drop.name}?  [y/n]")
             c = get_choice("  > ", ["y", "n"])
@@ -1213,7 +1233,7 @@ def between_floors(state: GameState) -> bool:
     Returns False if player quits.
     """
     while True:
-        ui.clear()
+        ui.refresh()
         print(ui.render_between_floors(
             state.floor, state.interest, state.upgrade_shards, state.consumable_count("healing_flask"),
             state.next_revision_set, state.revision_set_claimed))
@@ -1235,7 +1255,7 @@ def between_floors(state: GameState) -> bool:
             upgrade_screen(state)
 
         if choice == "5":
-            ui.clear()
+            ui.refresh()
             print(ui.render_inventory(
                 state.weapons, state.materials, state.consumables, state.equipped_idx,
                 state.upgrade_shards, state.equipment_stash, state.final_stats))
@@ -1248,7 +1268,7 @@ def between_floors(state: GameState) -> bool:
             claim_revision_set(state)
 
         if choice == "8":
-            ui.clear()
+            ui.refresh()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
 
@@ -1256,7 +1276,7 @@ def between_floors(state: GameState) -> bool:
 
 def equip_screen(state: GameState):
     if len(state.weapons) < 2:
-        ui.clear()
+        ui.refresh()
         print(ui.box_top())
         print(ui.box_line("Only one weapon.", "center"))
         print(ui.box_line('"It\'s not like I have options."', "center"))
@@ -1264,7 +1284,7 @@ def equip_screen(state: GameState):
         pause()
         return
 
-    ui.clear()
+    ui.refresh()
     print(ui.render_equip_screen(state.weapons, state.equipped_idx))
     valid = [str(i+1) for i in range(len(state.weapons))] + ["0"]
     choice = get_choice("> ", valid)
@@ -1280,7 +1300,7 @@ def equip_screen(state: GameState):
 
 def equipment_screen(state: GameState):
     while True:
-        ui.clear()
+        ui.refresh()
         print(ui.render_equipment_menu(state.equipment_loadout, state.equipment_stash, state.final_stats))
         if not state.equipment_stash:
             pause()
@@ -1305,7 +1325,7 @@ def equipment_screen(state: GameState):
 
 def craft_screen(state: GameState):
     if not state.materials:
-        ui.clear()
+        ui.refresh()
         print(ui.box_top())
         print(ui.box_line("No materials.", "center"))
         print(ui.box_line('"Find me something to work with."', "center"))
@@ -1313,7 +1333,7 @@ def craft_screen(state: GameState):
         pause()
         return
 
-    ui.clear()
+    ui.refresh()
     print(ui.render_craft_screen(state.weapons, state.materials, state.equipped_idx))
 
     print("  Apply material to which weapon?")
@@ -1337,7 +1357,7 @@ def craft_screen(state: GameState):
     state.materials.pop(m_idx)
     state.run_stats.materials_used += 1
 
-    ui.clear()
+    ui.refresh()
     print(ui.box_top())
     print(ui.box_line("░▒▓█ CRAFTING █▓▒░", "center"))
     print(ui.box_divider())
@@ -1354,7 +1374,7 @@ def upgrade_screen(state: GameState):
         pause()
         return
 
-    ui.clear()
+    ui.refresh()
     print(ui.render_upgrade_screen(state.weapons, state.equipped_idx, state.upgrade_shards))
 
     print("  Upgrade which weapon?")
@@ -1369,7 +1389,7 @@ def upgrade_screen(state: GameState):
     upgrade_log, shards_used = upgrade_weapon(weapon, state.upgrade_shards)
     state.upgrade_shards -= shards_used
 
-    ui.clear()
+    ui.refresh()
     print(ui.box_top())
     if shards_used > 0:
         print(ui.box_line("░▒▓█ UPGRADE COMPLETE █▓▒░", "center"))
@@ -1431,7 +1451,7 @@ def configure_simulation(state: GameState) -> SimulationConfig | None:
     suffix: Affix | None = None
 
     while True:
-        ui.clear()
+        ui.refresh()
         print(ui.render_simulation_setup(base_weapon, prefix, suffix, random_mode))
         choice = get_choice("  > ", ["1", "2", "3", "4", "5", "0"])
         if choice in ("quit", "0"):
@@ -1538,8 +1558,8 @@ def execute_simulation(config: SimulationConfig) -> SimulationRunResult:
 
 
 def _show_closing_menu(title: str, quote: str, *, simulator: bool = False) -> str:
-    """Show a restart/title/quit menu after a mode ends."""
-    ui.clear()
+    """Show a restart/title/menu after a mode ends."""
+    ui.refresh()
     print(ui.box_top())
     print(ui.box_line(title, "center"))
     print(ui.box_divider())
@@ -1547,14 +1567,17 @@ def _show_closing_menu(title: str, quote: str, *, simulator: bool = False) -> st
     print(ui.box_blank())
     print(ui.box_line("[1] Restart", "center"))
     print(ui.box_line("[2] Back to title", "center"))
-    print(ui.box_line("[3] Quit", "center"))
+    print(ui.box_line("[3] Back to title", "center"))
     if simulator:
         print(ui.box_line("[4] Display Results", "center"))
     print(ui.box_bot())
 
-    choice = get_choice("> ", ["1", "2", "3", "7"])
+    valid = ["1", "2", "3", "7"]
+    if simulator:
+        valid.append("4")
+    choice = get_choice("> ", valid)
     if choice in ("quit", "3", "7"):
-        return "quit"
+        return "menu"
     if choice == "4":
         return "results"
     if choice == "1":
@@ -1590,7 +1613,7 @@ def run_endless_mode(seed: int | None = None) -> str:
         state.floor = wave
         enemies = generate_endless_encounter(wave, state.all_enemies, rng=state.rng)
 
-        ui.clear()
+        ui.refresh()
         print(ui.render_floor_intro(wave, enemies, state.interest))
         print(f"  Sera: {sera_quip(FLOOR_INTRO_QUIPS)}")
         pause()
@@ -1616,7 +1639,7 @@ def run_endless_mode(seed: int | None = None) -> str:
         if not between_floors(state):
             return "menu"
 
-    ui.clear()
+    ui.refresh()
     print(ui.render_endless_summary(
         waves_cleared=state.endless.total_waves_cleared,
         kills=state.interest.total_kills,
@@ -1634,7 +1657,7 @@ def run_new_game_from_state(state: GameState) -> str:
 
         enemies = generate_encounter(floor_num, state.all_enemies, rng=state.rng)
 
-        ui.clear()
+        ui.refresh()
         print(ui.render_floor_intro(floor_num, enemies, state.interest))
         print(f"  Sera: {sera_quip(FLOOR_INTRO_QUIPS)}")
         pause()
@@ -1645,10 +1668,10 @@ def run_new_game_from_state(state: GameState) -> str:
             _report_runtime_error("campaign combat", err)
             survived = True
         if not survived:
-            ui.clear()
+            ui.refresh()
             print(ui.render_game_over(state.interest, state.floor))
             pause()
-            ui.clear()
+            ui.refresh()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
             _record_persistent_run(state, won=False)
@@ -1665,7 +1688,7 @@ def run_new_game_from_state(state: GameState) -> str:
         save_to_file(SAVE_PATH, state)
 
         if floor_num == state.max_floors:
-            ui.clear()
+            ui.refresh()
             print(ui.render_victory(state.max_floors, state.interest))
             print(ui.box_line("Run complete. [1] Continue Endless  [2] Title  [3] Quit", "center"))
             print(ui.box_bot())
@@ -1693,53 +1716,59 @@ def main():
     args = parser.parse_args()
 
     while True:
-        choice = title_screen()
-        if choice == "quit":
-            print("  Sera didn't even show up.")
-            return
-        if choice == "statistics":
-            payload = load_game_stats()
-            ui.clear()
-            print(ui.render_game_statistics(payload.get("last_run"), payload.get("overall", {})))
+        try:
+            choice = title_screen()
+            if choice == "quit":
+                _record_session_event("title_quit_redirected")
+                continue
+            if choice == "statistics":
+                payload = load_game_stats()
+                ui.refresh()
+                print(ui.render_game_statistics(payload.get("last_run"), payload.get("overall", {})))
+                pause()
+                continue
+            if choice == "simulation":
+                while True:
+                    sim_summary = run_simulation()
+                    sim_summary = stamp_run_summary(sim_summary, won=sim_summary.get("won", False), mode="simulation", seed=sim_summary.get("seed", 0))
+                    merge_run_stats(load_game_stats(), sim_summary)
+                    next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."')
+                    if next_step == "restart":
+                        continue
+                    break
+                continue
+            if choice == "endless":
+                result = run_endless_mode(seed=args.seed)
+                while result == "restart":
+                    result = run_endless_mode(seed=args.seed)
+                continue
+
+            if choice == "continue":
+                state = GameState(seed=args.seed)
+                if not load_from_file(SAVE_PATH, state):
+                    print("  No save found.")
+                    continue
+                print(f"  Loaded seed: {state.rng_seed}")
+                result = run_new_game_from_state(state)
+            else:
+                result = run_new_game(seed=args.seed)
+            while result == "restart":
+                result = run_new_game(seed=args.seed)
+            # result == "menu" and legacy "quit" both loop back to title
+        except KeyboardInterrupt:
+            _record_session_event("keyboard_interrupt_recovered")
+            ui.refresh()
+            print(ui.box_top())
+            print(ui.box_line("░░ INTERRUPT RECOVERED ░░", "center"))
+            print(ui.box_divider())
+            print(ui.box_line('Sera: "No. We are not done."', "center"))
+            print(ui.box_bot())
             pause()
             continue
-        if choice == "simulation":
-            while True:
-                sim_summary = run_simulation()
-                sim_summary = stamp_run_summary(sim_summary, won=sim_summary.get("won", False), mode="simulation", seed=sim_summary.get("seed", 0))
-                merge_run_stats(load_game_stats(), sim_summary)
-                next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."')
-                if next_step == "restart":
-                    continue
-                if next_step == "quit":
-                    print('  Sera: "We\'re done here."')
-                    return
-                break
+        except Exception as err:
+            _record_session_event(f"runtime_recovered:{type(err).__name__}")
+            _report_runtime_error("main loop", err)
             continue
-        if choice == "endless":
-            result = run_endless_mode(seed=args.seed)
-            while result == "restart":
-                result = run_endless_mode(seed=args.seed)
-            if result == "quit":
-                print('  Sera: "We\'re done here."')
-                return
-            continue
-
-        if choice == "continue":
-            state = GameState(seed=args.seed)
-            if not load_from_file(SAVE_PATH, state):
-                print("  No save found.")
-                continue
-            print(f"  Loaded seed: {state.rng_seed}")
-            result = run_new_game_from_state(state)
-        else:
-            result = run_new_game(seed=args.seed)
-        while result == "restart":
-            result = run_new_game(seed=args.seed)
-        if result == "quit":
-            print('  Sera: "We\'re done here."')
-            return
-        # result == "menu" → loop back to title
 
 
 if __name__ == "__main__":
