@@ -22,6 +22,15 @@ from sera.equipment import EquipmentItem, EquipmentLoadout, SLOT_ORDER
 from sera.stats import PlayerStats
 from sera import REVISION, sprites
 
+COMBAT_RETURN_STATES = {"BETWEEN_FLOORS", "MENU"}
+
+
+def normalize_combat_return_state(value: str | None) -> str:
+    """Normalize combat return states so gameplay flow never receives None."""
+    if value in COMBAT_RETURN_STATES:
+        return value
+    return "MENU"
+
 
 # ─────────────────────────────────────────────────────────
 # Pixel UI system (overlay architecture)

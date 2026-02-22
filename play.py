@@ -863,6 +863,12 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                         enemy_phase_had_output = True
                         if not AUTO_ADVANCE_ENEMY_PHASE:
                             pause()
+                    draconic_turns = getattr(enemy, "_draconic_turns", 0)
+                    if draconic_turns > 0:
+                        setattr(enemy, "_draconic_turns", draconic_turns - 1)
+                        if draconic_turns - 1 <= 0:
+                            enemy.armor = max(0, enemy.armor - int(getattr(enemy, "_draconic_bonus_armor", 0)))
+                            setattr(enemy, "_draconic_bonus_armor", 0)
                     enemy.tick_cooldowns()
                     healed = enemy.tick_regen()
                     if healed > 0:
@@ -996,6 +1002,7 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
         run_stats.record_damage(actual)
 
     print(ui.render_damage_report(steps, target.name, actual, armor_absorbed))
+    _handle_boss_mutators_on_hit(state, target, weapon, damage)
 
     # Attack quip
     if not dead:
@@ -1025,6 +1032,32 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
             print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
         print(ui.render_kill_report(target.name, kill_log))
 
+
+
+
+def _handle_boss_mutators_on_hit(state: GameState, target: Enemy, weapon: Weapon, damage: int):
+    mutators = getattr(target, "boss_mutators", [])
+    if not mutators:
+        return
+
+    is_melee = DamageTag.PHYSICAL in weapon.tag_set() or DamageTag.HEAVY in weapon.tag_set()
+    is_crit = is_melee and damage >= max(2, weapon.effective_base_damage * 2)
+
+    for mutator in mutators:
+        effect = mutator.get("effect")
+        if effect == "cleanse_and_fortify" and not getattr(target, "_draconic_triggered", False):
+            if target.current_hp <= int(target.max_hp * float(mutator.get("trigger_threshold", 0.5))):
+                target.statuses.clear()
+                bonus = max(1, target.armor)
+                target.armor += bonus
+                setattr(target, "_draconic_triggered", True)
+                setattr(target, "_draconic_bonus_armor", bonus)
+                setattr(target, "_draconic_turns", 2)
+                print(f"  {target.name} mutates: Draconic Resilience. Debuffs cleansed. Armor surges.")
+        if effect == "acid_splash_damage" and is_crit:
+            splash = 2
+            state.interest._drain(splash, "Acidic Blood")
+            print(f"  {target.name} splashes acid blood for {splash} Patience.")
 
 def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: int) -> int:
     """Run a quick auto-battle burst and print a compact turn-by-turn summary."""
@@ -1778,6 +1811,20 @@ def run_new_game(seed: int | None = None) -> str:
     return run_new_game_from_state(state)
 
 
+
+
+def execute_combat(state: GameState, enemies: list[Enemy], mode_label: str = "combat") -> str:
+    """Guard combat resolution and always return a valid flow-state string."""
+    try:
+        survived = run_combat(state, enemies)
+    except Exception as err:
+        _report_runtime_error(f"{mode_label} loop", err)
+        ui.refresh()
+        print(ui.render_runtime_error("Combat recovered. Returning to hub.", err))
+        pause()
+        return "BETWEEN_FLOORS"
+    return ui.normalize_combat_return_state("BETWEEN_FLOORS" if survived else "MENU")
+
 def run_endless_mode(seed: int | None = None) -> str:
     state = GameState(seed=seed)
     state.mode = "endless"
@@ -1804,12 +1851,8 @@ def run_endless_mode(seed: int | None = None) -> str:
         pause()
 
         kills_before = state.interest.total_kills
-        try:
-            survived = run_combat(state, enemies)
-        except Exception as err:
-            _report_runtime_error("endless combat", err)
-            survived = True
-        if not survived:
+        combat_state = execute_combat(state, enemies, mode_label="endless combat")
+        if combat_state == "MENU":
             break
 
         kills_this_wave = state.interest.total_kills - kills_before
@@ -1858,12 +1901,8 @@ def run_new_game_from_state(state: GameState) -> str:
         print(f"  Sera: {sera_quip(FLOOR_INTRO_QUIPS)}")
         pause()
 
-        try:
-            survived = run_combat(state, enemies)
-        except Exception as err:
-            _report_runtime_error("campaign combat", err)
-            survived = True
-        if not survived:
+        combat_state = execute_combat(state, enemies, mode_label="campaign combat")
+        if combat_state == "MENU":
             ui.refresh()
             print(ui.render_game_over(state.interest, state.floor))
             pause()
