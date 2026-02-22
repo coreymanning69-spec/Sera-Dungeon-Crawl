@@ -36,6 +36,7 @@ class WeaponPoolManager:
                 legendary = copy.deepcopy(template)
                 legendary.name = f"{template.name} Prime"
                 legendary.base_damage = min(3, legendary.base_damage + 1)
+                legendary.is_unique = True
                 self.legendary_pool.append(legendary)
                 self.legendary_progress[legendary.name] = LegendaryWeaponProgress(legendary.name)
 
@@ -50,12 +51,16 @@ class WeaponPoolManager:
             weapon.prefix = copy.deepcopy(self.rng.choice(prefixes))
         if suffixes and self.rng.random() < 0.7:
             weapon.suffix = copy.deepcopy(self.rng.choice(suffixes))
+
+        extra_pool = [a for a in self.affix_pool if a.affix_type in {"prefix", "suffix"}]
+        while weapon.can_add_modifier and extra_pool and self.rng.random() < 0.35:
+            weapon.add_modifier(copy.deepcopy(self.rng.choice(extra_pool)))
         return weapon
 
     def _legendary_weapon(self) -> Weapon:
         weapon = copy.deepcopy(self.rng.choice(self.legendary_pool))
         progress = self.legendary_progress[weapon.name]
-        weapon.upgrade_level = min(progress.level - 1, weapon.MAX_UPGRADE_LEVEL)
+        weapon.upgrade_level = min(progress.level - 1, weapon.max_upgrade_level)
         progress.grant_xp(1)
         return weapon
 

@@ -53,6 +53,20 @@ class EquipmentItem:
     damage_resistance: int = 0
     resistances: dict[str, int] = field(default_factory=dict)
     ability: str = ""
+    level: int = 1
+    is_unique: bool = False
+
+    @property
+    def max_level(self) -> int:
+        return 20 if self.is_unique else 5
+
+    @property
+    def can_upgrade(self) -> bool:
+        return self.level < self.max_level
+
+    @property
+    def upgrade_cost(self) -> int:
+        return self.level
 
 
 @dataclass
@@ -113,6 +127,28 @@ def infuse_item(item: EquipmentItem, stat: str | None = None, defense_type: str 
         key = normalize_defense_key(defense_type)
         upgraded.resistances[key] = upgraded.resistances.get(key, 0) + 5
     return upgraded
+
+
+def upgrade_equipment(item: EquipmentItem, shards_available: int) -> tuple[list[str], int]:
+    log: list[str] = []
+    if not item.can_upgrade:
+        log.append(f"  {item.name} is max level ({item.max_level}).")
+        return log, 0
+
+    cost = item.upgrade_cost
+    if shards_available < cost:
+        log.append(f"  Need {cost} shards, have {shards_available}.")
+        return log, 0
+
+    item.level += 1
+    item.damage_reduction += 1 if item.level % 2 == 0 else 0
+    item.damage_resistance += 1
+    for stat in list(item.stat_bonuses):
+        if random.random() < 0.5:
+            item.stat_bonuses[stat] += 1
+    log.append(f"  {item.name} upgraded to Lv {item.level}/{item.max_level}.")
+    log.append(f"  Cost: {cost} shards.")
+    return log, cost
 
 
 def roll_item(template: EquipmentItem) -> EquipmentItem:

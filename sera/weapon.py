@@ -75,10 +75,41 @@ class Weapon:
     prefix: Affix | None = None
     suffix: Affix | None = None
     set_bonus: Affix | None = None
+    modifiers: list[Affix] = field(default_factory=list)
     flavor: str = ""               # Sera's opinion of this weapon
     upgrade_level: int = 0         # +0 to +3, each level = +1 base dmg
+    is_unique: bool = False
 
-    MAX_UPGRADE_LEVEL: int = field(default=3, repr=False)
+    MAX_STANDARD_UPGRADE_LEVEL: int = field(default=10, repr=False)
+    MAX_UNIQUE_UPGRADE_LEVEL: int = field(default=20, repr=False)
+    MAX_MODIFIER_SLOTS: int = field(default=5, repr=False)
+
+    @property
+    def max_upgrade_level(self) -> int:
+        return self.MAX_UNIQUE_UPGRADE_LEVEL if self.is_unique else self.MAX_STANDARD_UPGRADE_LEVEL
+
+    @property
+    def affix_count(self) -> int:
+        count = 0
+        if self.prefix:
+            count += 1
+        if self.suffix:
+            count += 1
+        if self.set_bonus:
+            count += 1
+        count += len(self.modifiers)
+        return count
+
+    @property
+    def can_add_modifier(self) -> bool:
+        # Base item consumes one slot in the five-part cap.
+        return (1 + self.affix_count) < self.MAX_MODIFIER_SLOTS
+
+    def add_modifier(self, affix: Affix) -> bool:
+        if not self.can_add_modifier:
+            return False
+        self.modifiers.append(affix)
+        return True
 
     @property
     def display_name(self) -> str:
@@ -104,13 +135,13 @@ class Weapon:
 
     @property
     def can_upgrade(self) -> bool:
-        return self.upgrade_level < self.MAX_UPGRADE_LEVEL
+        return self.upgrade_level < self.max_upgrade_level
 
     @property
     def all_tags(self) -> set[DamageTag]:
         """Collect tags from base weapon + any affix-granted tags."""
         tags = set(self.tags)
-        for affix in [self.prefix, self.suffix, self.set_bonus]:
+        for affix in [self.prefix, self.suffix, self.set_bonus, *self.modifiers]:
             if affix and affix.granted_tag:
                 tags.add(affix.granted_tag)
         return tags
@@ -130,21 +161,21 @@ class Weapon:
             steps.append(f"Base: {dmg}")
 
         # --- Phase 1: Flat bonuses ---
-        for affix in [self.prefix, self.suffix, self.set_bonus]:
+        for affix in [self.prefix, self.suffix, self.set_bonus, *self.modifiers]:
             if affix and affix.flat_bonus != 0:
                 if _check_condition(affix.flat_condition, enemy, enemy_count):
                     dmg += affix.flat_bonus
                     steps.append(f'  + {affix.flat_bonus} ({affix.name}: {affix.flat_condition}) = {dmg}')
 
         # --- Phase 2: Multipliers ---
-        for affix in [self.prefix, self.suffix, self.set_bonus]:
+        for affix in [self.prefix, self.suffix, self.set_bonus, *self.modifiers]:
             if affix and affix.multiplier != 1.0:
                 if _check_condition(affix.mult_condition, enemy, enemy_count):
                     dmg = int(dmg * affix.multiplier)
                     steps.append(f'  x {affix.multiplier} ({affix.name}: {affix.mult_condition}) = {dmg}')
 
         # --- Phase 3: Per-stack bonuses ---
-        for affix in [self.prefix, self.suffix, self.set_bonus]:
+        for affix in [self.prefix, self.suffix, self.set_bonus, *self.modifiers]:
             if affix and affix.per_stack_bonus != 0 and affix.per_stack_source:
                 stacks = _count_stacks(affix.per_stack_source, enemy)
                 bonus = affix.per_stack_bonus * stacks

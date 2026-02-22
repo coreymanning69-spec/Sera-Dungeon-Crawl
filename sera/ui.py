@@ -978,7 +978,7 @@ def render_inventory(
     lines.append(box_header("EQUIPMENT STASH"))
     if equipment_items:
         for i, item in enumerate(equipment_items):
-            lines.append(box_line(f"  ▸ [{i+1}] {item.name} ({item.slot}) {item.ascii_art}"))
+            lines.append(box_line(f"  ▸ [{i+1}] {item.name} Lv {item.level}/{item.max_level} ({item.slot}) {item.ascii_art}"))
     else:
         lines.append(box_line("  (empty)"))
 
@@ -1069,10 +1069,10 @@ def render_upgrade_screen(
         if w.can_upgrade:
             cost = w.upgrade_cost
             lines.append(box_line(f"  ▸ [{i+1}] {w.display_name} [{lvl}]{marker}"))
-            lines.append(box_line(f"        Dmg: {w.effective_base_damage}  |  Next: {cost} shard{'s' if cost != 1 else ''}"))
+            lines.append(box_line(f"        Dmg: {w.effective_base_damage}  |  Lv {w.upgrade_level}/{w.max_upgrade_level} | Next: {cost} shard{'s' if cost != 1 else ''}"))
         else:
             lines.append(box_line(f"  ▸ [{i+1}] {w.display_name} [{lvl}] MAX{marker}"))
-            lines.append(box_line(f"        Dmg: {w.effective_base_damage}  |  Fully upgraded"))
+            lines.append(box_line(f"        Dmg: {w.effective_base_damage}  |  Lv {w.upgrade_level}/{w.max_upgrade_level} | Fully upgraded"))
 
     lines.append(box_blank())
     lines.append(box_line("  ▸ [0] Cancel"))
@@ -1093,6 +1093,8 @@ def render_weapon_detail(weapon: Weapon) -> str:
         lines.append(box_line(sl, "center"))
     lines.append(box_divider_thin())
     lines.append(box_line(f"  Base Damage: {weapon.base_damage}"))
+    lines.append(box_line(f"  Weapon Level: {weapon.upgrade_level}/{weapon.max_upgrade_level}"))
+    lines.append(box_line(f"  Modifier Slots: {1 + weapon.affix_count}/{weapon.MAX_MODIFIER_SLOTS}"))
     lines.append(box_line(f"  Tags: [{tag_str}]"))
 
     if weapon.prefix:
@@ -1123,6 +1125,11 @@ def render_weapon_detail(weapon: Weapon) -> str:
         lines.append(box_divider())
         lines.append(box_line(f"  ▓ SET BONUS: {weapon.set_bonus.name}"))
         lines.append(box_line(f"    {weapon.set_bonus.description}"))
+    if weapon.modifiers:
+        lines.append(box_divider())
+        lines.append(box_line("  ▓ EXTRA MODIFIERS:"))
+        for extra in weapon.modifiers:
+            lines.append(box_line(f"    - {extra.name} ({extra.affix_type})"))
     if weapon.flavor:
         lines.append(box_divider_pixel())
         lines.append(box_line(f'"{weapon.flavor}"', "center"))
@@ -1165,7 +1172,7 @@ def render_between_floors(
     lines.append(box_line("  ▸ [3] Craft (apply material to weapon)"))
     lines.append(box_line("  ▸ [4] Upgrade weapon (spend shards)"))
     lines.append(box_line("  ▸ [5] View inventory"))
-    lines.append(box_line("  ▸ [6] Equipment menu"))
+    lines.append(box_line("  ▸ [6] Equipment menu (equip + shard upgrades)"))
     lines.append(box_line("  ▸ [7] Claim next-revision gear set"))
     lines.append(box_line("  ▸ [8] View Run Stats"))
     lines.append(box_line("  ▸ [9] Save run now"))
@@ -1211,7 +1218,7 @@ def render_equipment_menu(
     for slot in SLOT_ORDER:
         item = loadout.equipped.get(slot)
         if item:
-            lines.append(box_line(f"  [{slot}] {item.name} {item.ascii_art}"))
+            lines.append(box_line(f"  [{slot}] {item.name} Lv {item.level}/{item.max_level} {item.ascii_art}"))
             lines.append(box_line(f"      +Stats: {item.stat_bonuses} | DR {item.damage_reduction} | RES {item.damage_resistance}%"))
             if item.resistances:
                 lines.append(box_line(f"      Elem: {item.resistances}"))
@@ -1226,7 +1233,7 @@ def render_equipment_menu(
     lines.append(box_header("STASH"))
     if stash:
         for i, item in enumerate(stash):
-            lines.append(box_line(f"  ▸ [{i+1}] {item.name} ({item.slot}) {item.ascii_art}"))
+            lines.append(box_line(f"  ▸ [{i+1}] {item.name} Lv {item.level}/{item.max_level} ({item.slot}) {item.ascii_art}"))
     else:
         lines.append(box_line("  (no equipment items)"))
     lines.append(box_blank())

@@ -11,7 +11,7 @@ from collections import Counter
 
 from sera.loader import load_enemies, load_weapons, load_affixes
 from sera.weapon import Weapon, Affix
-from sera.enemy import Enemy
+from sera.enemy import Enemy, EnemyAbility, AnnoyanceType
 from sera.crafting import CraftingMaterial, CRAFTING_MATERIALS
 from sera.randomization import RunRNG, select_wave_enemies
 
@@ -88,10 +88,58 @@ def generate_encounter(floor: int, all_enemies: list[Enemy], rng: RunRNG | None 
     # Scale and disambiguate
     for e in picks:
         _scale_enemy(e, floor, rand)
+        _roll_boss_mutator(e, floor, rand)
     _disambiguate_names(picks)
 
     return picks
 
+
+
+
+BOSS_MUTATOR_POOL = [
+    {
+        "name": "Warcaller",
+        "ability": {
+            "name": "Working Reinforcements",
+            "annoyance": AnnoyanceType.SUMMON,
+            "cooldown": 3,
+            "charge_time": 1,
+            "flavor": "Reinforcements arrive. I hate that this one actually works.",
+            "attack_type": "sonic",
+        },
+    },
+    {
+        "name": "Aegis-Bound",
+        "ability": {
+            "name": "Null Ward",
+            "annoyance": AnnoyanceType.STUN,
+            "cooldown": 4,
+            "charge_time": 0,
+            "flavor": "I phase through your opening strike.",
+            "attack_type": "arcane",
+        },
+    },
+]
+
+
+def _roll_boss_mutator(enemy: Enemy, floor: int, rand=random) -> None:
+    """Small weighted chance for bosses to spawn with a named mutator ability."""
+    if enemy.archetype != "boss":
+        return
+    chance = min(0.08 + floor * 0.01, 0.18)
+    if rand.random() > chance:
+        return
+    mutator = copy.deepcopy(rand.choice(BOSS_MUTATOR_POOL))
+    enemy.name = f"{mutator['name']} {enemy.name}"
+    ab = mutator["ability"]
+    enemy.abilities.append(EnemyAbility(
+        name=ab["name"],
+        annoyance=ab["annoyance"],
+        cooldown=ab["cooldown"],
+        charge_time=ab["charge_time"],
+        flavor=ab["flavor"],
+        attack_type=ab["attack_type"],
+    ))
 
 def _scale_endless_enemy(enemy: Enemy, wave: int, pressure: int, rand=random) -> None:
     """Apply endless-mode scaling pressure to a copied enemy."""
@@ -156,6 +204,7 @@ def generate_endless_encounter(wave: int, all_enemies: list[Enemy], rng: RunRNG 
 
     for enemy in picks:
         _scale_endless_enemy(enemy, wave, pressure, rand)
+        _roll_boss_mutator(enemy, wave, rand)
     _disambiguate_names(picks)
     return picks
 
@@ -184,20 +233,15 @@ def generate_loot_material() -> CraftingMaterial | None:
 
 
 def generate_loot_shards(floor: int) -> int:
-    """
-    Generate upgrade shards as loot. Higher floors = more shards.
-
-    Floor 1: 0-1 shards (50% chance)
-    Floor 2: 0-1 shards (60% chance)
-    Floor 3: 1-2 shards (70% chance)
-    Floor 4: 1-2 shards (80% chance)
-    Floor 5: 2-3 shards (guaranteed)
-    """
-    chance = min(0.5 + floor * 0.1, 1.0)
+    """Generate upgrade shards with weighted 1/2/3 outcomes."""
+    chance = min(0.45 + floor * 0.12, 0.95)
     if random.random() > chance:
         return 0
+
+    # weighted payout biased by floor progression
     if floor <= 2:
-        return random.randint(0, 1) or 1  # at least 1 if we passed the check
+        return random.choices([1, 2, 3], weights=[75, 20, 5], k=1)[0]
     if floor <= 4:
-        return random.randint(1, 2)
-    return random.randint(2, 3)
+        return random.choices([1, 2, 3], weights=[45, 40, 15], k=1)[0]
+    return random.choices([1, 2, 3], weights=[25, 45, 30], k=1)[0]
+
