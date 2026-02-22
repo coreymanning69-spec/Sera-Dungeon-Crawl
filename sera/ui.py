@@ -761,6 +761,61 @@ def render_combat_hud(
     return "\n".join(lines)
 
 
+def render_arcade_combat_frame(
+    turn: int,
+    weapon: Weapon,
+    enemies: list[Enemy],
+    interest: InterestManager,
+    stats: PlayerStats,
+    healing_charges: int,
+    auto_battle_turns: int,
+    combat_log: list[str],
+    menu_collapsed: bool,
+) -> str:
+    """Render an arcade-style combat frame with sprite viewport + action strips."""
+    alive = [e for e in enemies if e.current_hp > 0]
+    target = alive[0] if alive else None
+    sprite_lines = []
+    if target:
+        sprite_lines = sprites.get_enemy_sprite(target.archetype, target.name).strip("\n").split("\n")
+    sprite_lines = sprite_lines[:10] if sprite_lines else ["(no target)"]
+
+    left_width = 66
+    right_width = 28
+
+    def row(left: str = "", right: str = "") -> str:
+        return box_line(f"{left[:left_width]:<{left_width}} {right[:right_width]:<{right_width}}")
+
+    lines = [box_top()]
+    lines.append(row(f"TURN {turn}  |  Patience {interest.current_patience}/{interest.max_patience}", "[M] Toggle menu"))
+    lines.append(box_divider())
+    lines.append(row(f"Weapon: {weapon.display_name} [{', '.join(t.name for t in weapon.all_tags)}]", "SYSTEM" if not menu_collapsed else "SYSTEM (collapsed)"))
+    lines.append(row(f"Flasks: {healing_charges}  AP:+{stats.attack_bonus()}  Auto:{auto_battle_turns}t", "[0] Commands" if not menu_collapsed else ""))
+    lines.append(box_divider_thin())
+    lines.append(row("ENEMY VIEWPORT (64x64 style sprite)", ""))
+    for sl in sprite_lines:
+        lines.append(row(f"  {sl}", ""))
+    if target:
+        lines.append(row(f"Target: {target.name}  HP {target.current_hp}/{target.max_hp}", ""))
+    lines.append(box_divider_thin())
+    lines.append(row("ATTACK OPTIONS", ""))
+    for i, enemy in enumerate(alive[:4]):
+        lines.append(row(f"[{i+1}] Attack {enemy.name}", ""))
+    lines.append(row("[H] Consumable  [W] Weapon  [E] Equip  [I] Inspect  [A] Auto", ""))
+    specials = []
+    for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
+        if affix:
+            specials.append(affix.name)
+    lines.append(row(f"Special abilities: {', '.join(specials) if specials else 'None'}", ""))
+    lines.append(box_divider())
+    lines.append(row("ACTION FEED", ""))
+    for entry in combat_log[-6:]:
+        lines.append(row(f"• {entry}", ""))
+    lines.append(box_blank())
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
 def render_damage_report(steps: list[str], target_name: str, actual: int, armor_absorbed: int) -> str:
     lines = [
         box_top(),

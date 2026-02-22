@@ -623,6 +623,9 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
     interest = state.interest
     combat_turn = 0
     consecutive_errors = 0
+    combat_log: list[str] = ["Combat engaged."]
+    if not hasattr(state, "combat_menu_collapsed"):
+        state.combat_menu_collapsed = False
 
     while True:
         try:
@@ -648,7 +651,17 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
             alive = [e for e in enemies if e.current_hp > 0]
             weapon = state.equipped_weapon
             ui.refresh()
-            print(ui.render_combat_hud(combat_turn, weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+            print(ui.render_arcade_combat_frame(
+                combat_turn,
+                weapon,
+                enemies,
+                interest,
+                state.final_stats,
+                state.healing_flasks,
+                state.auto_battle_turns,
+                combat_log,
+                state.combat_menu_collapsed,
+            ))
 
             # Patience-based commentary
             if interest.current_patience <= 20:
@@ -660,7 +673,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
             print()
 
             # Get player action
-            valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "e", "h", "a", "0"]
+            valid_actions = [str(i+1) for i in range(len(alive))] + ["i", "w", "e", "h", "a", "0", "m"]
             action = None
             last_action = getattr(state, "last_player_action", "1")
             while action is None:
@@ -682,12 +695,20 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 if choice == "0":
                     state.last_player_action = choice
                     _show_commands_menu(state, enemies)
+                    combat_log.append("Opened commands menu.")
                     ui.refresh()
-                    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                    print(ui.render_arcade_combat_frame(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns, combat_log, state.combat_menu_collapsed))
+                    continue
+                if choice == "m":
+                    state.combat_menu_collapsed = not state.combat_menu_collapsed
+                    combat_log.append("Corner menu collapsed." if state.combat_menu_collapsed else "Corner menu expanded.")
+                    ui.refresh()
+                    print(ui.render_arcade_combat_frame(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns, combat_log, state.combat_menu_collapsed))
                     continue
                 if choice == "i":
                     state.last_player_action = choice
                     _do_inspect(alive, combat_turn, enemies, interest, state)
+                    combat_log.append("Inspected enemy details.")
                     continue
                 if choice == "w":
                     state.last_player_action = choice
@@ -695,22 +716,24 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     print(ui.render_weapon_detail(state.equipped_weapon))
                     pause()
                     ui.refresh()
-                    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                    print(ui.render_arcade_combat_frame(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns, combat_log, state.combat_menu_collapsed))
                     continue
                 if choice == "e":
                     state.last_player_action = choice
                     equip_screen(state)
+                    combat_log.append(f"Equipped {state.equipped_weapon.display_name}.")
                     ui.refresh()
-                    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                    print(ui.render_arcade_combat_frame(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns, combat_log, state.combat_menu_collapsed))
                     continue
                 if choice == "h":
                     state.last_player_action = choice
                     _use_consumable(state)
+                    combat_log.append("Used consumable.")
                     if interest.game_over:
                         return False
                     pause()
                     ui.refresh()
-                    print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
+                    print(ui.render_arcade_combat_frame(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns, combat_log, state.combat_menu_collapsed))
                     continue
                 if choice == "a":
                     state.last_player_action = choice
@@ -721,6 +744,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     if not any(e.current_hp > 0 for e in enemies):
                         _show_room_clear(interest)
                         return True
+                    combat_log.append(f"Auto-battle burst executed ({turns_run} turns).")
                     pause()
                     action = None
                     continue
@@ -732,6 +756,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
             # --- RESOLVE ATTACK ---
             print()
             _resolve_player_attack(state, state.equipped_weapon, target, interest, state.final_stats, state.run_stats)
+            combat_log.append(f"Attacked {target.name} with {state.equipped_weapon.display_name}.")
             pause()
 
             if interest.game_over:
@@ -756,6 +781,8 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     continue
                 resolved = _resolve_enemy_action(enemy, state, defense_profile, wait_for_input=not AUTO_ADVANCE_ENEMY_PHASE)
                 enemy_phase_had_output = enemy_phase_had_output or resolved
+                if resolved:
+                    combat_log.append(f"{enemy.name} acted.")
 
                 if interest.game_over:
                     return False
