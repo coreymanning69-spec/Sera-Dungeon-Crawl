@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import random
 import argparse
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -253,6 +254,32 @@ class SimulationRunResult:
 SIMULATION_HISTORY: list[SimulationRunResult] = []
 
 
+@dataclass
+class AutoRunSettings:
+    enabled: bool = False
+    auto_upgrade: bool = True
+    auto_floor_advance: bool = True
+    auto_summary: bool = True
+    turn_delay_s: float = 0.2
+
+
+@dataclass
+class TowerDefenseRunState:
+    wave: int = 1
+    core_hp: int = 40
+    max_core_hp: int = 40
+    resources: int = 0
+    towers: dict[str, int] | None = None
+
+    def __post_init__(self):
+        if self.towers is None:
+            self.towers = {
+                "bolt": 1,
+                "frost": 0,
+                "rupture": 0,
+            }
+
+
 # ─────────────────────────────────────────────────────────
 # Game State
 # ─────────────────────────────────────────────────────────
@@ -292,6 +319,8 @@ class GameState:
         self.analytics: AnalyticsTracker = AnalyticsTracker()
         self.balance: BalanceTweaks = BalanceTweaks()
         self.simulation_history: list[SimulationRunResult] = []
+        self.auto_run: AutoRunSettings = AutoRunSettings()
+        self.tower_defense_history: list[dict] = []
 
     @property
     def healing_flasks(self) -> int:
@@ -349,15 +378,17 @@ def pause(msg: str = "  [Press Enter]"):
 # ─────────────────────────────────────────────────────────
 
 def title_screen() -> str:
-    """Returns 'new_game', 'continue', 'simulation', 'statistics', 'endless', or 'quit'."""
+    """Returns 'new_game', 'continue', 'simulation', 'statistics', 'endless', 'tower', or 'quit'."""
     ui.refresh()
     print(ui.render_title_screen())
-    valid = ["1", "2", "3", "4", "5"]
+    valid = ["1", "2", "3", "4", "5", "6"]
     if SAVE_PATH.exists():
         valid.insert(1, "c")
     choice = get_choice("> ", valid)
     if choice in ("quit", "5"):
         return "quit"
+    if choice == "6":
+        return "tower"
     if choice == "4":
         return "statistics"
     if choice == "3":
@@ -1060,20 +1091,13 @@ def _handle_boss_mutators_on_hit(state: GameState, target: Enemy, weapon: Weapon
             print(f"  {target.name} splashes acid blood for {splash} Patience.")
 
 def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: int) -> int:
-    """Run a quick auto-battle burst and print a compact turn-by-turn summary."""
+    """Run an auto-battle burst with live turn telemetry and active sprite frames."""
     interest = state.interest
     stats = state.final_stats
     turns_run = 0
-
-    # Track stats for summary table
     total_damage_dealt = 0
     total_kills = 0
-
-    ui.refresh()
-    print(ui.box_top())
-    print(ui.box_line(f"░▒▓█ AUTO-BATTLE ({max_turns} TURNS MAX) █▓▒░", "center"))
-    print(ui.box_line("Sera: \"Fine. I'll do it myself for a bit.\"", "center"))
-    print(ui.box_divider())
+    turn_results: list[dict] = []
 
     for _ in range(max_turns):
         try:
@@ -1085,44 +1109,40 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
             interest.turn_number += 1
             interest._kills_this_turn = 0
             interest._drain(interest.TICK_DRAIN, "Time passes.")
-            print(ui.box_line(f"Turn {interest.turn_number}: -1 Patience (time)"))
             if interest.game_over:
                 break
 
-            turn_damage = 0
-            turn_kills = 0
+            target = alive[0]
+            animator = ui.sprites.build_enemy_animator(target.archetype, target.name)
+            sprite_frame = animator.next_frame()
 
             weapon = state.equipped_weapon
-            target = alive[0]
             damage, _steps = weapon.calculate_damage(target)
             damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
             hp_before = target.current_hp
             actual, dead = target.take_damage(damage)
-            turn_damage += actual
             total_damage_dealt += actual
             state.run_stats.record_damage(actual)
-            print(ui.box_line(f"  Attack {target.name}: {actual} damage ({target.current_hp}/{target.max_hp})"))
+            event_text = ""
 
             for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
                 if affix and affix.inflicts_status:
                     effect = StatusEffect[affix.inflicts_status]
                     target.apply_status(effect, affix.status_duration, affix.status_potency)
 
+            turn_kills = 0
             if dead:
                 interest.register_kill(target.name, damage, hp_before)
                 turn_kills += 1
                 total_kills += 1
-                print(ui.box_line(f"  {target.name} defeated. Patience now {interest.current_patience}."))
+                event_text = f"{target.name} removed from play."
 
             reduction, resistance, resistances = _build_defense_profile(state, stats)
             for enemy in [e for e in enemies if e.current_hp > 0]:
                 if enemy.is_frozen():
-                    print(ui.box_line(f"  {enemy.name} is frozen and skips."))
                     continue
                 ability = enemy.choose_action()
                 if ability is None:
-                    if enemy.is_casting and enemy.pending_ability:
-                        print(ui.box_line(f"  {enemy.name} charges {enemy.pending_ability.name}."))
                     continue
 
                 base_cost = ANNOYANCE_COST[ability.annoyance]
@@ -1134,48 +1154,53 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
                 resist_pct = min(0.75, (resistance + elem_res) / 100)
                 cost = max(1, int(round(mitigated * (1 - resist_pct))))
                 interest.take_annoyance(cost, ability.name)
-                print(ui.box_line(f"  {enemy.name} uses {ability.name} [{attack_type}]: -{cost} Patience"))
                 if interest.game_over:
+                    event_text = "Patience collapsed."
                     break
-
-            if interest.game_over:
-                break
 
             for enemy in enemies:
                 if enemy.current_hp <= 0:
                     continue
                 hp_before_dot = enemy.current_hp
                 dot_total, _ = enemy.tick_dot_damage()
-                if dot_total > 0:
-                    print(ui.box_line(f"  DOT on {enemy.name}: {dot_total} ({enemy.current_hp}/{enemy.max_hp})"))
                 if enemy.current_hp <= 0:
                     interest.register_kill(enemy.name, dot_total, hp_before_dot)
-                    continue
-
                 _status_log, kill_events = enemy.tick_statuses()
-                for event in kill_events:
-                    interest.register_kill(event.enemy_name, event.damage_dealt, event.enemy_hp_was)
-                    print(ui.box_line(f"  {event.enemy_name} destroyed by status detonation."))
-
+                for kill_event in kill_events:
+                    interest.register_kill(kill_event.enemy_name, kill_event.damage_dealt, kill_event.enemy_hp_was)
                 enemy.tick_cooldowns()
-                healed = enemy.tick_regen()
-                if healed > 0:
-                    print(ui.box_line(f"  {enemy.name} regenerates {healed}."))
+                enemy.tick_regen()
 
-            print(ui.box_line(f"  End Patience: {interest.current_patience}/{interest.max_patience}"))
-            print(ui.box_divider_thin())
+            turn_results.append({
+                "turn": interest.turn_number,
+                "target": target.name,
+                "damage": actual,
+                "target_hp": f"{target.current_hp}/{target.max_hp}",
+                "kills": turn_kills,
+                "patience": interest.current_patience,
+                "event": event_text,
+            })
+
+            ui.refresh()
+            print(ui.render_auto_battle_screen(
+                turn_results,
+                total_damage_dealt,
+                total_kills,
+                interest.current_patience,
+                interest.max_patience,
+                sprite_frame=sprite_frame,
+            ))
+            if state.auto_run.turn_delay_s > 0:
+                time.sleep(state.auto_run.turn_delay_s)
+
+            if interest.game_over:
+                break
         except Exception as err:
             _report_runtime_error("auto-battle turn", err)
             continue
 
-    # Display summary
-    print(ui.box_divider())
-    print(ui.box_line(f"  Turns: {turns_run} | Damage: {total_damage_dealt} | Kills: {total_kills}"))
-    print(ui.box_line(f"  Patience: {interest.current_patience}/{interest.max_patience}"))
-    print(ui.box_blank())
-    print(ui.box_line(f'Sera: "Done."', "center"))
-    print(ui.box_bot())
     return turns_run
+
 
 def _resolve_enemy_action(
     enemy: Enemy,
@@ -1338,6 +1363,42 @@ def loot_phase(state: GameState):
     pause()
 
 
+
+def run_auto_floor_framework(state: GameState):
+    """Framework pass for automatic upgrades, floor transitions, and summaries."""
+    logs: list[str] = []
+    if state.auto_run.auto_upgrade and state.upgrade_shards > 0 and state.weapons:
+        weapon = state.equipped_weapon
+        upgrade_log, shards_used = upgrade_weapon(weapon, state.upgrade_shards)
+        state.upgrade_shards -= shards_used
+        if shards_used > 0:
+            logs.append(f"Auto-upgraded {weapon.display_name} (-{shards_used} shards).")
+        if upgrade_log:
+            logs.append(upgrade_log[-1].strip())
+
+    if state.auto_run.auto_upgrade and state.next_revision_set and not state.revision_set_claimed:
+        for item in state.next_revision_set:
+            state.equipment_stash.append(copy.deepcopy(item))
+        state.revision_set_claimed = True
+        logs.append(f"Auto-claimed revision kit ({len(state.next_revision_set)} items).")
+
+    if state.auto_run.auto_summary:
+        summary = state.run_stats.to_dict(state)
+        logs.append(
+            f"Summary: Floors {summary['floors_cleared']} | Kills {summary['total_kills']} | Damage {summary['total_damage']} | Patience {summary['patience']}/{summary['max_patience']}"
+        )
+
+    ui.refresh()
+    print(ui.box_top())
+    print(ui.box_line("░▒▓█ AUTO FLOOR DIRECTOR █▓▒░", "center"))
+    print(ui.box_divider())
+    for line in logs or ["Auto-director had nothing to process."]:
+        print(ui.box_line(f"  {line}"))
+    print(ui.box_line('  Sera: "Efficiency is less embarrassing."'))
+    print(ui.box_bot())
+    pause()
+
+
 # ─────────────────────────────────────────────────────────
 # Between-floor menu
 # ─────────────────────────────────────────────────────────
@@ -1351,10 +1412,10 @@ def between_floors(state: GameState) -> bool:
         ui.refresh()
         print(ui.render_between_floors(
             state.floor, state.interest, state.upgrade_shards, state.consumable_count("healing_flask"),
-            state.next_revision_set, state.revision_set_claimed))
+            state.next_revision_set, state.revision_set_claimed, state.auto_run.enabled))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"])
-        if choice in ("quit", "11"):
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"])
+        if choice in ("quit", "13"):
             return False
 
         if choice == "1":
@@ -1398,7 +1459,15 @@ def between_floors(state: GameState) -> bool:
             print(f"  Analytics exported: {csv_path}")
             pause()
 
+        if choice == "11":
+            state.auto_run.enabled = not state.auto_run.enabled
+            print(f"  Auto director {'enabled' if state.auto_run.enabled else 'disabled'}.")
+            pause()
 
+        if choice == "12":
+            run_auto_floor_framework(state)
+            if state.auto_run.auto_floor_advance:
+                return True
 
 def equip_screen(state: GameState):
     if len(state.weapons) < 2:
@@ -1945,6 +2014,72 @@ def run_new_game_from_state(state: GameState) -> str:
     return "menu"
 
 
+
+def _simulate_tower_wave(td_state: TowerDefenseRunState, rng: random.Random) -> dict:
+    """Framework wave resolver for tower defense simulation mode."""
+    incoming = 6 + (td_state.wave * 2)
+    bolt_damage = td_state.towers.get("bolt", 0) * 3
+    frost_slow = td_state.towers.get("frost", 0)
+    rupture_burst = td_state.towers.get("rupture", 0) * 2
+    mitigated = max(0, bolt_damage + rupture_burst + frost_slow)
+    leaks = max(0, incoming - mitigated)
+    td_state.core_hp = max(0, td_state.core_hp - leaks)
+    income = 3 + td_state.wave + rng.randint(0, 2)
+    td_state.resources += income
+
+    if td_state.resources >= 6:
+        td_state.towers["bolt"] += 1
+        td_state.resources -= 6
+    elif td_state.resources >= 5 and td_state.wave % 2 == 0:
+        td_state.towers["frost"] += 1
+        td_state.resources -= 5
+
+    result = {
+        "wave": td_state.wave,
+        "incoming": incoming,
+        "mitigated": mitigated,
+        "leaks": leaks,
+        "core_hp": td_state.core_hp,
+        "resources": td_state.resources,
+        "towers": dict(td_state.towers),
+    }
+    td_state.wave += 1
+    return result
+
+
+def run_tower_defense_mode(seed: int | None = None) -> str:
+    """Tower-defense framework mode with automated wave execution."""
+    rng = random.Random(seed or 404)
+    td_state = TowerDefenseRunState()
+    results: list[dict] = []
+
+    while td_state.core_hp > 0 and td_state.wave <= 10:
+        wave_result = _simulate_tower_wave(td_state, rng)
+        results.append(wave_result)
+        ui.refresh()
+        print(ui.box_top())
+        print(ui.box_line("░▒▓█ TOWER DEFENSE SIM █▓▒░", "center"))
+        print(ui.box_divider())
+        print(ui.box_line(f"  Wave {wave_result['wave']}: incoming {wave_result['incoming']} | blocked {wave_result['mitigated']} | leaks {wave_result['leaks']}"))
+        print(ui.box_line(f"  Core HP: {wave_result['core_hp']} | Resources: {wave_result['resources']}"))
+        print(ui.box_line(f"  Towers: Bolt {wave_result['towers']['bolt']} | Frost {wave_result['towers']['frost']} | Rupture {wave_result['towers']['rupture']}"))
+        print(ui.box_line('  Sera: "Keep the lane clean."'))
+        print(ui.box_bot())
+        time.sleep(0.15)
+
+    ui.refresh()
+    print(ui.box_top())
+    print(ui.box_line("░▒▓█ TOWER DEFENSE SUMMARY █▓▒░", "center"))
+    print(ui.box_divider())
+    print(ui.box_line(f"  Waves simulated: {len(results)}"))
+    print(ui.box_line(f"  Final core HP: {td_state.core_hp}/{td_state.max_core_hp}"))
+    print(ui.box_line(f"  Final towers: {td_state.towers}"))
+    print(ui.box_line('  Sera: "Framework stands. Expand it."'))
+    print(ui.box_bot())
+    pause()
+    return "menu"
+
+
 def main():
     parser = argparse.ArgumentParser(description="SERA: ENDLESS ENGAGEMENT")
     parser.add_argument("--seed", type=int, default=None, help="Deterministic run seed")
@@ -1978,6 +2113,9 @@ def main():
                 result = run_endless_mode(seed=args.seed)
                 while result == "restart":
                     result = run_endless_mode(seed=args.seed)
+                continue
+            if choice == "tower":
+                run_tower_defense_mode(seed=args.seed)
                 continue
 
             if choice == "continue":
