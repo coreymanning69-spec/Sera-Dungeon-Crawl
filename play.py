@@ -38,6 +38,8 @@ from sera.game_stats import (
     merge_run_stats,
     stamp_run_summary,
 )
+from sera.analytics import AnalyticsTracker, export_analytics
+from sera.unique_items import get_unique_effect_key
 
 
 def _build_defense_profile(state: "GameState", stats: PlayerStats | None = None) -> tuple[int, int, dict[str, int]]:
@@ -139,6 +141,13 @@ SAVE_PATH = DEFAULT_SAVE_PATH
 AUTO_ADVANCE_ENEMY_PHASE = True
 SIMULATION_WAVES = 4
 SIMULATION_SEED = 1337
+
+
+@dataclass
+class BalanceTweaks:
+    endless_enemy_hp_bonus_per_wave: float = 0.0
+    endless_player_damage_bonus_per_wave: int = 0
+
 
 
 def _record_persistent_run(state: "GameState", *, won: bool, wave_reached: int | None = None):
@@ -280,6 +289,9 @@ class GameState:
         self.last_player_action: str = "1"
         self.auto_battle_enabled: bool = False
         self.auto_battle_turns: int = DEFAULT_AUTO_BATTLE_TURNS
+        self.analytics: AnalyticsTracker = AnalyticsTracker()
+        self.balance: BalanceTweaks = BalanceTweaks()
+        self.simulation_history: list[SimulationRunResult] = []
 
     @property
     def healing_flasks(self) -> int:
@@ -866,6 +878,23 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
             if AUTO_ADVANCE_ENEMY_PHASE and enemy_phase_had_output and any(e.current_hp > 0 for e in enemies):
                 pause("  [Press Enter for next player turn]")
+
+            state.analytics.capture_turn(
+                mode=state.mode,
+                floor_or_wave=state.floor,
+                turn=interest.turn_number,
+                patience=interest.current_patience,
+                total_kills=interest.total_kills,
+                total_damage=state.run_stats.total_damage,
+                source="combat",
+            )
+            if interest.current_patience < 0 or interest.current_patience > interest.max_patience:
+                state.analytics.record_issue(
+                    kind="patience_bounds",
+                    detail=f"Patience out of bounds: {interest.current_patience}/{interest.max_patience}",
+                    floor_or_wave=state.floor,
+                    turn=interest.turn_number,
+                )
             consecutive_errors = 0
         except Exception as err:
             consecutive_errors += 1
@@ -946,8 +975,12 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
         pause()
 
     # --- Damage Calculation ---
+    unique_effect = get_unique_effect_key(weapon.name)
+    if unique_effect == "first_blood" and target.times_hit == 0:
+        interest._restore(1)
+
     damage, steps = weapon.calculate_damage(target)
-    stat_bonus = stats.attack_bonus()
+    stat_bonus = stats.attack_bonus() + (state.balance.endless_player_damage_bonus_per_wave * max(0, state.endless.wave - 1))
     if stat_bonus > 0:
         pre_stat = damage
         damage = apply_damage_policy(damage + stat_bonus, DEFAULT_DAMAGE_POLICY, state.endless.wave)
@@ -987,6 +1020,8 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
         if excess > 0:
             if run_stats:
                 run_stats.record_overkill(excess)
+            if unique_effect == "stagger_spike":
+                interest._restore(1)
             print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
         print(ui.render_kill_report(target.name, kill_log))
 
@@ -1285,8 +1320,8 @@ def between_floors(state: GameState) -> bool:
             state.floor, state.interest, state.upgrade_shards, state.consumable_count("healing_flask"),
             state.next_revision_set, state.revision_set_claimed))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
-        if choice in ("quit", "9"):
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"])
+        if choice in ("quit", "11"):
             return False
 
         if choice == "1":
@@ -1317,6 +1352,17 @@ def between_floors(state: GameState) -> bool:
         if choice == "8":
             ui.refresh()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
+            pause()
+
+        if choice == "9":
+            save_to_file(SAVE_PATH, state)
+            print("  Run saved.")
+            pause()
+
+        if choice == "10":
+            json_path, csv_path = export_analytics(state.analytics)
+            print(f"  Analytics exported: {json_path}")
+            print(f"  Analytics exported: {csv_path}")
             pause()
 
 
@@ -1553,6 +1599,9 @@ def execute_simulation(config: SimulationConfig) -> SimulationRunResult:
     mode_label = "Randomized" if config.random_mode else "Deterministic"
     wave_results: list[SimulationWaveResult] = []
     death_wave: int | None = None
+    total_kills = 0
+    total_turns = 0
+    total_damage = 0
 
     for wave in range(1, SIMULATION_WAVES + 1):
         if config.random_mode:
@@ -1562,44 +1611,113 @@ def execute_simulation(config: SimulationConfig) -> SimulationRunResult:
             sim_weapon.prefix = copy.deepcopy(config.prefix) if config.prefix else None
             sim_weapon.suffix = copy.deepcopy(config.suffix) if config.suffix else None
 
-    total_kills = 0
-    total_turns = 0
-    wave_reached = 0
-    survived_all = True
-
-    for wave in range(1, 5):
-        sim_weapon = copy.deepcopy(sim_state.weapon_pool_manager.generate_drop(wave + 1))
-        encounter = generate_encounter(wave + 1, sim_state.all_enemies, rng=sim_state.rng)
-        interest = InterestManager(current_patience=80)
+        encounter = generate_endless_encounter(wave, sim_state.all_enemies, rng=sim_state.rng)
         start_hp = sum(enemy.current_hp for enemy in encounter)
+        interest = InterestManager(current_patience=80, max_patience=80)
         result = resolve_combat(sim_weapon, encounter, interest, max_turns=8)
+
+        end_hp = sum(max(0, enemy.current_hp) for enemy in result.final_enemies)
+        damage = max(0, start_hp - end_hp)
         total_kills += result.enemies_killed
         total_turns += result.turns_taken
-        wave_reached = wave
+        total_damage += damage
+
+        wave_results.append(
+            SimulationWaveResult(
+                wave=wave,
+                turns=result.turns_taken,
+                kills=result.enemies_killed,
+                patience=result.patience_remaining,
+                damage=damage,
+                game_over=result.game_over,
+                weapon_name=sim_weapon.display_name,
+            )
+        )
+
         if result.game_over:
-            survived_all = False
-        print(ui.box_top())
-        print(ui.box_line("No simulation results yet.", "center"))
-        print(ui.box_bot())
-        if result.game_over:
+            death_wave = wave
             break
 
+    patience_remaining = wave_results[-1].patience if wave_results else 80
+    return SimulationRunResult(
+        mode_label=mode_label,
+        waves=wave_results,
+        total_turns=total_turns,
+        total_kills=total_kills,
+        total_damage=total_damage,
+        patience_remaining=patience_remaining,
+        death_wave=death_wave,
+    )
 
+
+def run_simulation() -> dict:
+    """Run configurable simulation mode and allow reviewing/exporting wave data."""
+    state = GameState(seed=SIMULATION_SEED)
+    config = configure_simulation(state)
+    if config is None:
+        return {
+            "floors_cleared": 0,
+            "wave_reached": 0,
+            "total_kills": 0,
+            "total_turns": 0,
+            "total_damage": 0,
+            "best_overkill": 0,
+            "weapons_found": 0,
+            "materials_used": 0,
+            "patience": 0,
+            "max_patience": 80,
+            "weapon_name": "Simulation Cancelled",
+            "won": False,
+            "mode": "simulation",
+            "seed": state.rng_seed,
+        }
+
+    run_result = execute_simulation(config)
+    SIMULATION_HISTORY.append(run_result)
+    for wave in run_result.waves:
+        state.analytics.capture_turn(
+            mode="simulation",
+            floor_or_wave=wave.wave,
+            turn=wave.turns,
+            patience=wave.patience,
+            total_kills=wave.kills,
+            total_damage=wave.damage,
+            source=wave.weapon_name,
+        )
+
+    selected: int | None = len(SIMULATION_HISTORY) - 1
+    while True:
+        ui.refresh()
+        print(ui.render_simulation_results(SIMULATION_HISTORY, selected))
+        prompt = "  Select run #, [e]xport, or [0] back > "
+        valid = [str(i) for i in range(1, len(SIMULATION_HISTORY) + 1)] + ["0", "e"]
+        choice = get_choice(prompt, valid)
+        if choice in ("quit", "0"):
+            break
+        if choice == "e":
+            json_path, csv_path = export_analytics(state.analytics)
+            print(f"  Exported analytics: {json_path}")
+            print(f"  Exported analytics: {csv_path}")
+            pause()
+            continue
+        selected = int(choice) - 1
+
+    reached = len(run_result.waves)
     return {
-        "floors_cleared": wave_reached,
-        "wave_reached": wave_reached,
-        "total_kills": total_kills,
-        "total_turns": total_turns,
-        "total_damage": 0,
+        "floors_cleared": reached,
+        "wave_reached": reached,
+        "total_kills": run_result.total_kills,
+        "total_turns": run_result.total_turns,
+        "total_damage": run_result.total_damage,
         "best_overkill": 0,
         "weapons_found": 0,
         "materials_used": 0,
-        "patience": 80,
+        "patience": run_result.patience_remaining,
         "max_patience": 80,
-        "weapon_name": "Simulation Loadout",
-        "won": survived_all,
+        "weapon_name": run_result.waves[-1].weapon_name if run_result.waves else "Simulation Loadout",
+        "won": run_result.death_wave is None,
         "mode": "simulation",
-        "seed": sim_state.rng_seed,
+        "seed": state.rng_seed,
     }
 
 
@@ -1614,16 +1732,16 @@ def _show_closing_menu(title: str, quote: str, *, simulator: bool = False) -> st
     print(ui.box_blank())
     print(ui.box_line("[1] Restart", "center"))
     print(ui.box_line("[2] Back to title", "center"))
-    print(ui.box_line("[3] Back to title", "center"))
+    print(ui.box_line("[3] Quit run", "center"))
     if simulator:
         print(ui.box_line("[4] Display Results", "center"))
     print(ui.box_bot())
 
-    valid = ["1", "2", "3", "7"]
+    valid = ["1", "2", "3"]
     if simulator:
         valid.append("4")
     choice = get_choice("> ", valid)
-    if choice in ("quit", "3", "7"):
+    if choice in ("quit", "3"):
         return "menu"
     if choice == "4":
         return "results"
@@ -1659,6 +1777,11 @@ def run_endless_mode(seed: int | None = None) -> str:
         wave = state.endless.wave
         state.floor = wave
         enemies = generate_endless_encounter(wave, state.all_enemies, rng=state.rng)
+        if state.balance.endless_enemy_hp_bonus_per_wave > 0:
+            multiplier = 1.0 + (state.balance.endless_enemy_hp_bonus_per_wave * max(0, wave - 1))
+            for enemy in enemies:
+                enemy.max_hp = max(1, int(enemy.max_hp * multiplier))
+                enemy.current_hp = enemy.max_hp
 
         ui.refresh()
         print(ui.render_floor_intro(wave, enemies, state.interest))
@@ -1677,6 +1800,15 @@ def run_endless_mode(seed: int | None = None) -> str:
         kills_this_wave = state.interest.total_kills - kills_before
         state.floors_cleared = wave
         state.endless.advance_wave(kills_this_wave)
+        state.analytics.capture_turn(
+            mode="endless",
+            floor_or_wave=wave,
+            turn=state.interest.turn_number,
+            patience=state.interest.current_patience,
+            total_kills=state.interest.total_kills,
+            total_damage=state.run_stats.total_damage,
+            source="endless_wave_complete",
+        )
 
         loot_phase(state)
         state.healing_flasks = min(state.healing_flasks + 1, 3)
@@ -1684,6 +1816,7 @@ def run_endless_mode(seed: int | None = None) -> str:
         state.revision_set_claimed = False
 
         if not between_floors(state):
+            _record_persistent_run(state, won=False, wave_reached=wave)
             return "menu"
 
     ui.refresh()
@@ -1694,6 +1827,7 @@ def run_endless_mode(seed: int | None = None) -> str:
         interest=state.interest,
     ))
     pause()
+    _record_persistent_run(state, won=False, wave_reached=max(1, state.endless.wave - 1))
     return _show_closing_menu("░▒▓█ ENDLESS OVER █▓▒░", 'Sera: "Enough. For now."')
 
 
@@ -1779,8 +1913,10 @@ def main():
                     sim_summary = run_simulation()
                     sim_summary = stamp_run_summary(sim_summary, won=sim_summary.get("won", False), mode="simulation", seed=sim_summary.get("seed", 0))
                     merge_run_stats(load_game_stats(), sim_summary)
-                    next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."')
+                    next_step = _show_closing_menu("░▒▓█ SIMULATION COMPLETE █▓▒░", 'Sera: "Run it again if you need proof."', simulator=True)
                     if next_step == "restart":
+                        continue
+                    if next_step == "results":
                         continue
                     break
                 continue
