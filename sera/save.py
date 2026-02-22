@@ -23,6 +23,11 @@ def serialize_state(state) -> dict:
         "max_floors": state.max_floors,
         "mode": state.mode,
         "rng_seed": state.rng_seed,
+        "endless": {
+            "wave": state.endless.wave,
+            "total_waves_cleared": state.endless.total_waves_cleared,
+            "cumulative_kills": state.endless.cumulative_kills,
+        },
         "interest": {
             "current_patience": state.interest.current_patience,
             "max_patience": state.interest.max_patience,
@@ -37,6 +42,21 @@ def serialize_state(state) -> dict:
         "floors_cleared": state.floors_cleared,
         "auto_battle_enabled": state.auto_battle_enabled,
         "auto_battle_turns": state.auto_battle_turns,
+        "run_stats": {
+            "total_damage": state.run_stats.total_damage,
+            "best_overkill": state.run_stats.best_overkill,
+            "weapons_found": state.run_stats.weapons_found,
+            "materials_used": state.run_stats.materials_used,
+        },
+        "equipment_stash": [item.name for item in state.equipment_stash],
+        "equipped_slots": {
+            slot: item.name if item else None
+            for slot, item in state.equipment_loadout.equipped.items()
+        },
+        "balance": {
+            "endless_enemy_hp_bonus_per_wave": state.balance.endless_enemy_hp_bonus_per_wave,
+            "endless_player_damage_bonus_per_wave": state.balance.endless_player_damage_bonus_per_wave,
+        },
     }
 
 
@@ -51,6 +71,10 @@ def deserialize_state(data: dict, state) -> None:
 
     state.rng = RunRNG(state.rng_seed)
     state.endless = EndlessProgress(seed=state.rng_seed)
+    endless = data.get("endless", {})
+    state.endless.wave = endless.get("wave", state.endless.wave)
+    state.endless.total_waves_cleared = endless.get("total_waves_cleared", 0)
+    state.endless.cumulative_kills = endless.get("cumulative_kills", 0)
     interest = data.get("interest", {})
     state.interest.current_patience = interest.get("current_patience", state.interest.current_patience)
     state.interest.max_patience = interest.get("max_patience", state.interest.max_patience)
@@ -74,6 +98,26 @@ def deserialize_state(data: dict, state) -> None:
     state.floors_cleared = data.get("floors_cleared", 0)
     state.auto_battle_enabled = data.get("auto_battle_enabled", state.auto_battle_enabled)
     state.auto_battle_turns = max(1, min(30, data.get("auto_battle_turns", state.auto_battle_turns)))
+
+    run_stats = data.get("run_stats", {})
+    state.run_stats.total_damage = run_stats.get("total_damage", 0)
+    state.run_stats.best_overkill = run_stats.get("best_overkill", 0)
+    state.run_stats.weapons_found = run_stats.get("weapons_found", 0)
+    state.run_stats.materials_used = run_stats.get("materials_used", 0)
+
+    equipment_map: dict[str, EquipmentItem] = {item.name: item for item in state.all_equipment}
+    stash_names = data.get("equipment_stash", [])
+    state.equipment_stash = [equipment_map[name] for name in stash_names if name in equipment_map]
+
+    equipped_slots = data.get("equipped_slots", {})
+    if isinstance(equipped_slots, dict):
+        for slot in state.equipment_loadout.equipped.keys():
+            item_name = equipped_slots.get(slot)
+            state.equipment_loadout.equipped[slot] = equipment_map.get(item_name) if item_name else None
+
+    balance = data.get("balance", {})
+    state.balance.endless_enemy_hp_bonus_per_wave = balance.get("endless_enemy_hp_bonus_per_wave", 0.0)
+    state.balance.endless_player_damage_bonus_per_wave = balance.get("endless_player_damage_bonus_per_wave", 0)
 
 
 def save_to_file(path: Path | str, state) -> Path:
