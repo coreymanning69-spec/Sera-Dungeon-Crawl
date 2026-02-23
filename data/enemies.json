@@ -172,8 +172,12 @@
       "armor": 3,
       "regen_per_turn": 0,
       "dodge_chance": 0.0,
-      "elemental_weaknesses": ["FIRE"],
-      "elemental_resistances": ["ICE"],
+      "elemental_weaknesses": [
+        "FIRE"
+      ],
+      "elemental_resistances": [
+        "ICE"
+      ],
       "flavor": "A walking glacier with posture issues.",
       "abilities": [
         {
@@ -202,8 +206,12 @@
       "armor": 0,
       "regen_per_turn": 1,
       "dodge_chance": 0.1,
-      "elemental_weaknesses": ["ICE"],
-      "elemental_resistances": ["FIRE"],
+      "elemental_weaknesses": [
+        "ICE"
+      ],
+      "elemental_resistances": [
+        "FIRE"
+      ],
       "flavor": "It leaves soot and disappointment.",
       "abilities": [
         {
@@ -232,8 +240,13 @@
       "armor": 1,
       "regen_per_turn": 0,
       "dodge_chance": 0.05,
-      "elemental_weaknesses": ["SONIC", "CORROSIVE"],
-      "elemental_resistances": ["ARCANE"],
+      "elemental_weaknesses": [
+        "SONIC",
+        "CORROSIVE"
+      ],
+      "elemental_resistances": [
+        "ARCANE"
+      ],
       "flavor": "Predicts the future. Still loses.",
       "abilities": [
         {
@@ -506,8 +519,12 @@
       "armor": 0,
       "regen_per_turn": 0,
       "dodge_chance": 0.0,
-      "elemental_weaknesses": ["FIRE"],
-      "elemental_resistances": ["ARCANE"],
+      "elemental_weaknesses": [
+        "FIRE"
+      ],
+      "elemental_resistances": [
+        "ARCANE"
+      ],
       "flavor": "Has asked zero interesting questions and cursed twice already.",
       "abilities": [
         {
@@ -544,7 +561,9 @@
       "armor": 0,
       "regen_per_turn": 0,
       "dodge_chance": 0.2,
-      "elemental_resistances": ["PHYSICAL"],
+      "elemental_resistances": [
+        "PHYSICAL"
+      ],
       "flavor": "It steps between moments. Rude and without warning.",
       "abilities": [
         {
@@ -609,7 +628,9 @@
       "armor": 2,
       "regen_per_turn": 2,
       "dodge_chance": 0.0,
-      "elemental_resistances": ["PHYSICAL"],
+      "elemental_resistances": [
+        "PHYSICAL"
+      ],
       "flavor": "Dead but rich about it. Wears gold like a personality.",
       "abilities": [
         {
@@ -646,8 +667,13 @@
       "armor": 0,
       "regen_per_turn": 0,
       "dodge_chance": 0.15,
-      "elemental_weaknesses": ["DIVINE"],
-      "elemental_resistances": ["ARCANE", "PHYSICAL"],
+      "elemental_weaknesses": [
+        "DIVINE"
+      ],
+      "elemental_resistances": [
+        "ARCANE",
+        "PHYSICAL"
+      ],
       "flavor": "Wears Sera's face. She is not amused. She is, in fact, deeply annoyed.",
       "abilities": [
         {
@@ -681,6 +707,846 @@
           "charge_time": 0,
           "flavor": "A pale imitation of something worth hitting.",
           "attack_type": "physical"
+        }
+      ]
+    },
+    {
+      "name": "Soot Choir Acolyte",
+      "archetype": "trash",
+      "max_hp": 14,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 1,
+      "dodge_chance": 0.08,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Skipstep",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It dodges. Briefly.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Cathedral Ghoul",
+      "archetype": "elite",
+      "max_hp": 31,
+      "vulnerability": "REQUIRES_DIVINE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crush Tempo",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It stalls me for a second. Unforgivable.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Mireglass Scout",
+      "archetype": "trash",
+      "max_hp": 16,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Patchwork Mend",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It repairs itself. I break it again.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Rattlebone Courier",
+      "archetype": "trash",
+      "max_hp": 17,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.08,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crowd the Stage",
+          "annoyance": "SUMMON",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It calls extras. I delete extras.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Hexmarket Bully",
+      "archetype": "trash",
+      "max_hp": 18,
+      "vulnerability": "REQUIRES_SILVER",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Lecture Cycle",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 4,
+          "charge_time": 2,
+          "flavor": "It starts explaining itself. Bad move.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Thorn Chapel Knight",
+      "archetype": "elite",
+      "max_hp": 30,
+      "vulnerability": "REQUIRES_HEAVY",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Skipstep",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It dodges. Briefly.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Brine-Soaked Revenant",
+      "archetype": "elite",
+      "max_hp": 31,
+      "vulnerability": "REQUIRES_ETHEREAL",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crush Tempo",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It stalls me for a second. Unforgivable.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Clockwork Penitent",
+      "archetype": "elite",
+      "max_hp": 32,
+      "vulnerability": "REQUIRES_ARCANE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Patchwork Mend",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It repairs itself. I break it again.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Candle-Eyed Stalker",
+      "archetype": "trash",
+      "max_hp": 17,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crowd the Stage",
+          "annoyance": "SUMMON",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It calls extras. I delete extras.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Gallows Archivist",
+      "archetype": "elite",
+      "max_hp": 34,
+      "vulnerability": "REQUIRES_DIVINE_OR_ETHEREAL",
+      "armor": 0,
+      "regen_per_turn": 1,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Lecture Cycle",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 4,
+          "charge_time": 2,
+          "flavor": "It starts explaining itself. Bad move.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Ash Vault Breaker",
+      "archetype": "elite",
+      "max_hp": 30,
+      "vulnerability": "REQUIRES_CORROSIVE",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Skipstep",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It dodges. Briefly.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Lumen Parasite",
+      "archetype": "trash",
+      "max_hp": 15,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crush Tempo",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It stalls me for a second. Unforgivable.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Gravelord Page",
+      "archetype": "trash",
+      "max_hp": 16,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.08,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Patchwork Mend",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It repairs itself. I break it again.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Saltbite Marauder",
+      "archetype": "trash",
+      "max_hp": 17,
+      "vulnerability": "REQUIRES_FIRE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crowd the Stage",
+          "annoyance": "SUMMON",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It calls extras. I delete extras.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Crownless Herald",
+      "archetype": "elite",
+      "max_hp": 34,
+      "vulnerability": "REQUIRES_ARCANE",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Lecture Cycle",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 4,
+          "charge_time": 2,
+          "flavor": "It starts explaining itself. Bad move.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Blackreef Duelist",
+      "archetype": "elite",
+      "max_hp": 30,
+      "vulnerability": "REQUIRES_SILVER",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Skipstep",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It dodges. Briefly.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Ivory Crypt Hound",
+      "archetype": "trash",
+      "max_hp": 15,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crush Tempo",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It stalls me for a second. Unforgivable.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Sporebound Juror",
+      "archetype": "trash",
+      "max_hp": 16,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Patchwork Mend",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It repairs itself. I break it again.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Tithe Collector Shade",
+      "archetype": "elite",
+      "max_hp": 33,
+      "vulnerability": "REQUIRES_DIVINE",
+      "armor": 1,
+      "regen_per_turn": 1,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crowd the Stage",
+          "annoyance": "SUMMON",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It calls extras. I delete extras.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Ruinwrought Minotaur",
+      "archetype": "boss",
+      "max_hp": 48,
+      "vulnerability": "REQUIRES_HEAVY",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Lecture Cycle",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 4,
+          "charge_time": 2,
+          "flavor": "It starts explaining itself. Bad move.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Stormwake Apostle",
+      "archetype": "elite",
+      "max_hp": 30,
+      "vulnerability": "REQUIRES_ARCANE",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Skipstep",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It dodges. Briefly.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Pyre Choir Harrier",
+      "archetype": "trash",
+      "max_hp": 15,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.08,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crush Tempo",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It stalls me for a second. Unforgivable.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Frostveil Arbiter",
+      "archetype": "elite",
+      "max_hp": 32,
+      "vulnerability": "REQUIRES_FIRE",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Patchwork Mend",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It repairs itself. I break it again.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Sepulcher Trickster",
+      "archetype": "trash",
+      "max_hp": 17,
+      "vulnerability": "NONE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crowd the Stage",
+          "annoyance": "SUMMON",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It calls extras. I delete extras.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Iron Catechist",
+      "archetype": "elite",
+      "max_hp": 34,
+      "vulnerability": "REQUIRES_CORROSIVE",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Lecture Cycle",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 4,
+          "charge_time": 2,
+          "flavor": "It starts explaining itself. Bad move.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Hollow Prince of Keys",
+      "archetype": "boss",
+      "max_hp": 44,
+      "vulnerability": "REQUIRES_DIVINE",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Skipstep",
+          "annoyance": "DODGE_SPAM",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It dodges. Briefly.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Vaultmother Idol",
+      "archetype": "boss",
+      "max_hp": 45,
+      "vulnerability": "REQUIRES_ARCANE",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crush Tempo",
+          "annoyance": "STUN",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It stalls me for a second. Unforgivable.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Choirless Seraph",
+      "archetype": "boss",
+      "max_hp": 46,
+      "vulnerability": "REQUIRES_DIVINE_OR_ETHEREAL",
+      "armor": 0,
+      "regen_per_turn": 1,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Patchwork Mend",
+          "annoyance": "HEAL_SELF",
+          "cooldown": 3,
+          "charge_time": 0,
+          "flavor": "It repairs itself. I break it again.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Kingmaker Wraith",
+      "archetype": "boss",
+      "max_hp": 47,
+      "vulnerability": "REQUIRES_ETHEREAL",
+      "armor": 1,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Crowd the Stage",
+          "annoyance": "SUMMON",
+          "cooldown": 4,
+          "charge_time": 0,
+          "flavor": "It calls extras. I delete extras.",
+          "attack_type": "arcane"
+        }
+      ]
+    },
+    {
+      "name": "Last Bell Executioner",
+      "archetype": "boss",
+      "max_hp": 48,
+      "vulnerability": "REQUIRES_HEAVY",
+      "armor": 0,
+      "regen_per_turn": 0,
+      "dodge_chance": 0.0,
+      "flavor": "Another contender. I remain unconvinced.",
+      "abilities": [
+        {
+          "name": "Snide Jab",
+          "annoyance": "WEAK_HIT",
+          "cooldown": 0,
+          "charge_time": 0,
+          "flavor": "It reaches. I regret noticing.",
+          "attack_type": "physical"
+        },
+        {
+          "name": "Lecture Cycle",
+          "annoyance": "MONOLOGUE",
+          "cooldown": 4,
+          "charge_time": 2,
+          "flavor": "It starts explaining itself. Bad move.",
+          "attack_type": "arcane"
         }
       ]
     }

@@ -36,8 +36,8 @@ def _scale_enemy(enemy: Enemy, floor: int, rand=random) -> None:
 
     if floor <= 1:
         return
-    # +15% HP per floor past 1 — keeps the small-number feel intact
-    bonus_hp = int(enemy.max_hp * 0.15 * (floor - 1))
+    # +10% HP per floor past 1 for smoother baseline progression
+    bonus_hp = int(enemy.max_hp * 0.10 * (floor - 1))
     enemy.max_hp += bonus_hp
     enemy.current_hp = enemy.max_hp
     # +1 armor every 3 floors for armored enemies
@@ -45,7 +45,7 @@ def _scale_enemy(enemy: Enemy, floor: int, rand=random) -> None:
         enemy.armor += (floor - 1) // 2
     # Slightly increase dodge chance on higher floors
     if enemy.dodge_chance > 0.0 and floor >= 3:
-        enemy.dodge_chance = min(0.30, enemy.dodge_chance + (floor - 1) * 0.02)
+        enemy.dodge_chance = min(0.24, enemy.dodge_chance + (floor - 1) * 0.012)
 
 
 def generate_encounter(floor: int, all_enemies: list[Enemy], rng: RunRNG | None = None) -> list[Enemy]:
@@ -257,24 +257,24 @@ def generate_loot_weapon(floor: int, all_weapons: list[Weapon], all_affixes: lis
     suffixes = [a for a in all_affixes if a.affix_type == "suffix"]
 
     # Higher floors = more likely to have affixes
-    if prefixes and random.random() < min(0.3 + floor * 0.1, 0.8):
+    if prefixes and random.random() < min(0.45 + floor * 0.11, 0.92):
         base.prefix = copy.deepcopy(random.choice(prefixes))
-    if suffixes and random.random() < min(0.2 + floor * 0.1, 0.7):
+    if suffixes and random.random() < min(0.4 + floor * 0.11, 0.9):
         base.suffix = copy.deepcopy(random.choice(suffixes))
 
     return base
 
 
 def generate_loot_material() -> CraftingMaterial | None:
-    """Random chance to find a crafting material (65% — players need options to fix immunity gates)."""
-    if random.random() < 0.65:
+    """Random chance to find a crafting material (80% for smoother progression)."""
+    if random.random() < 0.80:
         return copy.deepcopy(random.choice(list(CRAFTING_MATERIALS.values())))
     return None
 
 
 def generate_loot_shards(floor: int) -> int:
     """Generate upgrade shards with weighted 1/2/3 outcomes."""
-    chance = min(0.45 + floor * 0.12, 0.95)
+    chance = min(0.60 + floor * 0.12, 0.98)
     if random.random() > chance:
         return 0
 

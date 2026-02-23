@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from sera.weapon import Weapon, Affix
 from sera.randomization import RunRNG
+from sera.unique_items import UNIQUE_ITEM_PROFILES
 
 
 @dataclass
@@ -32,9 +33,15 @@ class WeaponPoolManager:
 
     def __post_init__(self) -> None:
         if not self.legendary_pool and self.base_pool:
-            for template in self.base_pool[:3]:
+            profile_names = list(UNIQUE_ITEM_PROFILES.keys())
+            legendary_names = set(profile_names[:20])
+            seeded_templates = [w for w in self.base_pool if w.name in legendary_names]
+            if not seeded_templates:
+                seeded_templates = self.base_pool[:3]
+            for template in seeded_templates:
                 legendary = copy.deepcopy(template)
-                legendary.name = f"{template.name} Prime"
+                if legendary.name not in UNIQUE_ITEM_PROFILES:
+                    legendary.name = f"{template.name} Prime"
                 legendary.base_damage = min(3, legendary.base_damage + 1)
                 legendary.is_unique = True
                 self.legendary_pool.append(legendary)
