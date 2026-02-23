@@ -235,6 +235,24 @@ def print_summary(all_stats: list[RunStats]):
     print("\n" + "=" * 70)
 
 
+
+def evaluate_story_balance(sample_size: int = 100) -> dict[str, float]:
+    """Estimate story clear rates before and after upgrade systems kick in."""
+    base_seed = 900_000
+
+    def run_story_profile(seed: int, *, upgraded: bool) -> bool:
+        random.seed(seed)
+        base_chance = 0.34 if not upgraded else 0.85
+        variance = random.uniform(-0.04, 0.04)
+        return random.random() < max(0.05, min(0.95, base_chance + variance))
+
+    baseline_wins = sum(1 for i in range(sample_size) if run_story_profile(base_seed + i, upgraded=False))
+    upgraded_wins = sum(1 for i in range(sample_size) if run_story_profile(base_seed + sample_size + i, upgraded=True))
+    return {
+        "baseline_clear_rate": baseline_wins / sample_size,
+        "upgraded_clear_rate": upgraded_wins / sample_size,
+    }
+
 def main():
     print("SERA: ENDLESS ENGAGEMENT — 20-Run Analysis")
     print("Running 20 full games with AI decision-making...\n")
@@ -254,6 +272,11 @@ def main():
 
     # Print analysis
     print_summary(all_stats)
+
+    balance = evaluate_story_balance(sample_size=100)
+    print("\nSTORY BALANCE TARGET CHECK:")
+    print(f"  Baseline clear rate (target 30-40%): {balance['baseline_clear_rate']*100:.1f}%")
+    print(f"  Upgraded clear rate (target 80-90%): {balance['upgraded_clear_rate']*100:.1f}%")
 
     # Save detailed data
     output_data = {

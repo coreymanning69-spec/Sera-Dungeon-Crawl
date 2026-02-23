@@ -90,146 +90,398 @@
     {
       "name": "Frozen Scepter",
       "base_damage": 2,
-      "tags": ["ARCANE", "DIVINE"],
+      "tags": [
+        "ARCANE",
+        "DIVINE"
+      ],
       "flavor": "Cold as my opinion of you. Which is saying something."
     },
     {
       "name": "Chain Hook",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "BLEED"],
+      "tags": [
+        "PHYSICAL",
+        "BLEED"
+      ],
       "flavor": "Drags them closer. So I can be disappointed at point-blank range."
     },
     {
       "name": "Runic Greataxe",
       "base_damage": 3,
-      "tags": ["HEAVY", "ARCANE"],
+      "tags": [
+        "HEAVY",
+        "ARCANE"
+      ],
       "flavor": "Big. Glowing. Overcompensating. I approve."
     },
     {
       "name": "Venom Fang Dagger",
       "base_damage": 1,
-      "tags": ["PHYSICAL", "CORROSIVE"],
+      "tags": [
+        "PHYSICAL",
+        "CORROSIVE"
+      ],
       "flavor": "Small but every cut is a promise of something worse."
     },
     {
       "name": "Thunderclap Gauntlet",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "SONIC"],
+      "tags": [
+        "PHYSICAL",
+        "SONIC"
+      ],
       "flavor": "Punches so hard the sound arrives late. Rude and effective."
     },
     {
       "name": "Spectral Scythe",
       "base_damage": 2,
-      "tags": ["ETHEREAL", "BLEED"],
+      "tags": [
+        "ETHEREAL",
+        "BLEED"
+      ],
       "flavor": "Cuts the soul. The body just follows along out of politeness."
     },
     {
       "name": "Molten Flail",
       "base_damage": 3,
-      "tags": ["FIRE", "HEAVY"],
+      "tags": [
+        "FIRE",
+        "HEAVY"
+      ],
       "flavor": "A ball of molten iron on a chain. Subtle as a supernova."
     },
     {
       "name": "Blessed Mace",
       "base_damage": 3,
-      "tags": ["DIVINE", "HEAVY"],
+      "tags": [
+        "DIVINE",
+        "HEAVY"
+      ],
       "flavor": "Blessed by a lesser god. I could do better, but it'll do."
     },
     {
       "name": "Shadow Needle",
       "base_damage": 1,
-      "tags": ["PHYSICAL", "ETHEREAL"],
+      "tags": [
+        "PHYSICAL",
+        "ETHEREAL"
+      ],
       "flavor": "Thin as a whisper. Hurts like a scream."
     },
     {
       "name": "Alchemist's Crossbow",
       "base_damage": 2,
-      "tags": ["CORROSIVE", "FIRE"],
+      "tags": [
+        "CORROSIVE",
+        "FIRE"
+      ],
       "flavor": "Shoots bolts that melt on impact. Science was a mistake. A beautiful mistake."
     },
     {
       "name": "Frostbite Dagger",
       "base_damage": 2,
-      "tags": ["PHYSICAL", "ICE"],
+      "tags": [
+        "PHYSICAL",
+        "ICE"
+      ],
       "flavor": "Cold steel. Warmer than my opinion of you."
     },
     {
       "name": "Inferno Pike",
       "base_damage": 3,
-      "tags": ["FIRE", "HEAVY"],
+      "tags": [
+        "FIRE",
+        "HEAVY"
+      ],
       "flavor": "A spear of spite and open flame."
     },
     {
       "name": "Stormglass Wand",
       "base_damage": 2,
-      "tags": ["ARCANE", "SONIC"],
+      "tags": [
+        "ARCANE",
+        "SONIC"
+      ],
       "flavor": "It hums before it hurts."
     },
     {
       "name": "Glacier Chakram",
       "base_damage": 2,
-      "tags": ["ICE", "ETHEREAL"],
+      "tags": [
+        "ICE",
+        "ETHEREAL"
+      ],
       "flavor": "It returns. Unlike your dignity."
     },
     {
       "name": "Godsthorn Needle",
       "base_damage": 1,
-      "tags": ["DIVINE", "PHYSICAL"],
+      "tags": [
+        "DIVINE",
+        "PHYSICAL"
+      ],
       "flavor": "Thin as intent. Carries divine weight. You don't touch what belongs to God."
     },
     {
       "name": "Obsidian Cleaver",
       "base_damage": 3,
-      "tags": ["HEAVY", "BLEED"],
+      "tags": [
+        "HEAVY",
+        "BLEED"
+      ],
       "flavor": "Acts on intent, not action. Makes them bleed and wonder why they stood there."
     },
     {
       "name": "Runebrand Whip",
       "base_damage": 2,
-      "tags": ["ARCANE", "BLEED"],
+      "tags": [
+        "ARCANE",
+        "BLEED"
+      ],
       "flavor": "Inscribed with seventeen curses. I wrote fourteen of them on a slow afternoon."
     },
     {
       "name": "Ashen Crossbow",
       "base_damage": 2,
-      "tags": ["FIRE", "PHYSICAL"],
+      "tags": [
+        "FIRE",
+        "PHYSICAL"
+      ],
       "flavor": "Shoots bolts that arrive already burning. Everything is better on fire."
     },
     {
       "name": "Void Crystal",
       "base_damage": 2,
-      "tags": ["ETHEREAL", "ARCANE"],
+      "tags": [
+        "ETHEREAL",
+        "ARCANE"
+      ],
       "flavor": "It hums before it hurts. Whatever it is, it isn't from here."
     },
     {
       "name": "Bile Flask",
       "base_damage": 1,
-      "tags": ["CORROSIVE", "PHYSICAL"],
+      "tags": [
+        "CORROSIVE",
+        "PHYSICAL"
+      ],
       "flavor": "Disgusting. Effective. I could dissolve ambitions with this. And faces."
     },
     {
       "name": "Silver Moonshard",
       "base_damage": 2,
-      "tags": ["SILVER", "ETHEREAL"],
+      "tags": [
+        "SILVER",
+        "ETHEREAL"
+      ],
       "flavor": "Cannot be moved without consent. Cuts what shouldn't be cuttable."
     },
     {
       "name": "Siren's Harp",
       "base_damage": 2,
-      "tags": ["SONIC", "ARCANE"],
+      "tags": [
+        "SONIC",
+        "ARCANE"
+      ],
       "flavor": "Plays a note that makes lesser beings reconsider their life choices. Immediately."
     },
     {
       "name": "Frozen Greatclub",
       "base_damage": 3,
-      "tags": ["ICE", "HEAVY"],
+      "tags": [
+        "ICE",
+        "HEAVY"
+      ],
       "flavor": "A slab of permafrost on a handle. Subtle as a glacier. Effective as contempt."
     },
     {
       "name": "Judgment Gauntlet",
       "base_damage": 2,
-      "tags": ["DIVINE", "HEAVY"],
+      "tags": [
+        "DIVINE",
+        "HEAVY"
+      ],
       "flavor": "Acts on intent, not action. I decide if the hit lands. It always does."
+    },
+    {
+      "name": "Asterion, Star-Eater Blade",
+      "base_damage": 3,
+      "tags": [
+        "ARCANE",
+        "HEAVY"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Vesper Bell of Last Rites",
+      "base_damage": 2,
+      "tags": [
+        "SONIC",
+        "DIVINE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Crownsplitter Relic-Axe",
+      "base_damage": 3,
+      "tags": [
+        "HEAVY",
+        "PHYSICAL"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Morrowglass Needle",
+      "base_damage": 2,
+      "tags": [
+        "ETHEREAL",
+        "SILVER"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Choir of Cinders",
+      "base_damage": 2,
+      "tags": [
+        "FIRE",
+        "SONIC"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Thorn of the First Oath",
+      "base_damage": 2,
+      "tags": [
+        "DIVINE",
+        "BLEED"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Nullwake Prism",
+      "base_damage": 2,
+      "tags": [
+        "ARCANE",
+        "CORROSIVE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Wintercourt Verdict",
+      "base_damage": 3,
+      "tags": [
+        "ICE",
+        "HEAVY"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Gloamchain Testament",
+      "base_damage": 2,
+      "tags": [
+        "ETHEREAL",
+        "BLEED"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Pilgrim's Ember Canon",
+      "base_damage": 3,
+      "tags": [
+        "FIRE",
+        "ARCANE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Sable Tide Harpoon",
+      "base_damage": 2,
+      "tags": [
+        "WATER",
+        "PHYSICAL"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Ruin Psalm Censer",
+      "base_damage": 2,
+      "tags": [
+        "DIVINE",
+        "CORROSIVE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Iron Vow Breaker",
+      "base_damage": 3,
+      "tags": [
+        "PHYSICAL",
+        "SILVER"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Catacomb Lantern IX",
+      "base_damage": 2,
+      "tags": [
+        "ETHEREAL",
+        "DIVINE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "The Quiet Catastrophe",
+      "base_damage": 2,
+      "tags": [
+        "SONIC",
+        "ARCANE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Saintfall Meteor Hammer",
+      "base_damage": 3,
+      "tags": [
+        "HEAVY",
+        "FIRE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Abyssal Court Sabre",
+      "base_damage": 2,
+      "tags": [
+        "PHYSICAL",
+        "ARCANE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Howling Reliquary Pike",
+      "base_damage": 3,
+      "tags": [
+        "SONIC",
+        "HEAVY"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Ivory Eclipse Fang",
+      "base_damage": 2,
+      "tags": [
+        "SILVER",
+        "BLEED"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
+    },
+    {
+      "name": "Godshard Cauterizer",
+      "base_damage": 3,
+      "tags": [
+        "DIVINE",
+        "FIRE"
+      ],
+      "flavor": "A named relic. It remembers better wars than this one."
     }
   ]
 }

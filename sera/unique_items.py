@@ -114,6 +114,59 @@ UNIQUE_ITEM_PROFILES: dict[str, UniqueItemProfile] = {
 }
 
 
+ARTIFACT_EFFECT_ROTATION: tuple[tuple[str, str], ...] = (
+    ("first_blood", "First hit each combat restores +1 patience."),
+    ("turn_surge", "10% chance to gain an immediate extra turn after a kill."),
+    ("stagger_spike", "Overkill hits restore +1 additional patience."),
+    ("damage_bloom", "Every third hit multiplies total damage by 1.25."),
+    ("duelist_stride", "After dodging, next hit gets +2 flat damage."),
+)
+
+
+ARTIFACT_NAMES: tuple[str, ...] = (
+    "Asterion, Star-Eater Blade",
+    "Vesper Bell of Last Rites",
+    "Crownsplitter Relic-Axe",
+    "Morrowglass Needle",
+    "Choir of Cinders",
+    "Thorn of the First Oath",
+    "Nullwake Prism",
+    "Wintercourt Verdict",
+    "Gloamchain Testament",
+    "Pilgrim's Ember Canon",
+    "Sable Tide Harpoon",
+    "Ruin Psalm Censer",
+    "Iron Vow Breaker",
+    "Catacomb Lantern IX",
+    "The Quiet Catastrophe",
+    "Saintfall Meteor Hammer",
+    "Abyssal Court Sabre",
+    "Howling Reliquary Pike",
+    "Ivory Eclipse Fang",
+    "Godshard Cauterizer",
+)
+
+
+for idx, artifact_name in enumerate(ARTIFACT_NAMES):
+    if artifact_name in UNIQUE_ITEM_PROFILES:
+        continue
+    effect_a = ARTIFACT_EFFECT_ROTATION[idx % len(ARTIFACT_EFFECT_ROTATION)]
+    effect_b = ARTIFACT_EFFECT_ROTATION[(idx + 2) % len(ARTIFACT_EFFECT_ROTATION)]
+    UNIQUE_ITEM_PROFILES[artifact_name] = UniqueItemProfile(
+        name=artifact_name,
+        item_type="Artifact",
+        max_level=20,
+        modifiers=(
+            Affix(name=effect_a[0], description=effect_a[1], affix_type="unique"),
+            Affix(name=effect_b[0], description=effect_b[1], affix_type="unique"),
+        ),
+        effects=(
+            UniqueItemEffect(key=effect_a[0], description=effect_a[1]),
+            UniqueItemEffect(key=effect_b[0], description=effect_b[1]),
+        ),
+    )
+
+
 def get_unique_effects(weapon_name: str) -> tuple[UniqueItemEffect, ...]:
     profile = UNIQUE_ITEM_PROFILES.get(weapon_name)
     if not profile:
