@@ -117,6 +117,8 @@ def load_equipment_items() -> list[EquipmentItem]:
             resistances={normalize_defense_key(k): v for k, v in item.get("resistances", {}).items()},
             level=item.get("level", 1),
             is_unique=item.get("is_unique", False),
+            set_name=item.get("set_name", ""),
+            is_named=item.get("is_named", False),
         ))
     return items
 

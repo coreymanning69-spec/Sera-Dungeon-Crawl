@@ -1155,6 +1155,8 @@ def render_between_floors(
     revision_set: list[EquipmentItem] | None = None,
     revision_claimed: bool = False,
     auto_director_enabled: bool = False,
+    gold: int = 0,
+    npc_name: str = "",
 ) -> str:
     lines = [
         box_top(),
@@ -1164,6 +1166,7 @@ def render_between_floors(
         box_divider(),
         box_line(f"  Patience: {patience_bar(interest)}"),
         box_line(f"  ◇ Upgrade Shards: {upgrade_shards}"),
+        box_line(f"  ◎ Gold: {gold}"),
         box_line(f"  ✚ Healing Flasks: {flasks}"),
         box_divider(),
     ]
@@ -1190,7 +1193,11 @@ def render_between_floors(
     lines.append(box_line("  ▸ [10] Export analytics"))
     lines.append(box_line(f"  ▸ [11] Toggle auto director ({'ON' if auto_director_enabled else 'OFF'})"))
     lines.append(box_line("  ▸ [12] Run auto floor director"))
-    lines.append(box_line("  ▸ [13] Quit"))
+    if npc_name:
+        lines.append(box_line(f"  ▸ [13] Visit NPC: {npc_name}"))
+        lines.append(box_line("  ▸ [14] Quit"))
+    else:
+        lines.append(box_line("  ▸ [13] Quit"))
     lines.append(box_blank())
     lines.append(box_bot())
     return "\n".join(lines)
@@ -1548,6 +1555,9 @@ def render_run_stats(stats: dict) -> str:
         box_line(f"  Best overkill:      {stats.get('best_overkill', 0)}"),
         box_line(f"  Weapons found:      {stats.get('weapons_found', 0)}"),
         box_line(f"  Materials used:     {stats.get('materials_used', 0)}"),
+        box_line(f"  Gold collected:     {stats.get('gold_collected', 0)}"),
+        box_line(f"  Gold spent:         {stats.get('gold_spent', 0)}"),
+        box_line(f"  Gold on hand:       {stats.get('gold', 0)}"),
         box_divider(),
         box_line(f"  Patience remaining: {stats.get('patience', 0)}/{stats.get('max_patience', 100)}"),
     ]
@@ -1572,6 +1582,8 @@ def render_game_statistics(last_run: dict | None, overall: dict) -> str:
         box_line(f"  Best floor:         {overall.get('best_floor', 0)}"),
         box_line(f"  Best wave:          {overall.get('best_wave', 0)}"),
         box_line(f"  Best overkill:      {overall.get('best_overkill', 0)}"),
+        box_line(f"  Gold collected:     {overall.get('gold_collected', 0)}"),
+        box_line(f"  Gold spent:         {overall.get('gold_spent', 0)}"),
         box_divider(),
     ]
 

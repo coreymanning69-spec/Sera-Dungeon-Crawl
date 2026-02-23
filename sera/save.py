@@ -11,6 +11,7 @@ from sera.equipment import EquipmentItem
 from sera.consumables import CONSUMABLE_REGISTRY
 from sera.randomization import RunRNG
 from sera.modes.endless import EndlessProgress
+from sera.npc import NPC_POOL
 
 SAVE_VERSION = REVISION
 DEFAULT_SAVE_PATH = Path("savegame.json")
@@ -38,6 +39,7 @@ def serialize_state(state) -> dict:
         "equipped_idx": state.equipped_idx,
         "materials": [m.name for m in state.materials],
         "upgrade_shards": state.upgrade_shards,
+        "gold": state.gold,
         "consumables": [c.key for c in state.consumables],
         "floors_cleared": state.floors_cleared,
         "auto_battle_enabled": state.auto_battle_enabled,
@@ -47,7 +49,10 @@ def serialize_state(state) -> dict:
             "best_overkill": state.run_stats.best_overkill,
             "weapons_found": state.run_stats.weapons_found,
             "materials_used": state.run_stats.materials_used,
+            "gold_collected": state.run_stats.gold_collected,
+            "gold_spent": state.run_stats.gold_spent,
         },
+        "current_npc": state.current_npc.name if state.current_npc else None,
         "equipment_stash": [item.name for item in state.equipment_stash],
         "equipped_slots": {
             slot: item.name if item else None
@@ -90,6 +95,7 @@ def deserialize_state(data: dict, state) -> None:
     mat_names = data.get("materials", [])
     state.materials = [material_map[name] for name in mat_names if name in material_map]
     state.upgrade_shards = data.get("upgrade_shards", 0)
+    state.gold = data.get("gold", 0)
     keys = data.get("consumables", [])
     state.consumables = [CONSUMABLE_REGISTRY[key] for key in keys if key in CONSUMABLE_REGISTRY]
     if not state.consumables:
@@ -104,6 +110,11 @@ def deserialize_state(data: dict, state) -> None:
     state.run_stats.best_overkill = run_stats.get("best_overkill", 0)
     state.run_stats.weapons_found = run_stats.get("weapons_found", 0)
     state.run_stats.materials_used = run_stats.get("materials_used", 0)
+    state.run_stats.gold_collected = run_stats.get("gold_collected", 0)
+    state.run_stats.gold_spent = run_stats.get("gold_spent", 0)
+
+    npc_name = data.get("current_npc")
+    state.current_npc = next((npc for npc in NPC_POOL if npc.name == npc_name), None)
 
     equipment_map: dict[str, EquipmentItem] = {item.name: item for item in state.all_equipment}
     stash_names = data.get("equipment_stash", [])

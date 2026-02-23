@@ -27,6 +27,8 @@ def _default_overall() -> dict:
         "best_overkill": 0,
         "weapons_found": 0,
         "materials_used": 0,
+        "gold_collected": 0,
+        "gold_spent": 0,
     }
 
 
@@ -110,6 +112,8 @@ def merge_run_stats(
     overall["total_damage"] = _to_int(overall.get("total_damage")) + _to_int(run_summary.get("total_damage"))
     overall["weapons_found"] = _to_int(overall.get("weapons_found")) + _to_int(run_summary.get("weapons_found"))
     overall["materials_used"] = _to_int(overall.get("materials_used")) + _to_int(run_summary.get("materials_used"))
+    overall["gold_collected"] = _to_int(overall.get("gold_collected")) + _to_int(run_summary.get("gold_collected"))
+    overall["gold_spent"] = _to_int(overall.get("gold_spent")) + _to_int(run_summary.get("gold_spent"))
 
     overall["best_floor"] = max(_to_int(overall.get("best_floor")), _to_int(run_summary.get("floors_cleared")))
     overall["best_wave"] = max(_to_int(overall.get("best_wave")), _to_int(run_summary.get("wave_reached")))
