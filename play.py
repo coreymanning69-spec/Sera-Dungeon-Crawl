@@ -34,6 +34,15 @@ from sera.equipment import EquipmentLoadout, roll_item, EquipmentItem, generate_
 from sera.randomization import RunRNG, select_weapon_choices
 from sera.modes.endless import EndlessProgress
 from sera.save import save_to_file, load_from_file, DEFAULT_SAVE_PATH
+from sera.meta import (
+    MetaProgression,
+    META_UPGRADES,
+    deposit_run_gold,
+    load_meta_progression,
+    purchase_upgrade,
+    save_meta_progression,
+    upgrade_cost,
+)
 from sera.game_stats import (
     load_game_stats,
     merge_run_stats,
@@ -295,7 +304,10 @@ class TowerDefenseRunState:
 
 class GameState:
     def __init__(self, seed: int | None = None):
+        self.meta: MetaProgression = load_meta_progression()
         self.interest = InterestManager()
+        self.interest.max_patience += self.meta.patience_bonus()
+        self.interest.current_patience = self.interest.max_patience
         self.floor = 0
         self.max_floors = 5
         self.endless_floor_cap = 1000
@@ -332,6 +344,7 @@ class GameState:
         self.auto_run: AutoRunSettings = AutoRunSettings()
         self.tower_defense_history: list[dict] = []
         self.current_npc: NamedNPC | None = None
+        self.starting_weapon_slots: int = self.meta.starting_weapon_slots()
 
     @property
     def healing_flasks(self) -> int:
@@ -389,10 +402,11 @@ def pause(msg: str = "  [Press Enter]"):
 # ─────────────────────────────────────────────────────────
 
 def title_screen() -> str:
-    """Returns 'new_game', 'continue', 'simulation', 'statistics', 'endless', 'tower', or 'quit'."""
+    """Returns 'new_game', 'continue', 'simulation', 'statistics', 'endless', 'tower', 'meta', or 'quit'."""
     ui.refresh()
-    print(ui.render_title_screen())
-    valid = ["1", "2", "3", "4", "5", "6"]
+    meta = load_meta_progression()
+    print(ui.render_title_screen(meta.banked_gold))
+    valid = ["1", "2", "3", "4", "5", "6", "7"]
     if SAVE_PATH.exists():
         valid.insert(1, "c")
     choice = get_choice("> ", valid)
@@ -400,6 +414,8 @@ def title_screen() -> str:
         return "quit"
     if choice == "6":
         return "tower"
+    if choice == "7":
+        return "meta"
     if choice == "4":
         return "statistics"
     if choice == "3":
@@ -488,22 +504,24 @@ def choose_starting_weapon(state: GameState):
     _pick(heavy_pool)            # slot 2: armor-breaker
     _pick(arcane_pool)           # slot 3: construct/boss counter
 
-    # Fill to 3 if any pool was empty or exhausted
+    # Fill to up to 6 so expanded armory starts have enough options.
     remaining = [w for w in state.all_weapons if w.name not in used_names]
-    while len(options) < 3 and remaining:
+    while len(options) < min(6, len(state.all_weapons)) and remaining:
         pick = state.rng.choice(remaining)
         options.append(pick)
         remaining = [w for w in remaining if w.name != pick.name]
 
     if not options:
-        options = select_weapon_choices(state.all_weapons, min(3, len(state.all_weapons)), state.rng)
+        options = select_weapon_choices(state.all_weapons, min(6, len(state.all_weapons)), state.rng)
     state.rng.shuffle(options)
+    slots_to_pick = max(1, min(state.starting_weapon_slots, len(options)))
 
     lines = [
         ui.box_top(),
         ui.box_line("░▒▓█ CHOOSE YOUR WEAPON █▓▒░", "center"),
         ui.box_divider(),
         ui.box_line('Sera: "Fine. What are we working with?"'),
+        ui.box_line(f"Pick {slots_to_pick} starting weapon{'s' if slots_to_pick != 1 else ''}."),
         ui.box_blank(),
     ]
     for i, w in enumerate(options):
@@ -515,18 +533,28 @@ def choose_starting_weapon(state: GameState):
     lines.append(ui.box_bot())
     print("\n".join(lines))
 
+    picked_weapons: list[Weapon] = []
+    used_indices: set[int] = set()
     valid = [str(i+1) for i in range(len(options))]
-    choice = get_choice("> ", valid)
-    if choice == "quit":
-        return False
+    while len(picked_weapons) < slots_to_pick:
+        choice = get_choice("> ", valid)
+        if choice == "quit":
+            return False
+        pick_idx = int(choice) - 1
+        if pick_idx in used_indices:
+            print('  Sera: "I said a different number."')
+            continue
+        picked_weapons.append(copy.deepcopy(options[pick_idx]))
+        used_indices.add(pick_idx)
 
-    picked = copy.deepcopy(options[int(choice) - 1])
-    state.weapons.append(picked)
+    state.weapons.extend(picked_weapons)
     state.equipped_idx = 0
+    picked = state.weapons[0]
 
     ui.refresh()
     print(ui.box_top())
-    print(ui.box_line(f'Sera picks up the {picked.name}.', "center"))
+    slot_word = "slots" if len(picked_weapons) != 1 else "slot"
+    print(ui.box_line(f"Sera claims {len(picked_weapons)} weapon {slot_word}.", "center"))
     for sl in ui.sprites.get_weapon_sprite(picked.name).strip().split("\n"):
         print(ui.box_line(sl, "center"))
     print(ui.box_line(f"Tags: {', '.join(t.name for t in picked.all_tags)}", "center"))
@@ -1645,6 +1673,21 @@ def equipment_screen(state: GameState):
         pause()
 
 
+
+
+def _material_upgrade_cost(material: CraftingMaterial) -> tuple[int, int]:
+    elemental_tags = {DamageTag.FIRE, DamageTag.AIR, DamageTag.WATER, DamageTag.ICE, DamageTag.EARTH, DamageTag.ARCANE}
+    if material.grants_tag in elemental_tags:
+        return 1, 18
+    return 0, 8
+
+
+def _weapon_upgrade_gold_cost(weapon: Weapon) -> int:
+    if weapon.upgrade_level <= 0:
+        return 0
+    return weapon.upgrade_level * 12
+
+
 def craft_screen(state: GameState):
     if not state.materials:
         ui.refresh()
@@ -1674,9 +1717,18 @@ def craft_screen(state: GameState):
 
     weapon = state.weapons[w_idx]
     material = state.materials[m_idx]
+    shard_cost, gold_cost = _material_upgrade_cost(material)
+    if state.upgrade_shards < shard_cost or state.gold < gold_cost:
+        print(f"  Need {shard_cost} shards and {gold_cost} gold for this infusion.")
+        print('  Sera: "I count costs. You pay them."')
+        pause()
+        return
 
     craft_log = apply_material(weapon, material)
     state.materials.pop(m_idx)
+    state.upgrade_shards -= shard_cost
+    state.gold -= gold_cost
+    state.run_stats.gold_spent += gold_cost
     state.run_stats.materials_used += 1
 
     ui.refresh()
@@ -1685,6 +1737,8 @@ def craft_screen(state: GameState):
     print(ui.box_divider())
     for line in craft_log:
         print(ui.box_line(line.strip()))
+    print(ui.box_line(f"  Cost paid: {shard_cost} shards, {gold_cost} gold"))
+    print(ui.box_line(f"  Remaining: {state.upgrade_shards} shards, {state.gold} gold"))
     print(ui.box_divider_pixel())
     print(ui.box_bot())
     pause()
@@ -1708,8 +1762,24 @@ def upgrade_screen(state: GameState):
     w_idx = int(choice) - 1
     weapon = state.weapons[w_idx]
 
+    gold_cost = _weapon_upgrade_gold_cost(weapon)
+    if state.gold < gold_cost:
+        ui.refresh()
+        print(ui.box_top())
+        print(ui.box_line("░▒▓█ UPGRADE FAILED █▓▒░", "center"))
+        print(ui.box_divider())
+        print(ui.box_line(f"  Need {gold_cost} gold for this rank, have {state.gold}."))
+        print(ui.box_line('  Sera: "I only listen when you bring coin."'))
+        print(ui.box_bot())
+        pause()
+        return
+
     upgrade_log, shards_used = upgrade_weapon(weapon, state.upgrade_shards)
     state.upgrade_shards -= shards_used
+    if shards_used > 0 and gold_cost > 0:
+        state.gold -= gold_cost
+        state.run_stats.gold_spent += gold_cost
+        upgrade_log.append(f"  Gold used: {gold_cost}")
 
     ui.refresh()
     print(ui.box_top())
@@ -1721,6 +1791,7 @@ def upgrade_screen(state: GameState):
     for line in upgrade_log:
         print(ui.box_line(line.strip()))
     print(ui.box_line(f"  Shards remaining: {state.upgrade_shards}"))
+    print(ui.box_line(f"  Gold remaining: {state.gold}"))
     print(ui.box_divider_pixel())
     print(ui.box_bot())
     pause()
@@ -1987,6 +2058,12 @@ def run_new_game(seed: int | None = None) -> str:
     if options_result == "menu":
         return "menu"
 
+    state.upgrade_shards += state.meta.starting_shards_bonus()
+    if state.meta.starting_flasks_bonus() > 0:
+        state.add_consumable("healing_flask", state.meta.starting_flasks_bonus())
+    if state.consumable_count("healing_flask") > 3:
+        state.healing_flasks = 3
+
     if not choose_starting_weapon(state):
         return "menu"
     return run_new_game_from_state(state)
@@ -2056,6 +2133,7 @@ def run_endless_mode(seed: int | None = None) -> str:
         state.revision_set_claimed = False
 
         if not between_floors(state):
+            _bank_run_gold(state)
             _record_persistent_run(state, won=False, wave_reached=wave)
             return "menu"
 
@@ -2067,6 +2145,7 @@ def run_endless_mode(seed: int | None = None) -> str:
         interest=state.interest,
     ))
     pause()
+    _bank_run_gold(state)
     _record_persistent_run(state, won=False, wave_reached=max(1, state.endless.wave - 1))
     return _show_closing_menu("░▒▓█ ENDLESS OVER █▓▒░", 'Sera: "Enough. For now."')
 
@@ -2091,6 +2170,7 @@ def run_new_game_from_state(state: GameState) -> str:
             ui.refresh()
             print(ui.render_run_stats(state.run_stats.to_dict(state)))
             pause()
+            _bank_run_gold(state)
             _record_persistent_run(state, won=False)
             return _show_closing_menu("░▒▓█ RUN OVER █▓▒░", 'Sera: "You can do better. Try again."')
 
@@ -2112,20 +2192,72 @@ def run_new_game_from_state(state: GameState) -> str:
             print(ui.box_bot())
             next_step = get_choice("> ", ["1", "2", "3", "7"])
             if next_step in ("3", "7", "quit"):
+                _bank_run_gold(state)
+                _record_persistent_run(state, won=True)
                 return "quit"
             if next_step == "2":
+                _bank_run_gold(state)
                 _record_persistent_run(state, won=True)
                 return "menu"
             state.max_floors += 50
 
         if not between_floors(state):
             print('  Sera: "Fine. I was getting bored anyway."')
+            _bank_run_gold(state)
             _record_persistent_run(state, won=False)
             return "menu"
 
         floor_num += 1
 
     return "menu"
+
+
+def meta_shop_screen() -> None:
+    meta = load_meta_progression()
+    while True:
+        ui.refresh()
+        print(ui.box_top())
+        print(ui.box_line("░▒▓█ META SHOP █▓▒░", "center"))
+        print(ui.box_divider())
+        print(ui.box_line(f"  Banked Gold: {meta.banked_gold}"))
+        print(ui.box_line('  Sera: "I keep these between runs. Finally useful."'))
+        print(ui.box_divider_thin())
+        upgrade_keys = list(META_UPGRADES.keys())
+        for idx, key in enumerate(upgrade_keys, start=1):
+            spec = META_UPGRADES[key]
+            level = getattr(meta, spec["field"])
+            max_level = spec["max_level"]
+            cost = upgrade_cost(meta, key)
+            cost_label = "MAX" if cost is None else f"{cost}g"
+            lines = f"  [{idx}] {spec['label']} Lv {level}/{max_level} ({cost_label})"
+            print(ui.box_line(lines))
+            print(ui.box_line(f"      {spec['description']}"))
+        print(ui.box_divider())
+        print(ui.box_line("  [0] Back to title"))
+        print(ui.box_bot())
+
+        valid = [str(i) for i in range(len(upgrade_keys) + 1)]
+        choice = get_choice("> ", valid)
+        if choice in ("0", "quit"):
+            save_meta_progression(meta)
+            return
+
+        key = upgrade_keys[int(choice) - 1]
+        ok, message = purchase_upgrade(meta, key)
+        print(f"  {message}.")
+        print('  Sera: "...Acceptable."' if ok else '  Sera: "I do not discount."')
+        save_meta_progression(meta)
+        pause()
+
+
+def _bank_run_gold(state: GameState):
+    if state.gold <= 0:
+        return
+    deposited = deposit_run_gold(state.meta, state.gold)
+    save_meta_progression(state.meta)
+    state.gold = 0
+    if deposited > 0:
+        print(f"  Banked {deposited} gold for meta upgrades.")
 
 
 
@@ -2230,6 +2362,9 @@ def main():
                 continue
             if choice == "tower":
                 run_tower_defense_mode(seed=args.seed)
+                continue
+            if choice == "meta":
+                meta_shop_screen()
                 continue
 
             if choice == "continue":
