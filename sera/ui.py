@@ -595,7 +595,7 @@ TITLE_ART = [
     "/____/ /____//_/ |_|/_/  |_|  ",
 ]
 
-def render_title_screen() -> str:
+def render_title_screen(meta_gold: int = 0) -> str:
     lines = [
         box_top(),
         box_blank(),
@@ -631,7 +631,9 @@ def render_title_screen() -> str:
     lines.append(box_line("  ▸ [4] Game Statistics"))
     lines.append(box_line("  ▸ [5] Quit"))
     lines.append(box_line("  ▸ [6] Tower Defense Simulator"))
+    lines.append(box_line("  ▸ [7] Meta Shop"))
     lines.append(box_line("  ▸ [C] Continue (when save exists)"))
+    lines.append(box_line(f"  Banked Gold: {meta_gold}"))
     lines.append(box_line(f"  Revision {REVISION}", "center"))
     lines.append(box_blank())
     lines.append(box_divider_pixel())
