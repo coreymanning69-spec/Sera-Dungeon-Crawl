@@ -41,6 +41,7 @@ from sera.game_stats import (
 )
 from sera.analytics import AnalyticsTracker, export_analytics
 from sera.unique_items import get_unique_effect_key
+from sera.npc import NamedNPC, roll_npc_for_floor
 
 
 def _build_defense_profile(state: "GameState", stats: PlayerStats | None = None) -> tuple[int, int, dict[str, int]]:
@@ -174,6 +175,9 @@ def _record_session_event(reason: str):
         "best_overkill": 0,
         "weapons_found": 0,
         "materials_used": 0,
+        "gold_collected": 0,
+        "gold_spent": 0,
+        "gold": 0,
         "patience": 0,
         "max_patience": 0,
         "weapon_name": reason,
@@ -198,6 +202,8 @@ class RunStats:
         self.best_overkill: int = 0
         self.weapons_found: int = 0
         self.materials_used: int = 0
+        self.gold_collected: int = 0
+        self.gold_spent: int = 0
 
     def record_damage(self, amount: int):
         self.total_damage += amount
@@ -215,6 +221,9 @@ class RunStats:
             "best_overkill": self.best_overkill,
             "weapons_found": self.weapons_found,
             "materials_used": self.materials_used,
+            "gold_collected": self.gold_collected,
+            "gold_spent": self.gold_spent,
+            "gold": state.gold,
             "patience": state.interest.current_patience,
             "max_patience": state.interest.max_patience,
             "weapon_name": state.equipped_weapon.display_name if state.weapons else "",
@@ -294,6 +303,7 @@ class GameState:
         self.materials: list[CraftingMaterial] = []
         self.consumables: list[ConsumableItem] = []
         self.upgrade_shards: int = 0
+        self.gold: int = 0
         self.equipped_idx: int = 0
         self.all_enemies = load_enemies()
         self.all_weapons = load_weapons()
@@ -321,6 +331,7 @@ class GameState:
         self.simulation_history: list[SimulationRunResult] = []
         self.auto_run: AutoRunSettings = AutoRunSettings()
         self.tower_defense_history: list[dict] = []
+        self.current_npc: NamedNPC | None = None
 
     @property
     def healing_flasks(self) -> int:
@@ -1297,17 +1308,30 @@ def _use_consumable(state: GameState):
 # Loot phase
 # ─────────────────────────────────────────────────────────
 
-def loot_phase(state: GameState):
+def loot_phase(state: GameState, *, boss_cleared: bool = False):
     """Offer loot after clearing a room."""
     weapon_drop = state.weapon_pool_manager.generate_drop(state.floor)
     material_drop = generate_loot_material()
     shard_drop = generate_loot_shards(state.floor)
-    equipment_drop = roll_item(random.choice(state.all_equipment)) if state.all_equipment and random.random() < 0.55 else None
+    equipment_chance = 0.55 + (0.25 if boss_cleared else 0.0)
+    equipment_drop = roll_item(random.choice(state.all_equipment)) if state.all_equipment and random.random() < equipment_chance else None
+    bonus_boss_drop = roll_item(random.choice(state.all_equipment)) if state.all_equipment and boss_cleared and random.random() < 0.4 else None
+    gold_drop = random.randint(8, 18) + state.floor * 2
+    if boss_cleared:
+        gold_drop += random.randint(15, 35)
 
     ui.refresh()
     screen, choices = ui.render_loot_screen(
         weapon_drop, material_drop, state.interest, shard_drop)
     print(screen)
+
+    if gold_drop > 0:
+        state.gold += gold_drop
+        state.run_stats.gold_collected += gold_drop
+        print(f"  Collected {gold_drop} gold.")
+        print(f"  Total gold: {state.gold}")
+        print('  Sera: "Coin talks. Keep collecting."')
+        print()
 
     # Auto-collect shards
     if shard_drop > 0:
@@ -1317,17 +1341,21 @@ def loot_phase(state: GameState):
         print(f'  Sera: "Shiny. Useful."')
         print()
 
-    if equipment_drop:
+    equipment_drops = [item for item in [equipment_drop, bonus_boss_drop] if item]
+    for drop_idx, picked_item in enumerate(equipment_drops, start=1):
         ui.refresh()
         print(screen)
-        print(f"  [E] Found equipment: {equipment_drop.name} Lv {equipment_drop.level}/{equipment_drop.max_level} ({equipment_drop.slot}) {equipment_drop.ascii_art}")
-        print(f"      Bonuses: {equipment_drop.stat_bonuses} | DR {equipment_drop.damage_reduction} | RES {equipment_drop.damage_resistance}%")
-        if equipment_drop.resistances:
-            print(f"      Elemental: {equipment_drop.resistances}")
-        print(f"      Ability: {equipment_drop.ability}")
+        label = "[E]" if drop_idx == 1 else f"[E{drop_idx}]"
+        print(f"  {label} Found equipment: {picked_item.name} Lv {picked_item.level}/{picked_item.max_level} ({picked_item.slot}) {picked_item.ascii_art}")
+        print(f"      Bonuses: {picked_item.stat_bonuses} | DR {picked_item.damage_reduction} | RES {picked_item.damage_resistance}%")
+        if picked_item.resistances:
+            print(f"      Elemental: {picked_item.resistances}")
+        if picked_item.set_name:
+            print(f"      Set: {picked_item.set_name}")
+        print(f"      Ability: {picked_item.ability}")
         c = get_choice("  Take equipment? [y/n] > ", ["y", "n"])
         if c == "y":
-            state.equipment_stash.append(equipment_drop)
+            state.equipment_stash.append(picked_item)
             print('  Sera: "Finally, something wearable."')
         else:
             print('  Sera: "Then leave it to rust."')
@@ -1411,11 +1439,25 @@ def between_floors(state: GameState) -> bool:
     while True:
         ui.refresh()
         print(ui.render_between_floors(
-            state.floor, state.interest, state.upgrade_shards, state.consumable_count("healing_flask"),
-            state.next_revision_set, state.revision_set_claimed, state.auto_run.enabled))
+            state.floor,
+            state.interest,
+            state.upgrade_shards,
+            state.consumable_count("healing_flask"),
+            state.next_revision_set,
+            state.revision_set_claimed,
+            state.auto_run.enabled,
+            state.gold,
+            state.current_npc.name if state.current_npc else "",
+        ))
 
-        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"])
-        if choice in ("quit", "13"):
+        valid = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+        if state.current_npc:
+            valid.extend(["13", "14"])
+        else:
+            valid.append("13")
+        choice = get_choice("> ", valid)
+        quit_choice = "14" if state.current_npc else "13"
+        if choice in ("quit", quit_choice):
             return False
 
         if choice == "1":
@@ -1468,6 +1510,76 @@ def between_floors(state: GameState) -> bool:
             run_auto_floor_framework(state)
             if state.auto_run.auto_floor_advance:
                 return True
+
+        if choice == "13" and state.current_npc:
+            npc_screen(state)
+
+def npc_screen(state: GameState):
+    npc = state.current_npc
+    if not npc:
+        print('  No one is here.')
+        pause()
+        return
+
+    while True:
+        ui.refresh()
+        print(ui.box_top())
+        print(ui.box_line(f"{npc.name} [{npc.role.upper()}]", "center"))
+        print(ui.box_divider())
+        print(ui.box_line(f'  "{npc.intro}"'))
+        print(ui.box_line(f"  Gold: {state.gold}"))
+        for idx, offer in enumerate(npc.offers, start=1):
+            print(ui.box_line(f"  [{idx}] {offer.label} ({offer.cost_gold}g)"))
+            print(ui.box_line(f"      {offer.description}"))
+        print(ui.box_line("  [0] Leave"))
+        print(ui.box_bot())
+
+        valid = [str(i) for i in range(len(npc.offers) + 1)]
+        choice = get_choice("> ", valid)
+        if choice in ("0", "quit"):
+            return
+
+        offer = npc.offers[int(choice) - 1]
+        if state.gold < offer.cost_gold:
+            print('  Sera: "Come back with coin."')
+            pause()
+            continue
+
+        state.gold -= offer.cost_gold
+        state.run_stats.gold_spent += offer.cost_gold
+
+        if offer.key == "buy_shards":
+            state.upgrade_shards += 3
+            print('  Bought 3 Upgrade Shards.')
+        elif offer.key == "buy_flask":
+            state.add_consumable("healing_flask", 1)
+            print('  Bought 1 Healing Flask.')
+        elif offer.key == "buy_random_equipment":
+            if state.all_equipment:
+                bought = roll_item(random.choice(state.all_equipment))
+                state.equipment_stash.append(bought)
+                print(f"  Bought equipment: {bought.name}.")
+            else:
+                print('  Nothing to buy right now.')
+        elif offer.key == "enchant_weapon":
+            if state.weapons:
+                weapon = state.equipped_weapon
+                weapon.upgrade_level = min(weapon.max_upgrade_level, weapon.upgrade_level + 1)
+                print(f"  {weapon.display_name} gains +1 upgrade level.")
+            else:
+                print('  No weapon to enchant.')
+        elif offer.key == "infuse_armor":
+            if state.equipment_stash:
+                target = random.choice(state.equipment_stash)
+                stat = random.choice(["STR", "DEX", "CON", "WIS", "AC", "AP"])
+                target.stat_bonuses[stat] = target.stat_bonuses.get(stat, 0) + 1
+                print(f"  {target.name} gains +1 {stat}.")
+            else:
+                print('  No armor in stash.')
+
+        print('  Sera: "...Acceptable."')
+        pause()
+
 
 def equip_screen(state: GameState):
     if len(state.weapons) < 2:
@@ -1937,7 +2049,8 @@ def run_endless_mode(seed: int | None = None) -> str:
             source="endless_wave_complete",
         )
 
-        loot_phase(state)
+        loot_phase(state, boss_cleared=any(enemy.archetype == "boss" for enemy in enemies))
+        state.current_npc = roll_npc_for_floor(state.floor, state.rng)
         state.healing_flasks = min(state.healing_flasks + 1, 3)
         state.next_revision_set = generate_revision_set(state.all_equipment, wave + 1)
         state.revision_set_claimed = False
@@ -1984,7 +2097,8 @@ def run_new_game_from_state(state: GameState) -> str:
         state.floors_cleared = floor_num
         save_to_file(SAVE_PATH, state)
 
-        loot_phase(state)
+        loot_phase(state, boss_cleared=any(enemy.archetype == "boss" for enemy in enemies))
+        state.current_npc = roll_npc_for_floor(state.floor, state.rng)
         if state.consumable_count("healing_flask") < 3:
             state.add_consumable("healing_flask", 1)
         state.next_revision_set = generate_revision_set(state.all_equipment, floor_num + 1)

@@ -55,10 +55,14 @@ class EquipmentItem:
     ability: str = ""
     level: int = 1
     is_unique: bool = False
+    set_name: str = ""
+    is_named: bool = False
 
     @property
     def max_level(self) -> int:
-        return 20 if self.is_unique else 5
+        if self.is_unique or self.is_named or self.set_name:
+            return 10
+        return 5
 
     @property
     def can_upgrade(self) -> bool:

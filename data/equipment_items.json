@@ -339,6 +339,872 @@
         "physical": 5,
         "sonic": 5
       }
+    },
+    {
+      "name": "Emberguard Cuirass",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "CON": 1,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 5,
+      "resistances": {
+        "fire": 15
+      }
+    },
+    {
+      "name": "Tidebound Harness",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "CON": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 10,
+      "resistances": {
+        "water": 15
+      }
+    },
+    {
+      "name": "Stoneplate Carapace",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "STR": 1,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 0,
+      "resistances": {
+        "earth": 15
+      }
+    },
+    {
+      "name": "Skyweave Vest",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "DEX": 2
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 10,
+      "resistances": {
+        "sonic": 10,
+        "arcane": 5
+      }
+    },
+    {
+      "name": "Ashlord Breastplate",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "STR": 2,
+        "CON": 1
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 0,
+      "resistances": {
+        "fire": 20
+      }
+    },
+    {
+      "name": "Coral Aegis",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "WIS": 2,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 10,
+      "resistances": {
+        "water": 20
+      }
+    },
+    {
+      "name": "Rootwarden Mail",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "CON": 2,
+        "AC": 1
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 5,
+      "resistances": {
+        "earth": 20
+      }
+    },
+    {
+      "name": "Stormglass Jerkin",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "DEX": 2,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 10,
+      "resistances": {
+        "sonic": 15,
+        "water": 5
+      }
+    },
+    {
+      "name": "Duskiron Chestguard",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "CON": 1,
+        "WIS": 1
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 5,
+      "resistances": {
+        "darkness": 15
+      }
+    },
+    {
+      "name": "Starforged Armor",
+      "slot": "Torso",
+      "ascii_art": " [##] ",
+      "stat_bonuses": {
+        "AC": 2,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 10,
+      "resistances": {
+        "divine": 10,
+        "arcane": 10
+      }
+    },
+    {
+      "name": "Viper Sigil 1",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "AP": 1,
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "decay": 10
+      }
+    },
+    {
+      "name": "Viper Sigil 2",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "decay": 5
+      }
+    },
+    {
+      "name": "Viper Sigil 3",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "AP": 1,
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "decay": 10
+      }
+    },
+    {
+      "name": "Viper Sigil 4",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "decay": 5
+      }
+    },
+    {
+      "name": "Viper Sigil 5",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "AP": 1,
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "decay": 10
+      }
+    },
+    {
+      "name": "Viper Sigil 6",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "decay": 5
+      }
+    },
+    {
+      "name": "Viper Sigil 7",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "AP": 1,
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "decay": 10
+      }
+    },
+    {
+      "name": "Viper Sigil 8",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "decay": 5
+      }
+    },
+    {
+      "name": "Viper Sigil 9",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "AP": 1,
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "decay": 10
+      }
+    },
+    {
+      "name": "Viper Sigil 10",
+      "slot": "Ring 1",
+      "ascii_art": " (>) ",
+      "stat_bonuses": {
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "decay": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 1",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "physical": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 2",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1,
+        "CON": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 3",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "physical": 5,
+        "earth": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 4",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1,
+        "CON": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 5",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "physical": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 6",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1,
+        "CON": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 5,
+        "earth": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 7",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "physical": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 8",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1,
+        "CON": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 9",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 0,
+      "resistances": {
+        "physical": 5,
+        "earth": 5
+      }
+    },
+    {
+      "name": "Sentinel Loop 10",
+      "slot": "Ring 2",
+      "ascii_art": " (<) ",
+      "stat_bonuses": {
+        "STR": 1,
+        "CON": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 5
+      }
+    },
+    {
+      "name": "Blazewalk Treads",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "fire": 15
+      }
+    },
+    {
+      "name": "Tideglide Soles",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "WIS": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "water": 15
+      }
+    },
+    {
+      "name": "Gravelock Boots",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "CON": 1,
+        "AC": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "earth": 15
+      }
+    },
+    {
+      "name": "Updraft Runners",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "DEX": 2
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "sonic": 15
+      }
+    },
+    {
+      "name": "Molten Spur Boots",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "STR": 1,
+        "DEX": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "fire": 10,
+        "earth": 5
+      }
+    },
+    {
+      "name": "Mistthread Slippers",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AP": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "water": 10,
+        "arcane": 5
+      }
+    },
+    {
+      "name": "Briarstep Sabatons",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "CON": 1,
+        "STR": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "earth": 10,
+        "decay": 5
+      }
+    },
+    {
+      "name": "Thunderlace Boots",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 2
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "sonic": 10,
+        "arcane": 5
+      }
+    },
+    {
+      "name": "Nightwind Greaves",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "WIS": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "darkness": 10,
+        "sonic": 5
+      }
+    },
+    {
+      "name": "Aurora Boots",
+      "slot": "Boots",
+      "ascii_art": " /_/ ",
+      "stat_bonuses": {
+        "AP": 1,
+        "WIS": 1
+      },
+      "damage_reduction": 0,
+      "damage_resistance": 5,
+      "resistances": {
+        "divine": 10,
+        "ice": 5
+      }
+    },
+    {
+      "name": "Pyrebound Regalia Hood",
+      "slot": "Helmet",
+      "ascii_art": " /^^\\ ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "fire": 15
+      },
+      "set_name": "Pyrebound Regalia",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Pyrebound Regalia Mail",
+      "slot": "Torso",
+      "ascii_art": " [@@] ",
+      "stat_bonuses": {
+        "CON": 2,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 10,
+      "resistances": {
+        "fire": 20
+      },
+      "set_name": "Pyrebound Regalia",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Pyrebound Regalia Boots",
+      "slot": "Boots",
+      "ascii_art": " /##/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "fire": 15
+      },
+      "set_name": "Pyrebound Regalia",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Tidecaller Vestments Hood",
+      "slot": "Helmet",
+      "ascii_art": " /^^\\ ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "water": 15
+      },
+      "set_name": "Tidecaller Vestments",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Tidecaller Vestments Mail",
+      "slot": "Torso",
+      "ascii_art": " [@@] ",
+      "stat_bonuses": {
+        "CON": 2,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 10,
+      "resistances": {
+        "water": 20
+      },
+      "set_name": "Tidecaller Vestments",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Tidecaller Vestments Boots",
+      "slot": "Boots",
+      "ascii_art": " /##/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "water": 15
+      },
+      "set_name": "Tidecaller Vestments",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Stonewarden Battlegear Hood",
+      "slot": "Helmet",
+      "ascii_art": " /^^\\ ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "earth": 15
+      },
+      "set_name": "Stonewarden Battlegear",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Stonewarden Battlegear Mail",
+      "slot": "Torso",
+      "ascii_art": " [@@] ",
+      "stat_bonuses": {
+        "CON": 2,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 10,
+      "resistances": {
+        "earth": 20
+      },
+      "set_name": "Stonewarden Battlegear",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Stonewarden Battlegear Boots",
+      "slot": "Boots",
+      "ascii_art": " /##/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "earth": 15
+      },
+      "set_name": "Stonewarden Battlegear",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Skydancer Array Hood",
+      "slot": "Helmet",
+      "ascii_art": " /^^\\ ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "sonic": 15
+      },
+      "set_name": "Skydancer Array",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Skydancer Array Mail",
+      "slot": "Torso",
+      "ascii_art": " [@@] ",
+      "stat_bonuses": {
+        "CON": 2,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 10,
+      "resistances": {
+        "sonic": 20
+      },
+      "set_name": "Skydancer Array",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Skydancer Array Boots",
+      "slot": "Boots",
+      "ascii_art": " /##/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "sonic": 15
+      },
+      "set_name": "Skydancer Array",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Sera's Silk Hood",
+      "slot": "Helmet",
+      "ascii_art": " /^^\\ ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "arcane": 15
+      },
+      "set_name": "Sera's Silk",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Sera's Silk Mail",
+      "slot": "Torso",
+      "ascii_art": " [@@] ",
+      "stat_bonuses": {
+        "CON": 2,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 10,
+      "resistances": {
+        "arcane": 20
+      },
+      "set_name": "Sera's Silk",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Sera's Silk Boots",
+      "slot": "Boots",
+      "ascii_art": " /##/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "arcane": 15
+      },
+      "set_name": "Sera's Silk",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Barbarian Heavy Armor Hood",
+      "slot": "Helmet",
+      "ascii_art": " /^^\\ ",
+      "stat_bonuses": {
+        "WIS": 1,
+        "AC": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 15
+      },
+      "set_name": "Barbarian Heavy Armor",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Barbarian Heavy Armor Mail",
+      "slot": "Torso",
+      "ascii_art": " [@@] ",
+      "stat_bonuses": {
+        "CON": 2,
+        "AC": 2
+      },
+      "damage_reduction": 2,
+      "damage_resistance": 10,
+      "resistances": {
+        "physical": 20
+      },
+      "set_name": "Barbarian Heavy Armor",
+      "is_unique": true,
+      "is_named": true
+    },
+    {
+      "name": "Barbarian Heavy Armor Boots",
+      "slot": "Boots",
+      "ascii_art": " /##/ ",
+      "stat_bonuses": {
+        "DEX": 1,
+        "AP": 1
+      },
+      "damage_reduction": 1,
+      "damage_resistance": 5,
+      "resistances": {
+        "physical": 15
+      },
+      "set_name": "Barbarian Heavy Armor",
+      "is_unique": true,
+      "is_named": true
     }
   ]
 }
