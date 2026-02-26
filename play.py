@@ -48,7 +48,13 @@ from sera.game_stats import (
     merge_run_stats,
     stamp_run_summary,
 )
-from sera.analytics import AnalyticsTracker, export_analytics
+from sera.analytics import (
+    AnalyticsTracker,
+    export_analytics,
+    load_analytics_index,
+    load_analytics_report,
+    summarize_analytics_report,
+)
 from sera.unique_items import get_unique_effect_key
 from sera.npc import NamedNPC, roll_npc_for_floor
 
@@ -162,7 +168,7 @@ class BalanceTweaks:
 
 
 def _record_persistent_run(state: "GameState", *, won: bool, wave_reached: int | None = None):
-    """Persist this run into game_stats.json."""
+    """Persist this run into game_stats.json and analytics storage."""
     base_summary = state.run_stats.to_dict(state)
     if wave_reached is not None:
         base_summary["wave_reached"] = wave_reached
@@ -171,6 +177,8 @@ def _record_persistent_run(state: "GameState", *, won: bool, wave_reached: int |
     run_summary = stamp_run_summary(base_summary, won=won, mode=state.mode, seed=state.rng_seed)
     payload = load_game_stats()
     merge_run_stats(payload, run_summary)
+    if state.analytics.turn_snapshots or state.analytics.combat_events or state.analytics.issues:
+        export_analytics(state.analytics)
 
 
 def _record_session_event(reason: str):
@@ -395,6 +403,41 @@ def is_quit_token(text: str) -> bool:
 
 def pause(msg: str = "  [Press Enter]"):
     ui.get_input(msg)
+
+
+def _show_analytics_review_screen() -> None:
+    exports = load_analytics_index()
+    if not exports:
+        ui.refresh()
+        print(ui.render_analytics_frame("ANALYTICS REVIEW", ["No exports yet."]))
+        pause()
+        return
+
+    index = len(exports) - 1
+    while True:
+        exports = load_analytics_index()
+        if not exports:
+            return
+        index = max(0, min(index, len(exports) - 1))
+        selected = exports[index]
+        payload = load_analytics_report(selected.get("json_path", ""))
+        summary_lines = [
+            f"Export {index + 1}/{len(exports)}",
+            f"UTC: {selected.get('timestamp_utc', 'unknown')}",
+            f"JSON: {selected.get('json_path', '')}",
+            f"CSV:  {selected.get('csv_path', '')}",
+            "",
+        ]
+        summary_lines.extend(summarize_analytics_report(payload))
+        ui.refresh()
+        print(ui.render_analytics_frame("ANALYTICS REVIEW", summary_lines))
+        choice = get_choice("  > ", ["n", "p", "r", "0"])
+        if choice in ("quit", "0"):
+            return
+        if choice == "n":
+            index = min(len(exports) - 1, index + 1)
+        elif choice == "p":
+            index = max(0, index - 1)
 
 
 # ─────────────────────────────────────────────────────────
@@ -726,6 +769,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
     combat_turn = 0
     consecutive_errors = 0
     combat_log: list[str] = ["Combat engaged."]
+    immune_streak = 0
     if not hasattr(state, "combat_menu_collapsed"):
         state.combat_menu_collapsed = False
 
@@ -839,7 +883,8 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                     continue
                 if choice == "a":
                     state.last_player_action = choice
-                    turns_run = _run_auto_battle_burst(state, enemies, state.auto_battle_turns)
+                    turns_run, burst_immune = _run_auto_battle_burst(state, enemies, state.auto_battle_turns)
+                    immune_streak = burst_immune
                     combat_turn += max(0, turns_run - 1)
                     if interest.game_over:
                         return False
@@ -857,8 +902,23 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
 
             # --- RESOLVE ATTACK ---
             print()
-            _resolve_player_attack(state, state.equipped_weapon, target, interest, state.final_stats, state.run_stats)
-            combat_log.append(f"Attacked {target.name} with {state.equipped_weapon.display_name}.")
+            outcome = _resolve_player_attack(state, state.equipped_weapon, target, interest, state.final_stats, state.run_stats)
+            if outcome["immune"]:
+                immune_streak += 1
+                missing = outcome.get("required_tag", "")
+                combat_log.append(f"IMMUNE on {target.name}" + (f" (need {missing})" if missing else ""))
+                if immune_streak >= 3:
+                    target.interrupt_cast()
+                    interest._restore(2)
+                    print('  Sera: "Three dead swings. I cut their tempo. Leave for +3 Patience? [y/n]"')
+                    leave_choice = get_choice("  > ", ["y", "n"])
+                    if leave_choice == "y":
+                        interest._restore(3)
+                        combat_log.append("Retreated after triple immunity.")
+                        return True
+            else:
+                immune_streak = 0
+                combat_log.append(f"Attacked {target.name} with {state.equipped_weapon.display_name}.")
             pause()
 
             if interest.game_over:
@@ -963,6 +1023,7 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
                 total_kills=interest.total_kills,
                 total_damage=state.run_stats.total_damage,
                 source="combat",
+                immune_streak=immune_streak,
             )
             if interest.current_patience < 0 or interest.current_patience > interest.max_patience:
                 state.analytics.record_issue(
@@ -1005,23 +1066,37 @@ def _do_inspect(alive, combat_turn, enemies, interest, state):
     print(ui.render_combat_hud(combat_turn, state.equipped_weapon, enemies, interest, state.final_stats, state.healing_flasks, state.auto_battle_turns))
 
 
-def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats, run_stats: RunStats | None = None):
+def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, interest: InterestManager, stats: PlayerStats, run_stats: RunStats | None = None) -> dict[str, object]:
     """Full attack resolution with dodge, permission, interrupt, damage."""
 
     # --- Permission Check ---
     if not target.check_permission(weapon.all_tags):
+        missing_tag = target.missing_tag_hint()
         print(f'  Sera attacks {target.name} with {weapon.display_name}...')
-        print(f'  IMMUNE. Weapon lacks required tag.')
+        if missing_tag:
+            print(f'  IMMUNE. Missing tag: [{missing_tag}]')
+        else:
+            print('  IMMUNE. Weapon lacks required tag.')
         print(f'  Sera: {sera_quip(IMMUNE_QUIPS)}')
         ann_log = interest.take_annoyance(5, f"{target.name} is immune")
         for line in ann_log:
             print(f"  {line.strip()}")
-        return
+        state.analytics.record_combat_event(
+            kind="player_attack",
+            floor_or_wave=state.floor,
+            turn=interest.turn_number,
+            enemy_name=target.name,
+            weapon_name=weapon.display_name,
+            attempted_damage=0,
+            actual_damage=0,
+            outcome="immune",
+            required_tag=missing_tag,
+        )
+        return {"immune": True, "required_tag": missing_tag}
 
     # --- Miss Chance (based on low Patience) ---
-    # As Patience drops, Sera cares less about accuracy
     patience_ratio = interest.current_patience / interest.max_patience
-    miss_chance = max(0, (1.0 - patience_ratio) * 0.20)  # Up to 20% miss at 0 patience
+    miss_chance = max(0, (1.0 - patience_ratio) * 0.20)
     if random.random() < miss_chance:
         ui.refresh()
         print(ui.box_top())
@@ -1029,19 +1104,37 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
         print(ui.box_divider())
         print(ui.box_line(f"  Sera swings at {target.name}... misses!"))
         print(ui.box_line(f'  Sera: "I don\'t even care anymore."'))
-        print(ui.box_line(f"  [-1 Patience]"))
+        print(ui.box_line("  [-1 Patience]"))
         print(ui.box_bot())
         interest._drain(1, "Miss")
-        return
+        state.analytics.record_combat_event(
+            kind="player_attack",
+            floor_or_wave=state.floor,
+            turn=interest.turn_number,
+            enemy_name=target.name,
+            weapon_name=weapon.display_name,
+            attempted_damage=0,
+            actual_damage=0,
+            outcome="miss",
+        )
+        return {"immune": False}
 
-    # --- Dodge Roll ---
     if target.try_dodge():
         ui.refresh()
         print(ui.render_dodge(target.name))
         interest._drain(2, "Dodge")
-        return
+        state.analytics.record_combat_event(
+            kind="player_attack",
+            floor_or_wave=state.floor,
+            turn=interest.turn_number,
+            enemy_name=target.name,
+            weapon_name=weapon.display_name,
+            attempted_damage=0,
+            actual_damage=0,
+            outcome="dodged",
+        )
+        return {"immune": False}
 
-    # --- Interrupt Check (hitting a casting enemy cancels their charge) ---
     interrupted = target.interrupt_cast()
     if interrupted:
         ui.refresh()
@@ -1050,12 +1143,12 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
         print(f"  Sera: {sera_quip(INTERRUPT_QUIPS)}")
         pause()
 
-    # --- Damage Calculation ---
     unique_effect = get_unique_effect_key(weapon.name)
     if unique_effect == "first_blood" and target.times_hit == 0:
         interest._restore(1)
 
     damage, steps = weapon.calculate_damage(target)
+    raw_damage = damage
     stat_bonus = stats.attack_bonus() + (state.balance.endless_player_damage_bonus_per_wave * max(0, state.endless.wave - 1))
     if stat_bonus > 0:
         pre_stat = damage
@@ -1074,11 +1167,9 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
     print(ui.render_damage_report(steps, target.name, actual, armor_absorbed))
     _handle_boss_mutators_on_hit(state, target, weapon, damage)
 
-    # Attack quip
     if not dead:
         print(f"  Sera: {sera_quip(ATTACK_QUIPS)}")
 
-    # Apply statuses from affixes
     for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
         if affix and affix.inflicts_status:
             effect = StatusEffect[affix.inflicts_status]
@@ -1087,12 +1178,10 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
 
     print(f"  {target.name}: {ui.hp_bar(target.current_hp, target.max_hp, 15)}")
 
-    # --- Kill ---
     if dead:
         kill_log = interest.register_kill(target.name, damage, hp_before)
         print()
         print(f"  Sera: {sera_quip(KILL_QUIPS)}")
-        # Check for overkill
         excess = max(0, damage - hp_before)
         if excess > 0:
             if run_stats:
@@ -1101,6 +1190,18 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
                 interest._restore(1)
             print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
         print(ui.render_kill_report(target.name, kill_log))
+
+    state.analytics.record_combat_event(
+        kind="player_attack",
+        floor_or_wave=state.floor,
+        turn=interest.turn_number,
+        enemy_name=target.name,
+        weapon_name=weapon.display_name,
+        attempted_damage=raw_damage + max(0, stat_bonus),
+        actual_damage=actual,
+        outcome="kill" if dead else "hit",
+    )
+    return {"immune": False}
 
 
 
@@ -1129,7 +1230,7 @@ def _handle_boss_mutators_on_hit(state: GameState, target: Enemy, weapon: Weapon
             state.interest._drain(splash, "Acidic Blood")
             print(f"  {target.name} splashes acid blood for {splash} Patience.")
 
-def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: int) -> int:
+def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: int) -> tuple[int, int]:
     """Run an auto-battle burst with live turn telemetry and active sprite frames."""
     interest = state.interest
     stats = state.final_stats
@@ -1137,6 +1238,7 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
     total_damage_dealt = 0
     total_kills = 0
     turn_results: list[dict] = []
+    immune_streak = 0
 
     for _ in range(max_turns):
         try:
@@ -1156,13 +1258,37 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
             sprite_frame = animator.next_frame()
 
             weapon = state.equipped_weapon
-            damage, _steps = weapon.calculate_damage(target)
-            damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
-            hp_before = target.current_hp
-            actual, dead = target.take_damage(damage)
-            total_damage_dealt += actual
-            state.run_stats.record_damage(actual)
             event_text = ""
+            if not target.check_permission(weapon.all_tags):
+                immune_streak += 1
+                missing = target.missing_tag_hint()
+                state.analytics.record_combat_event(
+                    kind="auto_attack",
+                    floor_or_wave=state.floor,
+                    turn=interest.turn_number,
+                    enemy_name=target.name,
+                    weapon_name=weapon.display_name,
+                    attempted_damage=0,
+                    actual_damage=0,
+                    outcome="immune",
+                    required_tag=missing,
+                )
+                event_text = f"IMMUNE vs {target.name}" + (f" (need {missing})" if missing else "")
+                if immune_streak >= 3:
+                    interrupted = target.interrupt_cast()
+                    if interrupted:
+                        event_text += f" | interrupted {interrupted}"
+                actual = 0
+                dead = False
+                damage = 0
+            else:
+                immune_streak = 0
+                damage, _steps = weapon.calculate_damage(target)
+                damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
+                hp_before = target.current_hp
+                actual, dead = target.take_damage(damage)
+                total_damage_dealt += actual
+                state.run_stats.record_damage(actual)
 
             for affix in [weapon.prefix, weapon.suffix, weapon.set_bonus]:
                 if affix and affix.inflicts_status:
@@ -1219,6 +1345,16 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
                 "patience": interest.current_patience,
                 "event": event_text,
             })
+            state.analytics.capture_turn(
+                mode=state.mode,
+                floor_or_wave=state.floor,
+                turn=interest.turn_number,
+                patience=interest.current_patience,
+                total_kills=interest.total_kills,
+                total_damage=state.run_stats.total_damage,
+                source="auto_battle",
+                immune_streak=immune_streak,
+            )
 
             ui.refresh()
             print(ui.render_auto_battle_screen(
@@ -1238,7 +1374,7 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
             _report_runtime_error("auto-battle turn", err)
             continue
 
-    return turns_run
+    return turns_run, immune_streak
 
 
 def _resolve_enemy_action(
@@ -1344,9 +1480,9 @@ def loot_phase(state: GameState, *, boss_cleared: bool = False):
     equipment_chance = 0.55 + (0.25 if boss_cleared else 0.0)
     equipment_drop = roll_item(random.choice(state.all_equipment)) if state.all_equipment and random.random() < equipment_chance else None
     bonus_boss_drop = roll_item(random.choice(state.all_equipment)) if state.all_equipment and boss_cleared and random.random() < 0.4 else None
-    gold_drop = random.randint(8, 18) + state.floor * 2
+    gold_drop = int(round((random.randint(8, 18) + state.floor * 2) * 1.25))
     if boss_cleared:
-        gold_drop += random.randint(15, 35)
+        gold_drop += int(round(random.randint(15, 35) * 1.25))
 
     ui.refresh()
     screen, choices = ui.render_loot_screen(
@@ -1478,7 +1614,7 @@ def between_floors(state: GameState) -> bool:
             state.current_npc.name if state.current_npc else "",
         ))
 
-        valid = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+        valid = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "r"]
         if state.current_npc:
             valid.extend(["13", "14"])
         else:
@@ -1528,6 +1664,9 @@ def between_floors(state: GameState) -> bool:
             print(f"  Analytics exported: {json_path}")
             print(f"  Analytics exported: {csv_path}")
             pause()
+
+        if choice == "r":
+            _show_analytics_review_screen()
 
         if choice == "11":
             state.auto_run.enabled = not state.auto_run.enabled

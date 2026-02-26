@@ -30,6 +30,18 @@ ATTACK_TYPE_TO_DEFENSE_KEY: dict[str, str] = {
 from sera.status import StatusEffect, StatusInstance
 
 
+VULNERABILITY_TAG_MAP: dict[EnemyVulnerability, tuple[DamageTag, ...]] = {
+    EnemyVulnerability.REQUIRES_DIVINE: (DamageTag.DIVINE,),
+    EnemyVulnerability.REQUIRES_ETHEREAL: (DamageTag.ETHEREAL,),
+    EnemyVulnerability.REQUIRES_DIVINE_OR_ETHEREAL: (DamageTag.DIVINE, DamageTag.ETHEREAL),
+    EnemyVulnerability.REQUIRES_SILVER: (DamageTag.SILVER,),
+    EnemyVulnerability.REQUIRES_HEAVY: (DamageTag.HEAVY,),
+    EnemyVulnerability.REQUIRES_CORROSIVE: (DamageTag.CORROSIVE,),
+    EnemyVulnerability.REQUIRES_FIRE: (DamageTag.FIRE,),
+    EnemyVulnerability.REQUIRES_ARCANE: (DamageTag.ARCANE,),
+}
+
+
 class AnnoyanceType(Enum):
     """How this enemy drains Sera's Patience."""
     WEAK_HIT = auto()       # -2 PP  ("Ugh, a scratch.")
@@ -130,27 +142,23 @@ class Enemy:
     # --- Permission check ---
     def check_permission(self, weapon_tags: set[DamageTag]) -> bool:
         """Does this weapon have conceptual permission to damage this enemy?"""
-        req = self.vulnerability
-        if req == EnemyVulnerability.NONE:
+        required = self.required_tags()
+        if not required:
             return True
-        # Multi-tag vulnerabilities: weapon must have ANY of the listed tags
-        multi_tag_map: dict[EnemyVulnerability, list[DamageTag]] = {
-            EnemyVulnerability.REQUIRES_DIVINE_OR_ETHEREAL: [DamageTag.DIVINE, DamageTag.ETHEREAL],
-        }
-        if req in multi_tag_map:
-            return bool(weapon_tags & set(multi_tag_map[req]))
-        # Single-tag vulnerabilities
-        tag_map = {
-            EnemyVulnerability.REQUIRES_DIVINE: DamageTag.DIVINE,
-            EnemyVulnerability.REQUIRES_ETHEREAL: DamageTag.ETHEREAL,
-            EnemyVulnerability.REQUIRES_SILVER: DamageTag.SILVER,
-            EnemyVulnerability.REQUIRES_HEAVY: DamageTag.HEAVY,
-            EnemyVulnerability.REQUIRES_CORROSIVE: DamageTag.CORROSIVE,
-            EnemyVulnerability.REQUIRES_FIRE: DamageTag.FIRE,
-            EnemyVulnerability.REQUIRES_ARCANE: DamageTag.ARCANE,
-        }
-        required_tag = tag_map.get(req)
-        return required_tag in weapon_tags if required_tag else True
+        return any(tag in weapon_tags for tag in required)
+
+    def required_tags(self) -> tuple[DamageTag, ...]:
+        """Return the vulnerability tags that can damage this enemy."""
+        return VULNERABILITY_TAG_MAP.get(self.vulnerability, ())
+
+    def missing_tag_hint(self) -> str:
+        """Human-readable tag requirement shown when an attack is immune."""
+        required = self.required_tags()
+        if not required:
+            return ""
+        if len(required) == 1:
+            return required[0].name
+        return " or ".join(tag.name for tag in required)
 
     # --- Taking damage ---
     def take_damage(self, amount: int) -> tuple[int, bool]:

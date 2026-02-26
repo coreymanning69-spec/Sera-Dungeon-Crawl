@@ -48,7 +48,16 @@ class WeaponPoolManager:
                 self.legendary_progress[legendary.name] = LegendaryWeaponProgress(legendary.name)
 
     def generate_starting_weapon(self) -> Weapon:
-        return copy.deepcopy(self.rng.choice(self.base_pool))
+        weapon = copy.deepcopy(self.rng.choice(self.base_pool))
+        if weapon.is_unique:
+            self._prime_unique_starting_passives(weapon)
+        return weapon
+
+
+    def _prime_unique_starting_passives(self, weapon: Weapon) -> None:
+        passive_pool = [a for a in self.affix_pool if a.affix_type in {"prefix", "suffix"}]
+        while weapon.affix_count < 3 and weapon.can_add_modifier and passive_pool:
+            weapon.add_modifier(copy.deepcopy(self.rng.choice(passive_pool)))
 
     def _procedural_weapon(self) -> Weapon:
         weapon = copy.deepcopy(self.rng.choice(self.base_pool))
@@ -68,11 +77,12 @@ class WeaponPoolManager:
         weapon = copy.deepcopy(self.rng.choice(self.legendary_pool))
         progress = self.legendary_progress[weapon.name]
         weapon.upgrade_level = min(progress.level - 1, weapon.max_upgrade_level)
+        self._prime_unique_starting_passives(weapon)
         progress.grant_xp(1)
         return weapon
 
     def generate_drop(self, floor: int) -> Weapon:
-        if floor >= 8 and self.legendary_pool and self.rng.random() < 0.2:
+        if floor >= 8 and self.legendary_pool and self.rng.random() < 0.08:
             return self._legendary_weapon()
         if self.rng.random() < min(0.35 + floor * 0.05, 0.9):
             return self._procedural_weapon()

@@ -184,7 +184,11 @@ def _resolve_sera_attack(
             "Wrong weapon. Think harder.",
         ])
         log.append(f"\n  Sera attacks {target.name} with {weapon.display_name}...")
-        log.append(f'  IMMUNE. Weapon lacks required tag. "{immune_quip}"')
+        missing = target.missing_tag_hint()
+        if missing:
+            log.append(f'  IMMUNE. Missing tag: [{missing}]. "{immune_quip}"')
+        else:
+            log.append(f'  IMMUNE. Weapon lacks required tag. "{immune_quip}"')
         log.extend(interest.take_annoyance(5, f'"{target.name} is immune. What a waste of my time."'))
         return log
 
