@@ -804,7 +804,7 @@ def render_arcade_combat_frame(
     lines.append(row(f"Weapon: {weapon.display_name} [{', '.join(t.name for t in weapon.all_tags)}]", "SYSTEM" if not menu_collapsed else "SYSTEM (collapsed)"))
     lines.append(row(f"Flasks: {healing_charges}  AP:+{stats.attack_bonus()}  Auto:{auto_battle_turns}t", "[0] Commands" if not menu_collapsed else ""))
     lines.append(box_divider_thin())
-    lines.append(row("ENEMY VIEWPORT (64x64 style sprite)", ""))
+    lines.append(row("ENEMY VIEWPORT", ""))
     for sl in sprite_lines:
         lines.append(row(f"  {sl}", ""))
     if target:
@@ -1195,6 +1195,7 @@ def render_between_floors(
     lines.append(box_line("  ▸ [10] Export analytics"))
     lines.append(box_line(f"  ▸ [11] Toggle auto director ({'ON' if auto_director_enabled else 'OFF'})"))
     lines.append(box_line("  ▸ [12] Run auto floor director"))
+    lines.append(box_line("  ▸ [R] Review analytics exports"))
     if npc_name:
         lines.append(box_line(f"  ▸ [13] Visit NPC: {npc_name}"))
         lines.append(box_line("  ▸ [14] Quit"))
@@ -1205,6 +1206,22 @@ def render_between_floors(
     return "\n".join(lines)
 
 
+
+
+def render_analytics_frame(title: str, lines_in: list[str]) -> str:
+    lines = [
+        box_top(),
+        box_line(f"░▒▓█ {title} █▓▒░", "center"),
+        box_divider(),
+    ]
+    for row in lines_in[:20]:
+        lines.append(box_line(f"  {row}"))
+    if not lines_in:
+        lines.append(box_line("  No analytics exported yet."))
+    lines.append(box_divider())
+    lines.append(box_line("  [N] Next  [P] Prev  [R] Refresh  [0] Back"))
+    lines.append(box_bot())
+    return "\n".join(lines)
 
 
 def render_auto_battle_screen(

@@ -267,14 +267,14 @@ def generate_loot_weapon(floor: int, all_weapons: list[Weapon], all_affixes: lis
 
 def generate_loot_material() -> CraftingMaterial | None:
     """Random chance to find a crafting material (80% for smoother progression)."""
-    if random.random() < 0.80:
+    if random.random() < min(1.0, 0.80 * 1.25):
         return copy.deepcopy(random.choice(list(CRAFTING_MATERIALS.values())))
     return None
 
 
 def generate_loot_shards(floor: int) -> int:
     """Generate upgrade shards with weighted 1/2/3 outcomes."""
-    chance = min(0.60 + floor * 0.12, 0.98)
+    chance = min((0.60 + floor * 0.12) * 1.33, 0.98)
     if random.random() > chance:
         return 0
 
