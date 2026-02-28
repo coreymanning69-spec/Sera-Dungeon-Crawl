@@ -55,7 +55,7 @@ from sera.analytics import (
     load_analytics_report,
     summarize_analytics_report,
 )
-from sera.unique_items import get_unique_effect_key
+from sera.unique_items import get_unique_effect_key, get_unique_effects
 from sera.npc import NamedNPC, roll_npc_for_floor
 
 
@@ -252,8 +252,8 @@ SIMULATION_SEED = 1337
 
 @dataclass
 class BalanceTweaks:
-    endless_enemy_hp_bonus_per_wave: float = 0.0
-    endless_player_damage_bonus_per_wave: int = 0
+    endless_enemy_hp_bonus_per_wave: float = 0.10
+    endless_player_damage_bonus_per_wave: int = 1
 
 
 
@@ -1009,6 +1009,17 @@ def run_combat(state: GameState, enemies: list[Enemy]) -> bool:
             else:
                 immune_streak = 0
                 combat_log.append(f"Attacked {target.name} with {state.equipped_weapon.display_name}.")
+
+            # turn_surge: free extra attack on a different living target
+            if getattr(state, "_turn_surge_triggered", False):
+                state._turn_surge_triggered = False
+                surge_alive = [e for e in enemies if e.current_hp > 0]
+                if surge_alive:
+                    surge_target = surge_alive[0]
+                    print(f'\n  TURN SURGE: Extra strike at {surge_target.name}!')
+                    _resolve_player_attack(state, state.equipped_weapon, surge_target, interest, state.final_stats, state.run_stats)
+                    combat_log.append(f"Turn Surge: bonus attack on {surge_target.name}.")
+
             pause()
 
             if interest.game_over:
@@ -1213,6 +1224,10 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
         ui.refresh()
         print(ui.render_dodge(target.name))
         interest._drain(2, "Dodge")
+        # duelist_stride: After dodging, next hit gets +2 flat damage
+        dodge_unique = get_unique_effects(weapon.name)
+        if any(e.key == "duelist_stride" for e in dodge_unique):
+            state._duelist_stride_primed = True
         state.analytics.record_combat_event(
             kind="player_attack",
             floor_or_wave=state.floor,
@@ -1233,19 +1248,41 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
         print(f"  Sera: {sera_quip(INTERRUPT_QUIPS)}")
         pause()
 
-    unique_effect = get_unique_effect_key(weapon.name)
-    if unique_effect == "first_blood" and target.times_hit == 0:
+    unique_effects = get_unique_effects(weapon.name)
+    unique_keys = {e.key for e in unique_effects}
+
+    # first_blood: First hit each combat restores +1 patience
+    if "first_blood" in unique_keys and target.times_hit == 0:
         interest._restore(1)
+
+    # duelist_stride: After dodging, next hit gets +2 flat damage
+    duelist_bonus = 0
+    if "duelist_stride" in unique_keys and getattr(state, "_duelist_stride_primed", False):
+        duelist_bonus = 2
+        state._duelist_stride_primed = False
 
     damage, steps = weapon.calculate_damage(target)
     raw_damage = damage
     stat_bonus = stats.attack_bonus() + (state.balance.endless_player_damage_bonus_per_wave * max(0, state.endless.wave - 1))
+    if duelist_bonus > 0:
+        stat_bonus += duelist_bonus
+        steps.append(f"  + {duelist_bonus} (Duelist's Stride)")
     if stat_bonus > 0:
         pre_stat = damage
         damage = apply_damage_policy(damage + stat_bonus, DEFAULT_DAMAGE_POLICY, state.endless.wave)
         steps.append(f"  + {stat_bonus} (stats: STR/AP) = {pre_stat + stat_bonus}")
     else:
         damage = apply_damage_policy(damage, DEFAULT_DAMAGE_POLICY, state.endless.wave)
+
+    # damage_bloom: Every third hit multiplies total damage by 1.25
+    if "damage_bloom" in unique_keys:
+        bloom_count = getattr(state, "_damage_bloom_counter", 0) + 1
+        state._damage_bloom_counter = bloom_count
+        if bloom_count % 3 == 0:
+            old_dmg = damage
+            damage = int(damage * 1.25)
+            steps.append(f"  x 1.25 (Damage Bloom, hit #{bloom_count}) = {damage}")
+
     steps.append(f"Final: {damage}")
     hp_before = target.current_hp
     actual, dead = target.take_damage(damage)
@@ -1275,9 +1312,16 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
         if excess > 0:
             if run_stats:
                 run_stats.record_overkill(excess)
-            if unique_effect == "stagger_spike":
+            # stagger_spike: Overkill hits restore +1 additional patience
+            if "stagger_spike" in unique_keys:
                 interest._restore(1)
         print(ui.render_kill_report(target.name, kill_log))
+
+        # turn_surge: 10% chance to gain an immediate extra turn after a kill
+        if "turn_surge" in unique_keys and random.random() < 0.10:
+            print('  Sera: "Again. Immediately."')
+            interest._restore(1)
+            state._turn_surge_triggered = True
 
     state.analytics.record_combat_event(
         kind="player_attack",
@@ -1371,8 +1415,24 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
                 damage = 0
             else:
                 immune_streak = 0
+                auto_unique = get_unique_effects(weapon.name)
+                auto_unique_keys = {e.key for e in auto_unique}
+
+                # first_blood in auto-battle
+                if "first_blood" in auto_unique_keys and target.times_hit == 0:
+                    interest._restore(1)
+
                 damage, _steps = weapon.calculate_damage(target)
-                damage = apply_damage_policy(damage + stats.attack_bonus(), DEFAULT_DAMAGE_POLICY, state.endless.wave)
+                bonus = stats.attack_bonus() + (state.balance.endless_player_damage_bonus_per_wave * max(0, state.endless.wave - 1))
+                damage = apply_damage_policy(damage + bonus, DEFAULT_DAMAGE_POLICY, state.endless.wave)
+
+                # damage_bloom in auto-battle
+                if "damage_bloom" in auto_unique_keys:
+                    bloom = getattr(state, "_damage_bloom_counter", 0) + 1
+                    state._damage_bloom_counter = bloom
+                    if bloom % 3 == 0:
+                        damage = int(damage * 1.25)
+
                 hp_before = target.current_hp
                 actual, dead = target.take_damage(damage)
                 total_damage_dealt += actual
@@ -1389,6 +1449,12 @@ def _run_auto_battle_burst(state: GameState, enemies: list[Enemy], max_turns: in
                 turn_kills += 1
                 total_kills += 1
                 event_text = f"{target.name} removed from play."
+                # stagger_spike in auto-battle
+                excess = max(0, damage - hp_before)
+                if excess > 0:
+                    auto_u = get_unique_effects(weapon.name)
+                    if any(e.key == "stagger_spike" for e in auto_u):
+                        interest._restore(1)
 
             reduction, resistance, resistances = _build_defense_profile(state, stats)
             for enemy in [e for e in enemies if e.current_hp > 0]:

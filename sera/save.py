@@ -62,6 +62,7 @@ def serialize_state(state) -> dict:
             "endless_enemy_hp_bonus_per_wave": state.balance.endless_enemy_hp_bonus_per_wave,
             "endless_player_damage_bonus_per_wave": state.balance.endless_player_damage_bonus_per_wave,
         },
+        "base_stats": state.base_stats.values if hasattr(state, "base_stats") else {},
     }
 
 
@@ -127,8 +128,13 @@ def deserialize_state(data: dict, state) -> None:
             state.equipment_loadout.equipped[slot] = equipment_map.get(item_name) if item_name else None
 
     balance = data.get("balance", {})
-    state.balance.endless_enemy_hp_bonus_per_wave = balance.get("endless_enemy_hp_bonus_per_wave", 0.0)
-    state.balance.endless_player_damage_bonus_per_wave = balance.get("endless_player_damage_bonus_per_wave", 0)
+    state.balance.endless_enemy_hp_bonus_per_wave = balance.get("endless_enemy_hp_bonus_per_wave", 0.10)
+    state.balance.endless_player_damage_bonus_per_wave = balance.get("endless_player_damage_bonus_per_wave", 1)
+
+    saved_stats = data.get("base_stats", {})
+    if saved_stats and hasattr(state, "base_stats"):
+        for key, value in saved_stats.items():
+            state.base_stats.values[key] = value
 
 
 def save_to_file(path: Path | str, state) -> Path:
