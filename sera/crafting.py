@@ -69,6 +69,16 @@ UPGRADE_QUIPS = [
     '"Now THAT has some weight to it."',
     '"More. Always more."',
     '"Sharper. Meaner. Mine."',
+    '"Improvement noted. Not praised. Noted."',
+    '"That edge could split a hair. Or a skull. I prefer skulls."',
+    '"Upgraded. Like a sending stone to a crystal ball."',
+    '"The weapon grows. My standards grow faster."',
+    '"Another level. Another reason to keep hitting things."',
+    '"Dwarven smiths in Mithral Hall would nod at this. Grudgingly."',
+    '"Power scales. So does my expectation."',
+    '"That\'s a weapon with ambition now. Don\'t waste it."',
+    '"Forged harder. Hit harder. Simple theology."',
+    '"An upgrade worth the shards. Barely."',
 ]
 
 

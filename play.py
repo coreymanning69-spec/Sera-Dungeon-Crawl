@@ -84,6 +84,16 @@ ATTACK_QUIPS = [
     '"You call that resistance?"',
     '"Keep flailing. It helps me aim."',
     '"I end wars faster than this."',
+    '"Even a goblin in Baldur\'s Gate puts up more of a fight."',
+    '"I\'ve seen beholders blink harder than you hit."',
+    '"Tiamat would be embarrassed for you."',
+    '"You fight like a kobold with a head cold."',
+    '"The Underdark called. They want their drama back."',
+    '"Elminster wouldn\'t waste a cantrip on you."',
+    '"Stand still. I\'m doing math on how little you matter."',
+    '"Every swing is a statement. Yours says nothing."',
+    '"You\'re not a threat. You\'re a warm-up."',
+    '"I\'ve fought mimics with more personality."',
 ]
 
 KILL_QUIPS = [
@@ -97,6 +107,16 @@ KILL_QUIPS = [
     '"That one was beneath minimal effort."',
     '"Gone. Finally quiet."',
     '"I warned you. Briefly."',
+    '"Filed under \'resolved.\'"',
+    '"Scratch one from the census."',
+    '"The Raven Queen can have that one."',
+    '"That\'s one less thing standing between me and interesting."',
+    '"You lasted longer than I expected. That\'s not a compliment."',
+    '"Kelemvor will sort you out. I\'m done."',
+    '"I didn\'t even need to try. That\'s the sad part."',
+    '"Waterdeep loses another tourist."',
+    '"Reduced to lore."',
+    '"That was a creature. Now it\'s a lesson."',
 ]
 
 OVERKILL_QUIPS = [
@@ -107,12 +127,32 @@ OVERKILL_QUIPS = [
     '"Finally, a hit worth watching!"',
     '"Yes. More of that!"',
     '"Beautiful ruin!"',
+    '"That wasn\'t a kill. That was a STATEMENT."',
+    '"The Sword Coast felt that."',
+    '"Somewhere in Sigil, a modron just felt a disturbance."',
+    '"Violence as art. I approve."',
+    '"Even the gods of Fury are taking notes."',
+    '"That was worth the trip to this damp hole."',
+    '"Deleted from the material plane."',
+    '"Tyr would call that justice. I call it entertainment."',
+    '"THAT is how you hold a goddess\'s attention."',
+    '"Overkill implies there\'s such a thing as enough. There isn\'t."',
 ]
 
 DODGE_QUIPS = [
     '"Stand still."',
     '"Stop moving. It is unbecoming."',
     '"Do that again and I\'m leaving."',
+    '"You dodged. Congratulations. You\'ve delayed the inevitable."',
+    '"A displacer beast would be embarrassed by that dodge."',
+    '"I have patience. Less of it now."',
+    '"Running counts as cowardice. I\'m keeping score."',
+    '"That was luck. Luck runs out."',
+    '"You flinched. I don\'t flinch."',
+    '"Every dodge costs you the dignity of standing still."',
+    '"An illithid couldn\'t dodge what I\'m about to do next."',
+    '"You can\'t outrun divine contempt."',
+    '"Stop squirming. This isn\'t Neverwinter."',
 ]
 
 IMMUNE_QUIPS = [
@@ -122,6 +162,16 @@ IMMUNE_QUIPS = [
     '"Try the correct damage type before I lose interest."',
     '"No effect. Exactly like your planning."',
     '"Impressive. You found the one way to do nothing."',
+    '"Even a sage in Candlekeep could tell you that won\'t work."',
+    '"Conceptually, that was nothing. Literally, also nothing."',
+    '"You\'re hitting it with the wrong idea. That\'s worse than missing."',
+    '"I didn\'t come here to watch you bounce off things."',
+    '"That\'s like casting fireball at a red dragon. Think."',
+    '"A lich would laugh. I\'m not laughing. I\'m worse."',
+    '"The weapon doesn\'t understand the enemy. Neither do you."',
+    '"Permission denied. By physics, not by me."',
+    '"It helps if your weapon can conceptually threaten the target."',
+    '"Swing a torch at a fire elemental next. I dare you."',
 ]
 
 INTERRUPT_QUIPS = [
@@ -132,12 +182,32 @@ INTERRUPT_QUIPS = [
     '"If you wanted to finish that sentence, you should have moved faster."',
     '"I interrupt. Therefore I am."',
     '"Talking phase revoked."',
+    '"That was a concentration spell and I just broke it."',
+    '"Silence is a virtue. I\'m gifting it to you."',
+    '"You were mid-sentence. Now you\'re mid-nothing."',
+    '"Even Szass Tam knows when to shut up."',
+    '"Your verbal component has been denied."',
+    '"I counterspell monologues."',
+    '"That\'s five Patience well spent. Shut. Up."',
+    '"You had words. I had better ones. Mine were \'stop.\'"',
+    '"The Weave rejects your speech. I reject it harder."',
+    '"Consider that a Silence spell. Cast at ninth level."',
 ]
 
 LOW_PATIENCE_QUIPS = [
     '"This is getting tedious."',
     '"Entertain me or I leave. Simple."',
     '"One more disappointment. That\'s all you get."',
+    '"I could be anywhere in the multiverse right now."',
+    '"Even Avernus is more interesting than this."',
+    '"My patience has a hit point. One."',
+    '"The dungeon is boring. YOU are boring. Fix one of those."',
+    '"I didn\'t descend from the celestial plane for this."',
+    '"Do something spectacular or I fold reality behind me."',
+    '"A gelatinous cube has more excitement in its diet."',
+    '"Time is a resource. You\'re wasting mine."',
+    '"I\'ve watched epochs pass. This is somehow slower."',
+    '"Lolth spins webs faster than you kill things."',
 ]
 
 FLOOR_INTRO_QUIPS = [
@@ -145,15 +215,35 @@ FLOOR_INTRO_QUIPS = [
     '"Well, what do we fix first?"',
     '"Show me something new."',
     '"Smells like... old apples and blood. Not bad blood. Just scared."',
+    '"Another floor. Another chance for you to disappoint me."',
+    '"The stonework is derivative. Like a Durlag\'s Tower knockoff."',
+    '"Deeper. Always deeper. Like the conversation I\'m not having."',
+    '"I can smell the ambush from here. At least they\'re trying."',
+    '"This reminds me of Undermountain. Less interesting, somehow."',
+    '"Torches, cobwebs, the faint musk of poor decisions. Classic."',
+    '"Something down here thinks it\'s dangerous. How sweet."',
+    '"New floor. Same contempt. Let\'s go."',
+    '"The architecture suggests someone cared once. They were wrong."',
+    '"I sense monsters ahead. They sense nothing. That\'s their problem."',
 ]
 
 ROOM_CLEAR_QUIPS = [
     '"Done. What else?"',
     '"Well. My work here is done."',
     '"Is that all?"',
+    '"Room cleared. Sera remains unimpressed."',
+    '"That was a room. Now it\'s a memory."',
+    '"Adequate violence. Proceed."',
+    '"The mess is yours to clean up. I\'m moving on."',
+    '"Cleared. Like a dungeon should be. Quickly and with contempt."',
+    '"That encounter had potential. It wasted it."',
+    '"Another room emptied. Another reason to keep going. Barely."',
+    '"Mystra would approve of the efficiency. Not the style."',
+    '"Nothing left standing. As intended."',
+    '"A clean room. A bored goddess. Business as usual."',
 ]
 
-DEFAULT_AUTO_BATTLE_TURNS = 10
+DEFAULT_AUTO_BATTLE_TURNS = 15
 SAVE_PATH = DEFAULT_SAVE_PATH
 AUTO_ADVANCE_ENEMY_PHASE = True
 SIMULATION_WAVES = 4
@@ -1096,7 +1186,7 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
 
     # --- Miss Chance (based on low Patience) ---
     patience_ratio = interest.current_patience / interest.max_patience
-    miss_chance = max(0, (1.0 - patience_ratio) * 0.20)
+    miss_chance = max(0, (1.0 - patience_ratio) * 0.10)
     if random.random() < miss_chance:
         ui.refresh()
         print(ui.box_top())
@@ -1139,7 +1229,7 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
     if interrupted:
         ui.refresh()
         print(ui.render_interrupt(target.name, interrupted))
-        interest._restore(3)
+        interest._restore(5)
         print(f"  Sera: {sera_quip(INTERRUPT_QUIPS)}")
         pause()
 
@@ -1181,14 +1271,12 @@ def _resolve_player_attack(state: "GameState", weapon: Weapon, target: Enemy, in
     if dead:
         kill_log = interest.register_kill(target.name, damage, hp_before)
         print()
-        print(f"  Sera: {sera_quip(KILL_QUIPS)}")
         excess = max(0, damage - hp_before)
         if excess > 0:
             if run_stats:
                 run_stats.record_overkill(excess)
             if unique_effect == "stagger_spike":
                 interest._restore(1)
-            print(f"  Sera: {sera_quip(OVERKILL_QUIPS)}")
         print(ui.render_kill_report(target.name, kill_log))
 
     state.analytics.record_combat_event(
