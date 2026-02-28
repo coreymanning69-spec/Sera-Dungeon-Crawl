@@ -56,7 +56,7 @@ class AnnoyanceType(Enum):
 ANNOYANCE_COST: dict[AnnoyanceType, int] = {
     AnnoyanceType.WEAK_HIT: 2,
     AnnoyanceType.STUN: 10,
-    AnnoyanceType.MONOLOGUE: 50,
+    AnnoyanceType.MONOLOGUE: 35,
     AnnoyanceType.HEAL_SELF: 5,
     AnnoyanceType.SUMMON: 3,
     AnnoyanceType.DODGE_SPAM: 3,
@@ -134,6 +134,7 @@ class Enemy:
     pending_ability: EnemyAbility | None = field(default=None, repr=False)
     times_hit: int = 0
     cooldowns: dict[str, int] = field(default_factory=dict)
+    _consecutive_dodges: int = field(default=0, repr=False)  # dodge streak tracker
 
     def __post_init__(self):
         if self.current_hp == -1:
@@ -163,10 +164,13 @@ class Enemy:
     # --- Taking damage ---
     def take_damage(self, amount: int) -> tuple[int, bool]:
         """
-        Apply damage after armor.
+        Apply damage after armor.  Minimum 1 damage if the weapon actually
+        connected (prevents true armor-lock on low-base-damage weapons).
         Returns (actual_damage_dealt, is_dead).
         """
         reduced = max(0, amount - self.armor)
+        if amount > 0 and reduced == 0:
+            reduced = 1  # minimum damage floor
         self.current_hp -= reduced
         self.times_hit += 1
         dead = self.current_hp <= 0
@@ -245,10 +249,19 @@ class Enemy:
         return total, log
 
     def try_dodge(self) -> bool:
-        """Roll dodge chance. Returns True if the attack misses."""
+        """Roll dodge chance with streak protection.
+        After 2 consecutive dodges the next hit is guaranteed to land."""
         if self.dodge_chance <= 0:
+            self._consecutive_dodges = 0
             return False
-        return random.random() < self.dodge_chance
+        if self._consecutive_dodges >= 2:
+            self._consecutive_dodges = 0
+            return False  # streak protection — guaranteed hit
+        if random.random() < self.dodge_chance:
+            self._consecutive_dodges += 1
+            return True
+        self._consecutive_dodges = 0
+        return False
 
     def interrupt_cast(self) -> str | None:
         """If enemy is charging, cancel it and apply cooldown. Returns ability name or None."""

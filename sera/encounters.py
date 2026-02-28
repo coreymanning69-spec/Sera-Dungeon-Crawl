@@ -13,7 +13,19 @@ from sera.loader import load_enemies, load_weapons, load_affixes
 from sera.weapon import Weapon, Affix
 from sera.enemy import Enemy, EnemyAbility, AnnoyanceType
 from sera.crafting import CraftingMaterial, CRAFTING_MATERIALS
+from sera.tags import EnemyVulnerability
 from sera.randomization import RunRNG, select_wave_enemies
+
+# Vulnerabilities covered by the starting weapon pool (DIVINE, ETHEREAL, HEAVY, ARCANE).
+# Floor 1 trash must not require tags outside this set to avoid immunity soft-locks.
+_STARTING_WEAPON_VULNERABILITIES = {
+    EnemyVulnerability.NONE,
+    EnemyVulnerability.REQUIRES_DIVINE,
+    EnemyVulnerability.REQUIRES_ETHEREAL,
+    EnemyVulnerability.REQUIRES_DIVINE_OR_ETHEREAL,
+    EnemyVulnerability.REQUIRES_HEAVY,
+    EnemyVulnerability.REQUIRES_ARCANE,
+}
 
 
 def _disambiguate_names(enemies: list[Enemy]) -> None:
@@ -65,6 +77,9 @@ def generate_encounter(floor: int, all_enemies: list[Enemy], rng: RunRNG | None 
 
     if floor == 1:
         pool = trash if trash else all_enemies
+        # Filter out enemies with vulnerability gates not covered by starting weapons
+        safe_pool = [e for e in pool if e.vulnerability in _STARTING_WEAPON_VULNERABILITIES]
+        pool = safe_pool if safe_pool else pool
         picks = [copy.deepcopy(rand.choice(pool))]
     elif floor == 2:
         pool = trash if trash else all_enemies
@@ -280,7 +295,7 @@ def generate_loot_shards(floor: int) -> int:
 
     # weighted payout biased by floor progression
     if floor <= 2:
-        return random.choices([1, 2, 3], weights=[75, 20, 5], k=1)[0]
+        return random.choices([1, 2, 3], weights=[60, 30, 10], k=1)[0]
     if floor <= 4:
         return random.choices([1, 2, 3], weights=[45, 40, 15], k=1)[0]
     return random.choices([1, 2, 3], weights=[25, 45, 30], k=1)[0]
