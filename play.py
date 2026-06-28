@@ -10,6 +10,7 @@ Survive 5 floors. Keep Sera interested. Don't be boring.
 
 from __future__ import annotations
 import copy
+import json
 import random
 import argparse
 import time
@@ -37,6 +38,7 @@ from sera.save import save_to_file, load_from_file, DEFAULT_SAVE_PATH
 from sera.meta import (
     MetaProgression,
     META_UPGRADES,
+    claim_idle_gold,
     deposit_run_gold,
     load_meta_progression,
     purchase_upgrade,
@@ -54,6 +56,14 @@ from sera.analytics import (
     load_analytics_index,
     load_analytics_report,
     summarize_analytics_report,
+)
+from sera.training import (
+    CombatRunSummary,
+    TrainingBatchSummary,
+    TrainingScenarioSpec,
+    default_training_presets,
+    execute_training_batch,
+    execute_training_scenario,
 )
 from sera.unique_items import get_unique_effect_key
 from sera.npc import NamedNPC, roll_npc_for_floor
@@ -368,6 +378,7 @@ class SimulationRunResult:
 
 
 SIMULATION_HISTORY: list[SimulationRunResult] = []
+TRAINING_HISTORY: list[CombatRunSummary | TrainingBatchSummary] = []
 
 
 @dataclass
@@ -385,7 +396,13 @@ class TowerDefenseRunState:
     core_hp: int = 40
     max_core_hp: int = 40
     resources: int = 0
+    gold_earned: int = 0
+    enemies_stopped: int = 0
+    auto_resolve: bool = False
     towers: dict[str, int] | None = None
+    troops: dict[str, int] | None = None
+    last_battlefield: str = ""
+    last_actions: list[str] | None = None
 
     def __post_init__(self):
         if self.towers is None:
@@ -394,6 +411,63 @@ class TowerDefenseRunState:
                 "frost": 0,
                 "rupture": 0,
             }
+        if self.troops is None:
+            self.troops = {
+                "guard": 1,
+                "ranger": 0,
+                "engineer": 0,
+            }
+        if self.last_actions is None:
+            self.last_actions = []
+
+
+TOWER_SPECS = {
+    "bolt": {
+        "label": "Bolt Spire",
+        "cost": 6,
+        "description": "Reliable single-lane damage.",
+    },
+    "frost": {
+        "label": "Frost Sigil",
+        "cost": 8,
+        "description": "Slows the lane and trims leaks.",
+    },
+    "rupture": {
+        "label": "Rupture Glyph",
+        "cost": 10,
+        "description": "Bursts elites and packed waves.",
+    },
+}
+
+
+TROOP_SPECS = {
+    "guard": {
+        "label": "Guard Squad",
+        "cost": 7,
+        "glyph": "G",
+        "damage": 2,
+        "range": 5,
+        "description": "Holds the gate and slows leaks.",
+    },
+    "ranger": {
+        "label": "Ranger Team",
+        "cost": 9,
+        "glyph": "R",
+        "damage": 3,
+        "range": 11,
+        "description": "Shoots before enemies reach the walls.",
+    },
+    "engineer": {
+        "label": "Engineer Crew",
+        "cost": 11,
+        "glyph": "E",
+        "damage": 1,
+        "range": 3,
+        "description": "Repairs the core and boosts turret output.",
+    },
+}
+
+DEFENSE_LANE_WIDTH = 34
 
 
 # ─────────────────────────────────────────────────────────
@@ -495,6 +569,21 @@ def pause(msg: str = "  [Press Enter]"):
     ui.get_input(msg)
 
 
+def read_int_setting(prompt: str, current: int, minimum: int, maximum: int) -> int | None:
+    raw = ui.get_input(prompt).lower().strip()
+    if is_quit_token(raw):
+        return None
+    if raw == "":
+        return current
+    try:
+        value = int(raw)
+    except ValueError:
+        print(f"  Invalid number. Keeping {current}.")
+        pause()
+        return current
+    return max(minimum, min(maximum, value))
+
+
 def _show_analytics_review_screen() -> None:
     exports = load_analytics_index()
     if not exports:
@@ -535,12 +624,13 @@ def _show_analytics_review_screen() -> None:
 # ─────────────────────────────────────────────────────────
 
 def title_screen() -> str:
-    """Returns 'new_game', 'continue', 'simulation', 'statistics', 'endless', 'tower', 'meta', or 'quit'."""
+    """Returns the selected title-menu route."""
     ui.refresh()
     meta = load_meta_progression()
-    print(ui.render_title_screen(meta.banked_gold))
-    valid = ["1", "2", "3", "4", "5", "6", "7"]
-    if SAVE_PATH.exists():
+    save_exists = SAVE_PATH.exists()
+    print(ui.render_title_screen(meta.banked_gold, save_exists))
+    valid = ["1", "2", "3", "4", "5", "6", "7", "8"]
+    if save_exists:
         valid.insert(1, "c")
     choice = get_choice("> ", valid)
     if choice in ("quit", "5"):
@@ -549,6 +639,8 @@ def title_screen() -> str:
         return "tower"
     if choice == "7":
         return "meta"
+    if choice == "8":
+        return "training"
     if choice == "4":
         return "statistics"
     if choice == "3":
@@ -594,14 +686,15 @@ def pre_run_options_screen(state: GameState) -> str:
             state.auto_battle_enabled = not state.auto_battle_enabled
             continue
         if choice == "b":
-            value = ui.get_input("  Burst length [1-30] > ").strip()
-            try:
-                turns = int(value)
-            except ValueError:
-                print("  Invalid burst length.")
-                pause()
+            turns = read_int_setting(
+                f"  Burst length [1-30, current {state.auto_battle_turns}] > ",
+                state.auto_battle_turns,
+                1,
+                30,
+            )
+            if turns is None:
                 continue
-            state.auto_battle_turns = max(1, min(30, turns))
+            state.auto_battle_turns = turns
 
 
 # ─────────────────────────────────────────────────────────
@@ -1683,6 +1776,42 @@ def run_auto_floor_framework(state: GameState):
 # Between-floor menu
 # ─────────────────────────────────────────────────────────
 
+def auto_director_settings_screen(state: GameState):
+    while True:
+        ui.refresh()
+        print(ui.box_top())
+        print(ui.box_line("AUTO DIRECTOR SETTINGS", "center"))
+        print(ui.box_divider())
+        print(ui.box_line(f"  [1] Enabled: {'ON' if state.auto_run.enabled else 'OFF'}"))
+        print(ui.box_line(f"  [2] Auto-upgrade gear: {'ON' if state.auto_run.auto_upgrade else 'OFF'}"))
+        print(ui.box_line(f"  [3] Auto-advance floor: {'ON' if state.auto_run.auto_floor_advance else 'OFF'}"))
+        print(ui.box_line(f"  [4] Summary after action: {'ON' if state.auto_run.auto_summary else 'OFF'}"))
+        print(ui.box_line(f"  [5] Turn delay: {state.auto_run.turn_delay_s:.2f}s"))
+        print(ui.box_line("  [0] Back"))
+        print(ui.box_bot())
+
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "0"])
+        if choice in ("quit", "0"):
+            return
+        if choice == "1":
+            state.auto_run.enabled = not state.auto_run.enabled
+        elif choice == "2":
+            state.auto_run.auto_upgrade = not state.auto_run.auto_upgrade
+        elif choice == "3":
+            state.auto_run.auto_floor_advance = not state.auto_run.auto_floor_advance
+        elif choice == "4":
+            state.auto_run.auto_summary = not state.auto_run.auto_summary
+        elif choice == "5":
+            ms = read_int_setting(
+                f"  Delay milliseconds [0-2000, current {int(state.auto_run.turn_delay_s * 1000)}] > ",
+                int(state.auto_run.turn_delay_s * 1000),
+                0,
+                2000,
+            )
+            if ms is not None:
+                state.auto_run.turn_delay_s = ms / 1000
+
+
 def between_floors(state: GameState) -> bool:
     """
     Between-floor menu: equip, craft, upgrade, view inventory, or continue.
@@ -1757,9 +1886,7 @@ def between_floors(state: GameState) -> bool:
             _show_analytics_review_screen()
 
         if choice == "11":
-            state.auto_run.enabled = not state.auto_run.enabled
-            print(f"  Auto director {'enabled' if state.auto_run.enabled else 'disabled'}.")
-            pause()
+            auto_director_settings_screen(state)
 
         if choice == "12":
             run_auto_floor_framework(state)
@@ -2248,6 +2375,194 @@ def run_simulation() -> dict:
     }
 
 
+TRAINING_EXPORT_DIR = Path("training_exports")
+
+
+def _training_reward_total(result: CombatRunSummary | TrainingBatchSummary) -> int:
+    if isinstance(result, TrainingBatchSummary):
+        return sum(run.reward_gold for run in result.runs)
+    return result.reward_gold
+
+
+def _record_training_result(result: CombatRunSummary | TrainingBatchSummary) -> None:
+    if isinstance(result, TrainingBatchSummary):
+        runs = result.runs
+        total_kills = sum(run.total_kills for run in runs)
+        total_turns = sum(run.total_turns for run in runs)
+        total_damage = sum(run.total_damage for run in runs)
+        reward_gold = _training_reward_total(result)
+        wave_reached = max((len(run.waves) for run in runs), default=0)
+        won = result.win_rate >= 0.5
+        weapon_name = f"{result.spec.label} Batch"
+        patience = int(sum(run.patience_remaining for run in runs) / len(runs)) if runs else 0
+    else:
+        total_kills = result.total_kills
+        total_turns = result.total_turns
+        total_damage = result.total_damage
+        reward_gold = result.reward_gold
+        wave_reached = len(result.waves)
+        won = result.won
+        weapon_name = result.spec.label
+        patience = result.patience_remaining
+
+    summary = {
+        "floors_cleared": 0,
+        "wave_reached": wave_reached,
+        "total_kills": total_kills,
+        "total_turns": total_turns,
+        "total_damage": total_damage,
+        "best_overkill": 0,
+        "weapons_found": 0,
+        "materials_used": 0,
+        "gold_collected": reward_gold,
+        "gold_spent": 0,
+        "gold": reward_gold,
+        "patience": patience,
+        "max_patience": 80,
+        "weapon_name": weapon_name,
+    }
+    stamped = stamp_run_summary(summary, won=won, mode="training", seed=result.spec.seed)
+    merge_run_stats(load_game_stats(), stamped)
+
+
+def _bank_training_reward(result: CombatRunSummary | TrainingBatchSummary) -> int:
+    reward = _training_reward_total(result)
+    if reward <= 0:
+        return 0
+    meta = load_meta_progression()
+    meta.banked_gold += reward
+    save_meta_progression(meta)
+    return reward
+
+
+def _export_training_result(result: CombatRunSummary | TrainingBatchSummary) -> Path:
+    TRAINING_EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = int(time.time())
+    label = result.spec.key.replace(" ", "_")
+    target = TRAINING_EXPORT_DIR / f"{label}_{stamp}.json"
+    target.write_text(json.dumps(result.to_dict(), indent=2) + "\n")
+    return target
+
+
+def _read_training_int(prompt: str, default: int, minimum: int, maximum: int) -> int:
+    value = read_int_setting(prompt, default, minimum, maximum)
+    return default if value is None else value
+
+
+def _configure_custom_training(seed: int | None = None) -> TrainingScenarioSpec | None:
+    ui.refresh()
+    print(ui.box_top())
+    print(ui.box_line("CUSTOM TRAINING", "center"))
+    print(ui.box_divider())
+    print(ui.box_line("  Enemy focus: [1] mixed  [2] trash  [3] elite  [4] boss  [5] tag drill"))
+    print(ui.box_line("  Build rule:  [1] random [2] fixed  [3] tag   [4] legendary"))
+    print(ui.box_divider())
+    focus_choice = get_choice("  Focus > ", ["1", "2", "3", "4", "5", "0"])
+    if focus_choice in {"0", "quit"}:
+        return None
+    build_choice = get_choice("  Build > ", ["1", "2", "3", "4", "0"])
+    if build_choice in {"0", "quit"}:
+        return None
+
+    focus_map = {
+        "1": "mixed",
+        "2": "trash",
+        "3": "elite",
+        "4": "boss",
+        "5": "tag_drill",
+    }
+    build_map = {
+        "1": "random_drop",
+        "2": "fixed_starter",
+        "3": "tag_drill",
+        "4": "legendary_trial",
+    }
+    level_start = _read_training_int("  Starting level [1-20, default 1] > ", 1, 1, 20)
+    wave_count = _read_training_int("  Waves [1-12, default 4] > ", 4, 1, 12)
+    max_turns = _read_training_int("  Max turns/wave [4-30, default 12] > ", 12, 4, 30)
+    difficulty_step = _read_training_int("  Difficulty % [75-175, default 100] > ", 100, 75, 175)
+    run_seed = _read_training_int("  Seed [default current] > ", seed or SIMULATION_SEED, 1, 99_999_999)
+
+    return TrainingScenarioSpec(
+        key=f"custom_{run_seed}",
+        label="Custom Doctrine",
+        description="Player-built training scenario.",
+        level_start=level_start,
+        wave_count=wave_count,
+        enemy_focus=focus_map[focus_choice],
+        build_rule=build_map[build_choice],
+        max_turns=max_turns,
+        seed=run_seed,
+        difficulty=difficulty_step / 100,
+        reward_gold=max(8, int(wave_count * level_start * difficulty_step / 100)),
+    )
+
+
+def _run_training_spec(spec: TrainingScenarioSpec, *, batch: bool = False) -> CombatRunSummary | TrainingBatchSummary:
+    all_weapons = load_weapons()
+    all_affixes = load_affixes()
+    all_enemies = load_enemies()
+    if batch:
+        return execute_training_batch(spec, all_weapons, all_affixes, all_enemies, runs=5)
+    return execute_training_scenario(spec, all_weapons, all_affixes, all_enemies)
+
+
+def _show_training_result(result: CombatRunSummary | TrainingBatchSummary) -> None:
+    ui.refresh()
+    if isinstance(result, TrainingBatchSummary):
+        print(ui.render_training_batch_result(result))
+    else:
+        print(ui.render_training_run_result(result))
+    pause()
+
+
+def run_training_grounds(seed: int | None = None) -> str:
+    presets = default_training_presets()
+    message = ""
+
+    while True:
+        ui.refresh()
+        print(ui.render_training_menu(presets, TRAINING_HISTORY))
+        if message:
+            print(f"  {message}")
+            message = ""
+        valid = [str(i) for i in range(1, len(presets) + 1)] + ["b", "c", "r", "e", "0"]
+        choice = get_choice("> ", valid)
+        if choice in {"0", "quit"}:
+            return "menu"
+        if choice == "r":
+            if TRAINING_HISTORY:
+                _show_training_result(TRAINING_HISTORY[-1])
+            else:
+                message = "No training results yet."
+            continue
+        if choice == "e":
+            if TRAINING_HISTORY:
+                path = _export_training_result(TRAINING_HISTORY[-1])
+                message = f"Exported latest training result to {path}."
+            else:
+                message = "No training result to export."
+            continue
+        if choice == "c":
+            custom = _configure_custom_training(seed)
+            if custom is None:
+                continue
+            result = _run_training_spec(custom)
+        elif choice == "b":
+            batch_pick = get_choice("  Batch preset # > ", [str(i) for i in range(1, len(presets) + 1)] + ["0"])
+            if batch_pick in {"0", "quit"}:
+                continue
+            result = _run_training_spec(presets[int(batch_pick) - 1], batch=True)
+        else:
+            result = _run_training_spec(presets[int(choice) - 1])
+
+        TRAINING_HISTORY.append(result)
+        reward = _bank_training_reward(result)
+        _record_training_result(result)
+        _show_training_result(result)
+        message = f"Banked {reward}g from training."
+
+
 
 def _show_closing_menu(title: str, quote: str, *, simulator: bool = False) -> str:
     """Show a restart/title/menu after a mode ends."""
@@ -2441,12 +2756,18 @@ def run_new_game_from_state(state: GameState) -> str:
 
 def meta_shop_screen() -> None:
     meta = load_meta_progression()
+    idle_claim, _elapsed = claim_idle_gold(meta)
+    if idle_claim > 0:
+        save_meta_progression(meta)
     while True:
         ui.refresh()
         print(ui.box_top())
         print(ui.box_line("░▒▓█ META SHOP █▓▒░", "center"))
         print(ui.box_divider())
         print(ui.box_line(f"  Banked Gold: {meta.banked_gold}"))
+        if idle_claim > 0:
+            print(ui.box_line(f"  Idle tithe collected: {idle_claim}g"))
+            idle_claim = 0
         print(ui.box_line('  Sera: "I keep these between runs. Finally useful."'))
         print(ui.box_divider_thin())
         upgrade_keys = list(META_UPGRADES.keys())
@@ -2488,66 +2809,367 @@ def _bank_run_gold(state: GameState):
 
 
 
-def _simulate_tower_wave(td_state: TowerDefenseRunState, rng: random.Random) -> dict:
-    """Framework wave resolver for tower defense simulation mode."""
-    incoming = 6 + (td_state.wave * 2)
-    bolt_damage = td_state.towers.get("bolt", 0) * 3
-    frost_slow = td_state.towers.get("frost", 0)
-    rupture_burst = td_state.towers.get("rupture", 0) * 2
-    mitigated = max(0, bolt_damage + rupture_burst + frost_slow)
-    leaks = max(0, incoming - mitigated)
-    td_state.core_hp = max(0, td_state.core_hp - leaks)
-    income = 3 + td_state.wave + rng.randint(0, 2)
-    td_state.resources += income
+def _build_tower_defense_state(meta: MetaProgression) -> TowerDefenseRunState:
+    max_core_hp = 40 + meta.ward_core_bonus()
+    td_state = TowerDefenseRunState(core_hp=max_core_hp, max_core_hp=max_core_hp, resources=4 + meta.idle_level)
+    td_state.troops["guard"] += meta.idle_level
+    td_state.troops["ranger"] += meta.idle_level // 2
+    td_state.troops["engineer"] += meta.idle_level // 3
+    td_state.towers["bolt"] += meta.ward_level // 2
+    td_state.last_battlefield = _render_defense_lane(td_state, [])
+    return td_state
 
-    if td_state.resources >= 6:
-        td_state.towers["bolt"] += 1
-        td_state.resources -= 6
-    elif td_state.resources >= 5 and td_state.wave % 2 == 0:
-        td_state.towers["frost"] += 1
-        td_state.resources -= 5
+
+def _tower_build_cost(td_state: TowerDefenseRunState, tower_key: str) -> int:
+    spec = TOWER_SPECS[tower_key]
+    current_level = td_state.towers.get(tower_key, 0)
+    return spec["cost"] + (current_level * 3)
+
+
+def _build_tower(td_state: TowerDefenseRunState, tower_key: str) -> tuple[bool, str]:
+    if tower_key not in TOWER_SPECS:
+        return False, "Unknown tower"
+    cost = _tower_build_cost(td_state, tower_key)
+    if td_state.resources < cost:
+        return False, f"Need {cost} essence"
+    td_state.resources -= cost
+    td_state.towers[tower_key] = td_state.towers.get(tower_key, 0) + 1
+    return True, f"{TOWER_SPECS[tower_key]['label']} raised"
+
+
+def _troop_build_cost(td_state: TowerDefenseRunState, troop_key: str) -> int:
+    spec = TROOP_SPECS[troop_key]
+    current_level = td_state.troops.get(troop_key, 0)
+    return spec["cost"] + (current_level * 2)
+
+
+def _recruit_troop(td_state: TowerDefenseRunState, troop_key: str) -> tuple[bool, str]:
+    if troop_key not in TROOP_SPECS:
+        return False, "Unknown troop"
+    cost = _troop_build_cost(td_state, troop_key)
+    if td_state.resources < cost:
+        return False, f"Need {cost} essence"
+    td_state.resources -= cost
+    td_state.troops[troop_key] = td_state.troops.get(troop_key, 0) + 1
+    return True, f"{TROOP_SPECS[troop_key]['label']} recruited"
+
+
+def _wave_enemy_lineup(wave: int, enemies: list[Enemy], rng: random.Random) -> list[Enemy]:
+    if not enemies:
+        return []
+    count = min(6, 2 + (wave // 2))
+    non_bosses = [enemy for enemy in enemies if enemy.archetype != "boss"]
+    lineup: list[Enemy] = []
+    for _ in range(count):
+        template = rng.choice(enemies)
+        if wave < 4 and template.archetype == "boss":
+            template = rng.choice(non_bosses or enemies)
+        lineup.append(template)
+    if wave % 5 == 0:
+        bosses = [enemy for enemy in enemies if enemy.archetype == "boss"]
+        if bosses:
+            lineup.append(rng.choice(bosses))
+    return lineup
+
+
+def _enemy_pressure(enemy: Enemy, wave: int) -> int:
+    archetype_bonus = {"trash": 1, "elite": 4, "boss": 9}.get(enemy.archetype, 2)
+    return max(1, (enemy.max_hp // 3) + archetype_bonus + (wave // 2))
+
+
+def _defense_breakdown(td_state: TowerDefenseRunState, incoming: int, boss_present: bool) -> dict[str, int | list[str]]:
+    engineers = td_state.troops.get("engineer", 0)
+    guards = td_state.troops.get("guard", 0)
+    rangers = td_state.troops.get("ranger", 0)
+    bolt_count = td_state.towers.get("bolt", 0)
+    frost_count = td_state.towers.get("frost", 0)
+    rupture_count = td_state.towers.get("rupture", 0)
+
+    engineer_boost = min(4, engineers)
+    bolt = bolt_count * (5 + engineer_boost)
+    frost = frost_count * (3 + min(4, td_state.wave // 3) + (guards // 2))
+    rupture = rupture_count * ((7 if boss_present else 5) + (engineers // 2))
+    tower_synergy = min(frost_count, rupture_count) * 2
+
+    guard_hold = guards * (2 + min(2, frost_count))
+    ranger_fire = rangers * (3 + min(3, bolt_count))
+    field_repair = engineers * 2
+    troop_synergy = min(incoming // 2, (guards * rangers) + (engineers * max(1, bolt_count + rupture_count)))
+    mitigated = min(incoming, bolt + frost + rupture + tower_synergy + guard_hold + ranger_fire + troop_synergy)
+
+    actions: list[str] = []
+    if bolt:
+        actions.append(f"Bolt spires arc for {bolt}.")
+    if frost:
+        actions.append(f"Frost sigils slow the lane for {frost}.")
+    if rupture:
+        actions.append(f"Rupture glyphs burst for {rupture}.")
+    if guard_hold:
+        actions.append(f"Guards hold the gate for {guard_hold}.")
+    if ranger_fire:
+        actions.append(f"Rangers thin the horde for {ranger_fire}.")
+    if troop_synergy:
+        actions.append(f"Troop teamwork adds {troop_synergy}.")
+    if field_repair:
+        actions.append(f"Engineers repair {field_repair} core HP after the wave.")
+
+    return {
+        "mitigated": mitigated,
+        "tower_power": bolt + frost + rupture + tower_synergy,
+        "troop_power": guard_hold + ranger_fire,
+        "teamwork": troop_synergy,
+        "repair": field_repair,
+        "actions": actions[:5],
+    }
+
+
+def _tower_mitigation(td_state: TowerDefenseRunState, incoming: int, boss_present: bool) -> int:
+    return int(_defense_breakdown(td_state, incoming, boss_present)["mitigated"])
+
+
+def _enemy_glyph(enemy: Enemy) -> str:
+    if enemy.archetype == "boss":
+        return "X"
+    if enemy.archetype == "elite":
+        return "L"
+    return "m"
+
+
+def _render_defense_lane(td_state: TowerDefenseRunState, lineup: list[Enemy], leaks: int = 0) -> str:
+    lane = ["."] * DEFENSE_LANE_WIDTH
+    lane[0] = "#"
+    lane[1] = "#"
+
+    tower_positions = [3, 6, 9]
+    tower_glyphs = {"bolt": "^", "frost": "*", "rupture": "+"}
+    for idx, key in enumerate(("bolt", "frost", "rupture")):
+        if td_state.towers.get(key, 0) > 0:
+            lane[tower_positions[idx]] = tower_glyphs[key]
+
+    troop_positions = [4, 7, 10]
+    for idx, key in enumerate(("guard", "ranger", "engineer")):
+        if td_state.troops.get(key, 0) > 0:
+            lane[troop_positions[idx]] = TROOP_SPECS[key]["glyph"]
+
+    pressure_shift = min(9, leaks // 3)
+    for idx, enemy in enumerate(lineup[:8]):
+        pos = max(12, DEFENSE_LANE_WIDTH - 2 - (idx * 2) - pressure_shift)
+        lane[pos] = _enemy_glyph(enemy)
+
+    if leaks > 0:
+        lane[2] = "!"
+    return "|" + "".join(lane) + "|"
+
+
+def _simulate_tower_wave(
+    td_state: TowerDefenseRunState,
+    rng: random.Random,
+    enemies: list[Enemy] | None = None,
+) -> dict:
+    """Resolve one shrine-defense wave without player input."""
+    lineup = _wave_enemy_lineup(td_state.wave, enemies or [], rng)
+    if lineup:
+        incoming = sum(_enemy_pressure(enemy, td_state.wave) for enemy in lineup)
+        enemy_names = [enemy.name for enemy in lineup[:4]]
+    else:
+        incoming = 8 + (td_state.wave * 3)
+        enemy_names = ["nameless things"]
+
+    boss_present = any(enemy.archetype == "boss" for enemy in lineup)
+    defense = _defense_breakdown(td_state, incoming, boss_present)
+    mitigated = int(defense["mitigated"])
+    leaks = max(0, incoming - mitigated)
+    stopped = max(0, len(lineup) - leaks // 6) if lineup else max(0, mitigated // 5)
+    td_state.core_hp = max(0, td_state.core_hp - leaks)
+    if td_state.core_hp > 0 and int(defense["repair"]) > 0:
+        td_state.core_hp = min(td_state.max_core_hp, td_state.core_hp + int(defense["repair"]))
+
+    essence = 4 + td_state.wave + max(0, mitigated // 6) + rng.randint(0, 2)
+    gold = 2 + (td_state.wave // 2) + max(0, stopped // 2)
+    if leaks == 0:
+        essence += 2
+        gold += 2
+
+    td_state.resources += essence
+    td_state.gold_earned += gold
+    td_state.enemies_stopped += stopped
+    td_state.last_battlefield = _render_defense_lane(td_state, lineup, leaks)
+    td_state.last_actions = list(defense["actions"])
 
     result = {
         "wave": td_state.wave,
         "incoming": incoming,
         "mitigated": mitigated,
+        "tower_power": int(defense["tower_power"]),
+        "troop_power": int(defense["troop_power"]),
+        "teamwork": int(defense["teamwork"]),
+        "repair": int(defense["repair"]),
         "leaks": leaks,
         "core_hp": td_state.core_hp,
         "resources": td_state.resources,
+        "essence": essence,
+        "gold": gold,
+        "stopped": stopped,
+        "enemy_names": enemy_names,
         "towers": dict(td_state.towers),
+        "troops": dict(td_state.troops),
+        "battlefield": td_state.last_battlefield,
+        "actions": list(td_state.last_actions),
     }
     td_state.wave += 1
     return result
 
 
-def run_tower_defense_mode(seed: int | None = None) -> str:
-    """Tower-defense framework mode with automated wave execution."""
-    rng = random.Random(seed or 404)
-    td_state = TowerDefenseRunState()
-    results: list[dict] = []
+def _auto_build_tower(td_state: TowerDefenseRunState) -> str:
+    if td_state.wave >= 7:
+        priority = [("tower", "rupture"), ("troop", "engineer"), ("troop", "ranger"), ("tower", "frost"), ("tower", "bolt"), ("troop", "guard")]
+    elif td_state.wave >= 4:
+        priority = [("troop", "ranger"), ("tower", "frost"), ("tower", "rupture"), ("troop", "guard"), ("tower", "bolt"), ("troop", "engineer")]
+    else:
+        priority = [("troop", "guard"), ("tower", "bolt"), ("troop", "ranger"), ("tower", "frost"), ("troop", "engineer"), ("tower", "rupture")]
+    for kind, key in priority:
+        ok, message = _build_tower(td_state, key) if kind == "tower" else _recruit_troop(td_state, key)
+        if ok:
+            return message
+    return "No defenses built"
 
-    while td_state.core_hp > 0 and td_state.wave <= 10:
-        wave_result = _simulate_tower_wave(td_state, rng)
-        results.append(wave_result)
+
+def _render_tower_defense_screen(
+    td_state: TowerDefenseRunState,
+    *,
+    last_wave: dict | None = None,
+    message: str = "",
+    idle_claim: int = 0,
+) -> str:
+    lines = [
+        ui.box_top(),
+        ui.box_line("SHRINE DEFENSE", "center"),
+        ui.box_divider(),
+        ui.box_line(f"  Wave {td_state.wave} | Core {td_state.core_hp}/{td_state.max_core_hp} | Essence {td_state.resources} | Gold {td_state.gold_earned}"),
+        ui.box_line(f"  Towers: Bolt {td_state.towers['bolt']} | Frost {td_state.towers['frost']} | Rupture {td_state.towers['rupture']}"),
+        ui.box_line(f"  Troops: Guard {td_state.troops['guard']} | Ranger {td_state.troops['ranger']} | Engineer {td_state.troops['engineer']}"),
+        ui.box_line(f"  {td_state.last_battlefield or _render_defense_lane(td_state, [])}", "center"),
+        ui.box_line("  Legend: ## base | G guard | R ranger | E engineer | ^/*/+ turrets | m/L/X horde"),
+    ]
+    if idle_claim > 0:
+        lines.append(ui.box_line(f"  Idle tithe claimed: {idle_claim}g"))
+    if last_wave:
+        names = ", ".join(last_wave["enemy_names"])
+        if len(names) > 70:
+            names = names[:67] + "..."
+        lines.extend([
+            ui.box_divider_thin(),
+            ui.box_line(f"  Last wave: pressure {last_wave['incoming']} | stopped {last_wave['mitigated']} | leaks {last_wave['leaks']} | teamwork {last_wave['teamwork']}"),
+            ui.box_line(f"  Power: towers {last_wave['tower_power']} | troops {last_wave['troop_power']} | repair {last_wave['repair']}"),
+            ui.box_line(f"  Enemies: {names}"),
+            ui.box_line(f"  Earned: +{last_wave['essence']} essence, +{last_wave['gold']}g"),
+        ])
+        for action in last_wave.get("actions", [])[:3]:
+            lines.append(ui.box_line(f"    - {action}"))
+    if message:
+        lines.append(ui.box_line(f"  {message}"))
+    lines.extend([
+        ui.box_divider(),
+        ui.box_line(f"  [1] Start wave"),
+        ui.box_line(f"  [2] Build Bolt Spire ({_tower_build_cost(td_state, 'bolt')} essence)"),
+        ui.box_line(f"  [3] Build Frost Sigil ({_tower_build_cost(td_state, 'frost')} essence)"),
+        ui.box_line(f"  [4] Build Rupture Glyph ({_tower_build_cost(td_state, 'rupture')} essence)"),
+        ui.box_line(f"  [5] Recruit Guard Squad ({_troop_build_cost(td_state, 'guard')} essence)"),
+        ui.box_line(f"  [6] Recruit Ranger Team ({_troop_build_cost(td_state, 'ranger')} essence)"),
+        ui.box_line(f"  [7] Recruit Engineer Crew ({_troop_build_cost(td_state, 'engineer')} essence)"),
+        ui.box_line(f"  [8] Auto-build once"),
+        ui.box_line(f"  [9] Toggle auto-resolve burst ({'ON' if td_state.auto_resolve else 'OFF'})"),
+        ui.box_line("  [0] Bank gold and return to title"),
+        ui.box_line('  Sera: "Defend the shrine. Try to make it look intentional."'),
+        ui.box_bot(),
+    ])
+    return "\n".join(lines)
+
+
+def _record_tower_defense_run(td_state: TowerDefenseRunState, seed: int) -> None:
+    summary = {
+        "floors_cleared": 0,
+        "wave_reached": max(0, td_state.wave - 1),
+        "total_kills": td_state.enemies_stopped,
+        "total_turns": max(0, td_state.wave - 1),
+        "total_damage": 0,
+        "best_overkill": 0,
+        "weapons_found": 0,
+        "materials_used": 0,
+        "gold_collected": td_state.gold_earned,
+        "gold_spent": 0,
+        "gold": td_state.gold_earned,
+        "patience": td_state.core_hp,
+        "max_patience": td_state.max_core_hp,
+        "weapon_name": "Shrine Defense",
+    }
+    stamped = stamp_run_summary(summary, won=td_state.core_hp > 0 and td_state.wave > 1, mode="tower_defense", seed=seed)
+    merge_run_stats(load_game_stats(), stamped)
+
+
+def run_tower_defense_mode(seed: int | None = None) -> str:
+    """Interactive shrine-defense side mode with idle/meta progression."""
+    run_seed = seed or 404
+    rng = random.Random(run_seed)
+    meta = load_meta_progression()
+    idle_claim, _elapsed = claim_idle_gold(meta)
+    td_state = _build_tower_defense_state(meta)
+    enemies = load_enemies()
+    last_wave: dict | None = None
+    message = ""
+
+    while td_state.core_hp > 0:
         ui.refresh()
-        print(ui.box_top())
-        print(ui.box_line("░▒▓█ TOWER DEFENSE SIM █▓▒░", "center"))
-        print(ui.box_divider())
-        print(ui.box_line(f"  Wave {wave_result['wave']}: incoming {wave_result['incoming']} | blocked {wave_result['mitigated']} | leaks {wave_result['leaks']}"))
-        print(ui.box_line(f"  Core HP: {wave_result['core_hp']} | Resources: {wave_result['resources']}"))
-        print(ui.box_line(f"  Towers: Bolt {wave_result['towers']['bolt']} | Frost {wave_result['towers']['frost']} | Rupture {wave_result['towers']['rupture']}"))
-        print(ui.box_line('  Sera: "Keep the lane clean."'))
-        print(ui.box_bot())
-        time.sleep(0.15)
+        print(_render_tower_defense_screen(td_state, last_wave=last_wave, message=message, idle_claim=idle_claim))
+        idle_claim = 0
+
+        if td_state.auto_resolve:
+            build_message = _auto_build_tower(td_state)
+            last_wave = _simulate_tower_wave(td_state, rng, enemies)
+            message = build_message
+            if (td_state.wave - 1) % 5 == 0:
+                td_state.auto_resolve = False
+                message = f"{message}. Auto paused after five waves."
+            time.sleep(0.15)
+            continue
+
+        choice = get_choice("> ", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"])
+        if choice in ("quit", "0"):
+            break
+        if choice == "1":
+            last_wave = _simulate_tower_wave(td_state, rng, enemies)
+            message = ""
+        elif choice in {"2", "3", "4"}:
+            tower_key = {"2": "bolt", "3": "frost", "4": "rupture"}[choice]
+            ok, message = _build_tower(td_state, tower_key)
+            if ok:
+                message = f"{message}. Sera permits it."
+        elif choice in {"5", "6", "7"}:
+            troop_key = {"5": "guard", "6": "ranger", "7": "engineer"}[choice]
+            ok, message = _recruit_troop(td_state, troop_key)
+            if ok:
+                message = f"{message}. Keep them alive long enough to matter."
+        elif choice == "8":
+            message = _auto_build_tower(td_state)
+        elif choice == "9":
+            td_state.auto_resolve = not td_state.auto_resolve
+            message = f"Auto-resolve {'enabled' if td_state.auto_resolve else 'disabled'}"
+
+    meta.banked_gold += td_state.gold_earned
+    save_meta_progression(meta)
+    _record_tower_defense_run(td_state, run_seed)
 
     ui.refresh()
     print(ui.box_top())
-    print(ui.box_line("░▒▓█ TOWER DEFENSE SUMMARY █▓▒░", "center"))
+    print(ui.box_line("SHRINE DEFENSE SUMMARY", "center"))
     print(ui.box_divider())
-    print(ui.box_line(f"  Waves simulated: {len(results)}"))
+    print(ui.box_line(f"  Waves held: {max(0, td_state.wave - 1)}"))
     print(ui.box_line(f"  Final core HP: {td_state.core_hp}/{td_state.max_core_hp}"))
-    print(ui.box_line(f"  Final towers: {td_state.towers}"))
-    print(ui.box_line('  Sera: "Framework stands. Expand it."'))
+    print(ui.box_line(f"  Enemies stopped: {td_state.enemies_stopped}"))
+    print(ui.box_line(f"  Banked gold: {td_state.gold_earned}"))
+    print(ui.box_line(f"  Final towers: Bolt {td_state.towers['bolt']} | Frost {td_state.towers['frost']} | Rupture {td_state.towers['rupture']}"))
+    print(ui.box_line(f"  Final troops: Guard {td_state.troops['guard']} | Ranger {td_state.troops['ranger']} | Engineer {td_state.troops['engineer']}"))
+    print(ui.box_line('  Sera: "The shrine remains. I suppose that counts."'))
     print(ui.box_bot())
     pause()
     return "menu"
@@ -2562,8 +3184,8 @@ def main():
         try:
             choice = title_screen()
             if choice == "quit":
-                _record_session_event("title_quit_redirected")
-                continue
+                _record_session_event("title_quit")
+                return
             if choice == "statistics":
                 payload = load_game_stats()
                 ui.refresh()
@@ -2593,6 +3215,9 @@ def main():
             if choice == "meta":
                 meta_shop_screen()
                 continue
+            if choice == "training":
+                run_training_grounds(seed=args.seed)
+                continue
 
             if choice == "continue":
                 state = GameState(seed=args.seed)
@@ -2603,9 +3228,13 @@ def main():
                 result = run_new_game_from_state(state)
             else:
                 result = run_new_game(seed=args.seed)
+            if result == "quit":
+                return
             while result == "restart":
                 result = run_new_game(seed=args.seed)
-            # result == "menu" and legacy "quit" both loop back to title
+                if result == "quit":
+                    return
+            # result == "menu" loops back to title
         except KeyboardInterrupt:
             _record_session_event("keyboard_interrupt_recovered")
             ui.refresh()

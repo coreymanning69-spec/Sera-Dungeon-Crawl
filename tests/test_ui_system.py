@@ -1,6 +1,6 @@
 import unittest
 
-from sera.ui import EventResult, UIEvent, build_default_ui_root, render_pixel_interface_art
+from sera.ui import EventResult, UIEvent, build_default_ui_root, render_pixel_interface_art, render_title_screen
 
 
 class TestPixelUISystem(unittest.TestCase):
@@ -81,6 +81,13 @@ class TestPixelUISystem(unittest.TestCase):
 
         root.dispatch_event(UIEvent(event_type="key", key="esc"))
         self.assertEqual(root.state.open_overlay_id, "system_menu")
+
+    def test_title_continue_only_renders_when_save_exists(self):
+        without_save = render_title_screen(save_exists=False)
+        with_save = render_title_screen(save_exists=True)
+
+        self.assertNotIn("[C] Continue", without_save)
+        self.assertIn("[C] Continue", with_save)
 
 
 if __name__ == "__main__":

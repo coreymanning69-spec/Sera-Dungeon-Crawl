@@ -595,7 +595,7 @@ TITLE_ART = [
     "/____/ /____//_/ |_|/_/  |_|  ",
 ]
 
-def render_title_screen(meta_gold: int = 0) -> str:
+def render_title_screen(meta_gold: int = 0, save_exists: bool = False) -> str:
     lines = [
         box_top(),
         box_blank(),
@@ -627,12 +627,14 @@ def render_title_screen(meta_gold: int = 0) -> str:
     lines.append(box_blank())
     lines.append(box_line("  ▸ [1] New Game"))
     lines.append(box_line("  ▸ [2] Endless Mode"))
-    lines.append(box_line("  ▸ [3] Simulation Mode"))
+    lines.append(box_line("  ▸ [3] Combat Lab"))
     lines.append(box_line("  ▸ [4] Game Statistics"))
     lines.append(box_line("  ▸ [5] Quit"))
-    lines.append(box_line("  ▸ [6] Tower Defense Simulator"))
+    lines.append(box_line("  ▸ [6] Shrine Defense"))
     lines.append(box_line("  ▸ [7] Meta Shop"))
-    lines.append(box_line("  ▸ [C] Continue (when save exists)"))
+    lines.append(box_line("  ▸ [8] Training Grounds"))
+    if save_exists:
+        lines.append(box_line("  ▸ [C] Continue"))
     lines.append(box_line(f"  Banked Gold: {meta_gold}"))
     lines.append(box_line(f"  Revision {REVISION}", "center"))
     lines.append(box_blank())
@@ -1193,7 +1195,7 @@ def render_between_floors(
     lines.append(box_line("  ▸ [8] View Run Stats"))
     lines.append(box_line("  ▸ [9] Save run now"))
     lines.append(box_line("  ▸ [10] Export analytics"))
-    lines.append(box_line(f"  ▸ [11] Toggle auto director ({'ON' if auto_director_enabled else 'OFF'})"))
+    lines.append(box_line(f"  ▸ [11] Auto director settings ({'ON' if auto_director_enabled else 'OFF'})"))
     lines.append(box_line("  ▸ [12] Run auto floor director"))
     lines.append(box_line("  ▸ [R] Review analytics exports"))
     if npc_name:
@@ -1558,6 +1560,93 @@ def render_simulation_results(results: list[object], selected_index: int | None 
     lines.append(box_divider_pixel())
     lines.append(box_line("  Select a run number to inspect details."))
     lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_training_menu(presets: list[object], history: list[object]) -> str:
+    lines = [
+        box_top(),
+        box_line("TRAINING GROUNDS", "center"),
+        box_divider(),
+        box_line("  Choose a doctrine. The dungeon does not get to be the only teacher."),
+        box_divider_thin(),
+    ]
+    for idx, preset in enumerate(presets, start=1):
+        lines.append(box_line(
+            f"  [{idx}] {preset.label} | Lv {preset.level_start}+ | {preset.wave_count} waves | {preset.enemy_focus}"
+        ))
+        lines.append(box_line(f"      {preset.description}"))
+    lines.extend([
+        box_divider(),
+        box_line("  [C] Custom scenario"),
+        box_line("  [B] Batch a preset x5"),
+        box_line("  [R] Review latest result"),
+        box_line("  [E] Export latest result JSON"),
+        box_line("  [0] Back to title"),
+    ])
+    if history:
+        latest = history[-1]
+        spec = latest.spec
+        if hasattr(latest, "win_rate"):
+            lines.append(box_line(f"  Latest: {spec.label} batch | Win {latest.win_rate * 100:.0f}% | Avg turns {latest.average_turns:.1f}"))
+        else:
+            outcome = "WIN" if latest.won else "LOSS"
+            lines.append(box_line(f"  Latest: {spec.label} | {outcome} | K{latest.total_kills} D{latest.total_damage}"))
+    lines.append(box_bot())
+    return "\n".join(lines)
+
+
+def render_training_run_result(result: object) -> str:
+    outcome = "CLEARED" if result.won else f"FAILED: {result.failure_reason or 'unknown'}"
+    lines = [
+        box_top(),
+        box_line("TRAINING RESULT", "center"),
+        box_divider(),
+        box_line(f"  Scenario: {result.spec.label}"),
+        box_line(f"  Outcome: {outcome} | Reward: {result.reward_gold}g"),
+        box_line(f"  Totals: Kills {result.total_kills} | Turns {result.total_turns} | Damage {result.total_damage} | Immune {result.total_immune_hits}"),
+        box_line(f"  Patience: {result.patience_remaining}/80"),
+        box_divider_thin(),
+    ]
+    for wave in result.waves:
+        enemies = ", ".join(wave.enemy_names)
+        if len(enemies) > 52:
+            enemies = enemies[:49] + "..."
+        weapon = wave.weapon_name
+        if len(weapon) > 34:
+            weapon = weapon[:31] + "..."
+        lines.append(box_line(
+            f"  W{wave.wave} Lv{wave.level}: T{wave.turns} K{wave.kills} D{wave.damage} P{wave.patience} | {weapon}"
+        ))
+        lines.append(box_line(f"      {enemies}"))
+    lines.extend([
+        box_divider(),
+        box_line("  [Enter] Continue"),
+        box_bot(),
+    ])
+    return "\n".join(lines)
+
+
+def render_training_batch_result(batch: object) -> str:
+    lines = [
+        box_top(),
+        box_line("TRAINING BATCH", "center"),
+        box_divider(),
+        box_line(f"  Scenario: {batch.spec.label}"),
+        box_line(f"  Runs: {len(batch.runs)} | Win rate: {batch.win_rate * 100:.0f}%"),
+        box_line(f"  Avg turns: {batch.average_turns:.1f} | Avg damage: {batch.average_damage:.1f}"),
+        box_divider_thin(),
+    ]
+    for idx, run in enumerate(batch.runs, start=1):
+        outcome = "WIN" if run.won else "LOSS"
+        lines.append(box_line(
+            f"  {idx}. {outcome} | K{run.total_kills} T{run.total_turns} D{run.total_damage} I{run.total_immune_hits} | +{run.reward_gold}g"
+        ))
+    lines.extend([
+        box_divider(),
+        box_line("  [Enter] Continue"),
+        box_bot(),
+    ])
     return "\n".join(lines)
 
 
